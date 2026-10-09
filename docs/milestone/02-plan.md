@@ -534,3 +534,11 @@ Scenarios:
 7. **Templates as an injection path.** Identifier-only placeholders, a `{dev} ` prefix, `.model` only, a fixed letter set, numeric values via `repr(float)`, and choices matching a regex. The core still refuses control-flow escapes.
 8. **Penpot details impractical in Qt** (blur, custom fonts, complex shadows). T8/T9 adapt and log each deviation with a reason. The design note should prefer flat styles.
 9. **Partial-run semantics (D7) may surprise users.** The message and the Problems list always name excluded parts. Reviewers (T11/T12) should challenge this rule explicitly.
+
+## 12. Amendments after design review (T4)
+
+- A1: A Run refused by the pre-check (e.g. a wired unsupported part) uses run state **`blocked`** (badge "Blocked", no plot, message names the parts), distinct from `failed` (the engine ran and errored). T9/T10 tests that say "failed" for a pre-check refusal must assert `blocked` instead (e.g. `test_run_blocked_by_wired_unsupported_shows_failure_without_plot` → asserts blocked state).
+- A2: Readiness badge text is "Interface only"; "Not simulated" is the tooltip/message wording. T8 tests assert both (see 03-design.md §9.4 R3).
+- A3: Run/Re-run/Reset enablement follows 03-design.md §9.4 R2.
+- A4: Library card highlight vs inspector selection follows 03-design.md §9.4 R1. The card details view opens on right-click or Shift+Enter (T8).
+- A5: Category counts in the design are illustrative; real counts come from the catalog. Power is populated by BAT (§10 T5).

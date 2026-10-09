@@ -9,7 +9,7 @@ Output of this task: the Penpot file, 28 PNG exports in `docs/milestone/design/`
 |---|---|
 | File | "New File 3" (open file of the connected plugin). **Not renamed**: `penpot.currentFile.name` is read-only in the plugin API (`TypeError: setting getter-only property "name"`). Rename it to "Sim Workspace" by hand in the Penpot UI. |
 | D18 (reuse a "Sim" file) | The Penpot MCP exposes only the one connected file, no project listing. There was nothing to reuse, so the design was built in this file. |
-| Pages | `Foundations` (3 frames), `Components` (6 section boards holding the 79 main components), `Screens` (2 frames), `States` (17 frames). |
+| Pages | `Foundations` (3 frames), `Components` (6 section boards holding the 79 main components), `Screens` (2 frames), `States` (18 frames; `results-running-blocked` added in T4). |
 | Library assets | 55 colours (`app-bg`, `wire`, ...), 10 typographies (`text/heading` ... `text/code`), token sets `sim/core` (55 colour tokens, `color.*`) and `sim/layout` (spacing, radius, sizing, font size and weight tokens: 26). |
 | Components | 79 Penpot components with path names (`Button / Primary / Default`). Screens use **instances** of them (top bar, buttons, search, nav items, toggle, cards, badges, field rows, pin rows, banners, state badges, zoom control, problem rows, dialogs, status bar). One Penpot variant group would have been tidier, but separate components per state were chosen because they instantiate and nest reliably through the plugin API. |
 | Fonts | Noto Sans (Google font in Penpot, installed locally per plan) and Noto Sans Mono for ids and code. |
@@ -141,7 +141,7 @@ All PNGs are in `docs/milestone/design/`. Frame names equal file names.
 
 | Frame | Purpose | PNG |
 |---|---|---|
-| `screen-workspace-led` | 1280 x 800 workspace: top bar with file / undo / redo and simulation controls (Completed state), library left (search, categories with counts, Simulated-only toggle, four cards, one hovered), canvas centre (LED circuit: battery, resistor R1 selected with part toolbar, LED D1 glowing with 9.18 mA, ground, wires, junction; ESP32 DevKitC box with 38 pins and "Interface only" badge; zoom control), results dock (signal picker, play + slider, plot with cursor, readout, stats, "ok, 511 points; not simulated: U1"), Problems list (one NOT-SIMULATED warning), inspector right (R1: header, resistance field, pins, docs), status bar | `design/screen-workspace-led.png` |
+| `screen-workspace-led` | 1280 x 800 workspace: top bar with file / undo / redo and simulation controls (Completed state), library left (search, categories with illustrative counts, Simulated-only toggle, four cards, none hovered, armed or selected; the Arduino card is the interface-only sample), canvas centre (LED circuit: battery, resistor R1 selected with part toolbar, LED D1 glowing with 9.18 mA, ground, wires, junction; ESP32 DevKitC box with 38 pins and "Interface only" badge; zoom control), results dock (signal picker, play + slider, plot with cursor, readout, stats, "ok, 511 points; not simulated: U1"), Problems list (one NOT-SIMULATED warning), inspector right (R1: header, resistance field, pins, docs), status bar | `design/screen-workspace-led.png` |
 | `interaction-spec` | Input / result / feedback table for every interaction | `design/interaction-spec.png` |
 
 ### States (page `States`)
@@ -164,6 +164,7 @@ All PNGs are in `docs/milestone/design/`. Frame names equal file names.
 | `inspector-other-states` | Nothing selected (circuit and simulation summary), wire selected (endpoints, node, Plot node, Delete), placeholder selected (read-only parameters, reason banner, pins from connections), unsupported ESP32 selected (pins, limitations, docs, "Interface only") | `design/inspector-other-states.png` |
 | `sim-controls-states` | Top bar with simulation controls: idle (valid), invalid field, running, completed, failed, stale, blocked by pre-check (with the messages) | `design/sim-controls-states.png` |
 | `results-states` | Completed with excluded part, failure (message, no plot), not run yet, signal picker open (grouped), "Show details" expanded (core findings + developer text), stale (dimmed + banner), pause specimen | `design/results-states.png` |
+| `results-running-blocked` (T4) | Results while Running (controls locked, previous results hidden, progress bar) and Blocked by pre-check (run did not start, error banner, no plot) | `design/results-running-blocked.png` |
 | `dialogs` | Unsaved changes, open failed, opened-with-placeholders banner (non-blocking) with status-bar message | `design/dialogs.png` |
 
 ## 4. Component inventory (Penpot main components)
@@ -228,12 +229,84 @@ Everything else in plan §9 points 1-8 has a frame.
 
 ## 8. Deliberate deviations from the plan text
 
-1. **Readiness label "Interface only"** (brief wording) instead of the plan §4 UI label "Not simulated". Plan T8 test `test_unsupported_part_inspector` asserts a "Not simulated" badge. Resolution for T8: the badge text is "Interface only". Keep "Not simulated" as the badge tooltip and as the wording in the problems and results messages. Adjust that test to look for the badge by role, or for either string.
+1. **Readiness label "Interface only"** (brief wording) instead of the plan §4 UI label "Not simulated"; "Simulated" instead of "Simulates". Badge wording and tooltips are fixed by rule R3 in §9.4 (T4).
 2. **Extra readiness values** "Placeholder" and "Invalid" (brief) next to Simulated / Interface only / Reference only.
 3. **Results layout.** Results (430 px) and Problems (250 px) sit side by side in a 248 px dock below the canvas. Plan §9 allowed bottom or right.
-4. **Run / Re-run emphasis.** Run is primary before the first run. Once results exist (completed, failed, stale) Re-run is primary and Run is disabled, because Re-run does the same. The current app keeps Run enabled; either is acceptable, T9 may keep Run enabled if simpler. Blocked by pre-check disables Run, Re-run and Reset and shows the first error.
+4. **Run / Re-run / Reset.** Decided in T4, rule R2 in §9.4. Run is disabled once results exist, Re-run is primary, and Reset is disabled while running.
 5. **Esc in the search field clears the text** and the empty-state offers "Clear search". The plan only specifies the action.
 6. **LED glow** is drawn in Penpot as three concentric translucent circles (64, 44, 26 px). T9 keeps the existing radial gradient (`(255,140,60)` to `(255,60,20)`); the mapping (0.1 mA dark, 15 mA full) is unchanged.
-7. **Category counts follow the current search** (all 0 on an empty search). The plan says only "with counts".
+7. **Category counts follow the current search** (all 0 on an empty search). The plan says only "with counts". The sample counts on the screen are illustrative (rule R4 in §9.4).
 8. **Pin and canvas label sizes** stay at today's 9 pt (12 px) for canvas labels. The rest of the chrome moves to the 10 pt body size.
 9. The Penpot file could not be renamed from the plugin (section 1).
+
+## 9. Review (T4)
+
+Date 2026-10-08. Scope: plan §9 items 1-8, §4 capability model, all 28 PNGs viewed. Changed or added: 16 PNGs (15 re-exported, 1 new: `results-running-blocked.png`), 29 PNGs in total. No component was added (79 main components, unchanged). Code is not touched.
+
+### 9.1 Checklist against plan §9
+
+| Plan §9 item | Required content | Frame(s) | Status |
+|---|---|---|---|
+| 1 Workspace layout | Top bar, library 280, canvas, inspector 320, results, Problems, status bar | `screen-workspace-led` | present |
+| 2 Library panel | Search, All + categories with counts, Simulated only, card list (icon, name, description, badge, tags), hover / selected / armed, details view (description, pins, params with units, limitations, docs, version, id) | `screen-workspace-led`, `library-card-states`, `library-details` | present. Details trigger was missing from the interaction spec; added (9.4 R1) |
+| 3 Library states | Empty search, empty category, loading skeleton, catalog-problems banner (collapsed and expanded), missing-icon card | `library-empty-states`, `library-catalog-problems`, `library-card-states` | present |
+| 4 Canvas | Part idle / hover / selected / dragging; pin open / wired / hover / pending wire / junction; wire hover / selected; rotate and delete; zoom controls and pan cursor; empty hint; unsupported badge; placeholder; core-finding ring; LED glow and label | `canvas-part-states`, `canvas-pin-states`, `canvas-wire-states`, `canvas-navigation`, `canvas-empty-hint`, `canvas-unsupported-placeholder`, `canvas-led-glow`, `canvas-placing-armed` | present |
+| 5 Inspector | Nothing selected; part header (icon, name, type, badge, version); param form (number + unit + SI hint, choice, `when` fields, invalid); pins list; limitations; docs; wire selected; placeholder selected; unsupported part selected | `inspector-other-states`, `inspector-part-states` | present |
+| 6 Simulation controls | Analysis label; stop and step fields valid / invalid; Run, Re-run, Reset; state badges idle, running, completed, failed, stale, blocked; blocked by pre-check | `sim-controls-states`, `components-canvas-topbar-status`, `results-running-blocked` (blocked result) | present. Blocked result panel added |
+| 7 Results | Signal picker grouped; plot with cursor; play / pause and slider; readout; final / min / max; core findings; developer text; success message "not simulated: U1"; failure without plot | `results-states`, `results-running-blocked` | present. Running state added |
+| 8 Dialogs | Unsaved changes; open failed; opened with placeholders (non-blocking banner) | `dialogs` | present |
+
+Missing items found and filled: (a) results while Running (no frame); (b) results for a pre-check block (only the badge existed); (c) the details-view trigger (no input in the interaction spec). Not drawn, specified in text only: the inspector's "Not simulated" tooltip (rule R3).
+
+### 9.2 Consistency fixes made in Penpot
+
+- **Library highlight.** The Arduino card on `screen-workspace-led` was `Card / Hover` (blue border) while R1 was selected in the canvas. It now has the default border (instance override, renamed "Card / Default (Interface only)"). No card on the screen is hovered, armed or selected.
+- **Piezo sample.** `library-card-states` showed PIEZO_BUZZER as "Reference only" with two pins. T7 gives it two pins, so it is Interface only and cannot be Reference only. The slot now shows an illustrative "Reference part (example)" with no pins.
+- **Tag chips.** "wifi" is a keyword (search-only, plan §2), not a tag. The five "wifi" chips in `Component library cards` now read "passive". The ESP32 chip reads "3.3 V logic" (its T7 tag).
+- **Off-token colours.** #F8DCDC (invalid field unit cell) changed to #FFF0F0 (`INVALID_BG`); #FFF8EC (armed card tile) to #FFFFFF; #FBF8FE (placeholder body, dialog sample) to #EFE8F8 at 50 % (`RDY_PH_BG`).
+- **Type scale.** Canvas and pin labels were 9 px (the pt value used as px). Now 12 px (`small`, §2.2). The ESP32 module label is 11 px (caption) so it does not wrap to three lines. The "FUTURE_RELAY v3" label is 11 px auto-width. Medium 12 px labels in app frames are 13 px (`body-medium`). Results overlines were 10 px and are 12 px / 600 (`small-strong`). Foundations sheet titles (18-36 px) are left as presentation headings.
+- **Run state.** The Running row and the Components main `SimControls / Running` now show Reset disabled (rule R2). Its caption was updated to match.
+- **Interaction spec.** The "Click a library card" row now names the details path.
+
+### 9.3 Feasibility in Qt (checked in the file)
+
+- The file has 0 drop shadows, 0 blurs and 0 gradient fills across 3,915 shapes. Nothing needs simplifying for QWidgets or QGraphicsView.
+- Dialog scrim (45 % flat overlay), tooltips and cards are flat rectangles with 1 px borders. Fusion style and QPainter can draw them directly.
+- LED glow is three translucent circles in Penpot. T9 uses the existing radial gradient (§8 item 6), which Qt supports; the flat-ring fallback is also acceptable.
+
+### 9.4 Rules decided in T4
+
+- **R1 Library highlight and inspector.** Four independent states in the library list:
+  - Hover is a transient mouse state (blue border), never persisted.
+  - Armed (placing) is the orange card with the "Placing" pill. Exactly one card, until the part is placed, Esc is pressed or the card is clicked again.
+  - Selected (details open) is the soft-blue card whose details view is open. It stays on that card when the list returns, until another card is opened or armed.
+  - The inspector shows canvas selection only. Canvas selection never highlights a library card, and library state never changes the inspector.
+  - Details open via right-click on a card, "Details" (keyboard: focus the card and press Shift+Enter). Back returns to the list (the "All components" link). This trigger is not in plan §5 and T8 must implement it.
+- **R2 Run / Re-run / Reset.**
+
+  | State | Run | Re-run | Reset | Results panel |
+  |---|---|---|---|---|
+  | Idle, valid | primary | disabled | disabled | "No results yet" |
+  | Invalid field | disabled | disabled | disabled | unchanged, message under the field |
+  | Running | disabled | disabled | disabled (no cancel in v1) | "Running", previous results hidden |
+  | Completed | disabled | primary | enabled | plot, readout, stats |
+  | Failed (engine error) | disabled | primary | enabled | "Run failed", message, no plot |
+  | Stale | disabled | primary | enabled | results dimmed, banner |
+  | Blocked by pre-check | disabled | disabled | disabled | "Run blocked", first error, no plot |
+
+  F5 runs the enabled primary action. Re-run = Reset plus Run. Reset clears results and returns to Idle. This differs from the current app (Run stays enabled after results); T9 follows this table.
+- **R3 Badge and readiness wording.**
+  - Badge text is "Interface only" on every surface (library card, inspector, canvas, details). The placeholder badge is "Placeholder", and "Simulated" / "Reference only" are as in §2.1.
+  - Badge tooltip on library and inspector: "Not simulated". On the canvas, the item tooltip is `limitations[0]` as plan T9 says.
+  - Messages (problem rows, run messages, banners) use "not simulated" wording, e.g. "U1 ... is not simulated and is excluded from the run".
+  - T8 test `test_unsupported_part_inspector` asserts the badge text "Interface only" and the tooltip "Not simulated". The canvas test asserts `limitations[0]`.
+- **R4 Category counts.** The counts on the screen (Electrical 10, Microcontrollers 2, Sensors 1, Displays 1, Audio 1, Power 1; total 16) are illustrative. They follow the T7 seed list where it names parts (ESP32 and Arduino in Microcontrollers, DHT22 in Sensors, SSD1306 in Displays, PIEZO in Audio). The real counts come from the catalog. An empty category uses `library-empty-states`. Communication is not shown (T7).
+- **R5 LED current label.** The canvas label shows 3 significant figures (9.18 mA). The results readout shows 4 (9.177 mA). Both come from the same value.
+
+### 9.5 Open items (not resolved in T4)
+
+1. **Pre-check block versus plan text.** Plan T9 (`test_run_blocked_by_wired_unsupported_shows_failure_without_plot`) and T10 scenario 5 say "failed". The design (R2) uses "Blocked", because the run never started. Needs approval; if rejected, the Blocked badge becomes "Failed" and the state table row changes.
+2. **Power category.** Plan T7 requires `test_categories_present` to include Power, but no seed part is named for it. T7 must add one, or the category shows the empty state.
+3. **Electrical count.** Illustrative only (10). T7 decides it.
+4. **Results and details are drawn.** The plan inventory has no Results or details components, so these panels are drawn shapes (the new frame clones the `results-states` panels). T9 builds them from the token table.
+5. **Penpot file name** is still "New File 3" (section 1).
