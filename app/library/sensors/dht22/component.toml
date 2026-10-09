@@ -1,0 +1,25 @@
+format = 1
+id = "DHT22"
+version = 1
+name = "DHT22 (AM2302)"
+description = "Digital temperature and relative humidity sensor on a single-wire bus. Four pins, pin 3 is not used."
+designator = "U"
+category = "Sensors"
+subcategory = "Temperature and humidity"
+aliases = ["AM2302", "DHT-22"]
+keywords = ["humidity", "temperature", "single-wire", "climate"]
+tags = ["3.3-6 V"]
+domain = "digital"
+capabilities = ["interface"]
+limitations = ["Not simulated: the single-wire protocol and the sensor's readings are not modelled."]
+docs = ["https://cdn.sparkfun.com/assets/f/7/d/9/c/DHT22.pdf"]
+# Pin order from the Aosong datasheet, section 4 (pin sequence 1-4, left to right).
+pins = [
+  {id = "VDD", at = [0, 20], description = "Power supply, 3.3-6 V DC"},
+  {id = "DATA", at = [0, 40], description = "Single-bus data"},
+  {id = "NC", at = [0, 60], description = "Not used (NULL in the datasheet); leave unconnected"},
+  {id = "GND", at = [0, 80], description = "Ground"},
+]
+
+[presentation]
+box = [0, 0, 80, 120]

@@ -431,3 +431,13 @@ def pin_offset(part, pin):
 def terminal_offset(kind, terminal, rot=0):
     """pin_offset for a catalog kind (no placeholder)."""
     return pin_offset({"kind": kind, "rot": rot}, terminal)
+
+
+if __name__ == "__main__":   # python3 -m app.catalog [extra_root ...]: validate every definition, exit 1 on any error
+    import sys
+    c = reload(default_roots() + [Path(a) for a in sys.argv[1:]])
+    for p in c.problems:
+        print(f"{p['severity']:7} {p['code']:12} {p['file']} [{p['field']}] {p['message']}")
+    errors = sum(p["severity"] == "error" for p in c.problems)
+    print(f"{len(c.defs)} definitions, {errors} errors, {len(c.problems) - errors} warnings")
+    sys.exit(1 if errors else 0)

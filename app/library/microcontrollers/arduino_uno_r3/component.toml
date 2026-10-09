@@ -1,0 +1,56 @@
+format = 1
+id = "ARDUINO_UNO_R3"
+version = 1
+name = "Arduino Uno R3"
+description = "ATmega328P board with 14 digital I/O pins, 6 analog inputs and the power header. Headers as printed on the official pinout."
+designator = "U"
+category = "Microcontrollers"
+subcategory = "Development boards"
+aliases = ["Uno", "Arduino Uno", "ATmega328P"]
+keywords = ["arduino", "avr", "digital", "analog", "pwm", "header"]
+tags = ["5 V logic"]
+domain = "mcu"
+capabilities = ["interface"]
+limitations = ["Not simulated: no MCU emulation; sketches do not run and pins are not driven.",
+               "Only the digital, power and analog headers are listed; the ICSP and USB headers are not modelled."]
+docs = ["https://docs.arduino.cc/hardware/uno-rev3/",
+        "https://docs.arduino.cc/resources/pinouts/A000066-full-pinout.pdf"]
+# Left column (x = 0): power header (top to bottom), then analog header. Right column (x = 280): digital header.
+# Source: Arduino full pinout, SKU A000066, last update 6 Oct 2022, page 1.
+pins = [
+  {id = "NC", at = [0, 20], description = "Not connected"},
+  {id = "IOREF", at = [0, 40], description = "I/O reference voltage"},
+  {id = "RESET", at = [0, 60], description = "Reset"},
+  {id = "3V3", name = "+3V3", at = [0, 80], description = "3.3 V output, 50 mA max"},
+  {id = "5V", name = "+5V", at = [0, 100], description = "5 V output"},
+  {id = "GND_P1", name = "GND", at = [0, 120], description = "Ground"},
+  {id = "GND_P2", name = "GND", at = [0, 140], description = "Ground"},
+  {id = "VIN", name = "VIN", at = [0, 160], description = "6-20 V input to the board"},
+  {id = "A0", at = [0, 200], description = "Analog input, ADC[0] (PC0)"},
+  {id = "A1", at = [0, 220], description = "Analog input, ADC[1] (PC1)"},
+  {id = "A2", at = [0, 240], description = "Analog input, ADC[2] (PC2)"},
+  {id = "A3", at = [0, 260], description = "Analog input, ADC[3] (PC3)"},
+  {id = "A4", at = [0, 280], description = "Analog input, ADC[4] (PC4), also SDA"},
+  {id = "A5", at = [0, 300], description = "Analog input, ADC[5] (PC5), also SCL"},
+  {id = "D19", name = "D19/SCL", at = [280, 20], description = "Digital I/O 19, I2C clock"},
+  {id = "D18", name = "D18/SDA", at = [280, 40], description = "Digital I/O 18, I2C data"},
+  {id = "AREF", at = [280, 60], description = "Analog reference"},
+  {id = "GND_D", name = "GND", at = [280, 80], description = "Ground"},
+  {id = "D13", at = [280, 100], description = "Digital I/O 13, SCK"},
+  {id = "D12", at = [280, 120], description = "Digital I/O 12, CIPO"},
+  {id = "D11", at = [280, 140], description = "Digital I/O 11, PWM, COPI"},
+  {id = "D10", at = [280, 160], description = "Digital I/O 10, PWM, SS"},
+  {id = "D9", at = [280, 180], description = "Digital I/O 9, PWM"},
+  {id = "D8", at = [280, 200], description = "Digital I/O 8"},
+  {id = "D7", at = [280, 220], description = "Digital I/O 7"},
+  {id = "D6", at = [280, 240], description = "Digital I/O 6, PWM"},
+  {id = "D5", at = [280, 260], description = "Digital I/O 5, PWM"},
+  {id = "D4", at = [280, 280], description = "Digital I/O 4"},
+  {id = "D3", at = [280, 300], description = "Digital I/O 3, PWM"},
+  {id = "D2", at = [280, 320], description = "Digital I/O 2"},
+  {id = "D1", name = "D1/TX", at = [280, 340], description = "Digital I/O 1, UART transmit"},
+  {id = "D0", name = "D0/RX", at = [280, 360], description = "Digital I/O 0, UART receive"},
+]
+
+[presentation]
+box = [0, 0, 280, 400]

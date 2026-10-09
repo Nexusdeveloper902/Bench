@@ -46,7 +46,7 @@ def test_catalog_covers_milestone_set():
     assert REQUIRED <= set(CATALOG.defs)
 
 
-@pytest.mark.parametrize("kind", sorted(CATALOG.defs))
+@pytest.mark.parametrize("kind", sorted(k for k, d in CATALOG.defs.items() if d.simulated))   # interface-only seeds: see test_seed_packages
 def test_catalog_entry_contract(kind):
     c = CATALOG.get(kind)
     assert c.id == kind and c.name and c.designator and c.terminals

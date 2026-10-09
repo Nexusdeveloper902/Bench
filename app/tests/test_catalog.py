@@ -14,7 +14,8 @@ from app.sim import run_document
 from app.symbols import add_symbol
 import golden_netlists
 
-KINDS = {"R", "C", "L", "V", "BAT", "I", "D", "GND", "LED", "SW"}
+KINDS = {"R", "C", "L", "V", "BAT", "I", "D", "GND", "LED", "SW"}     # the ten built-ins; seed packages add more
+ALL_CATEGORIES = ["Electrical", "Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # with the seeds
 
 
 @pytest.fixture(scope="module")
@@ -33,10 +34,10 @@ def interface_only(d):
 
 # ---------------------------------------------------------------- discovery
 def test_builtin_catalog_has_ten_kinds_and_no_problems():
-    assert set(CATALOG.defs) == KINDS and CATALOG.problems == []
-    assert CATALOG.categories() == ["Electrical", "Power"]
+    assert KINDS <= set(CATALOG.defs) and CATALOG.problems == []
+    assert CATALOG.categories() == ALL_CATEGORIES
     assert {c.id for c in CATALOG.defs.values() if c.category == "Power"} == {"BAT"}
-    assert all(c.readiness == "simulated" and c.path.is_relative_to(BUILTIN_ROOT) for c in CATALOG.defs.values())
+    assert all(c.readiness == "simulated" and c.path.is_relative_to(BUILTIN_ROOT) for c in CATALOG.defs.values() if c.id in KINDS)
     assert CATALOG.get("GND").ground and not CATALOG.get("R").ground
     with pytest.raises(ModelError, match="unknown component type NOPE"): CATALOG.get("NOPE")
 
@@ -44,13 +45,13 @@ def test_builtin_catalog_has_ten_kinds_and_no_problems():
 def test_definition_discovered_under_category(extra_root):
     write_def(extra_root, "TEMP_SENSOR", category="Sensors", subcategory="Temperature", name="Thermistor")
     assert CATALOG.problems == []
-    assert CATALOG.categories() == ["Electrical", "Sensors", "Power"]      # TAXONOMY order, not alphabetical
+    assert CATALOG.categories() == ALL_CATEGORIES[:1] + ["Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # TAXONOMY order, not alphabetical
     d = CATALOG.get("TEMP_SENSOR")
     assert d.name == "Thermistor" and d.terminals == ("a", "b") and d.defaults() == {"R": "100"}
     assert [x.id for x in CATALOG.search("thermistor")] == ["TEMP_SENSOR"]
-    assert [x.id for x in CATALOG.search(category="Sensors")] == ["TEMP_SENSOR"]
+    assert "TEMP_SENSOR" in [x.id for x in CATALOG.search(category="Sensors")]
     catalog.reload()                                                       # roots are rescanned: gone again
-    assert "TEMP_SENSOR" not in CATALOG.defs and CATALOG.categories() == ["Electrical", "Power"]
+    assert "TEMP_SENSOR" not in CATALOG.defs and CATALOG.categories() == ALL_CATEGORIES
 
 
 def test_env_roots_discovered(extra_root, monkeypatch):
@@ -77,10 +78,10 @@ def test_search_name_alias_keyword_and_ranking(extra_root):
 def test_category_filter_and_simulated_only(extra_root):
     write_def(extra_root, "BOARD", mutate=interface_only, category="Microcontrollers", name="Dev board")
     assert CATALOG.get("BOARD").readiness == "interface" and not CATALOG.get("BOARD").simulated
-    assert {d.id for d in CATALOG.search(category="Microcontrollers")} == {"BOARD"}
+    assert {d.id for d in CATALOG.search(category="Microcontrollers")} == {"BOARD", "ESP32_DEVKITC", "ARDUINO_UNO_R3"}
     assert "BOARD" in {d.id for d in CATALOG.search()} and "BOARD" not in {d.id for d in CATALOG.search(simulated_only=True)}
-    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == KINDS - {"BAT"}
-    assert CATALOG.search(category="Audio") == []
+    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148"}
+    assert CATALOG.search(category="Communication") == []
 
 
 # ---------------------------------------------------------------- validation
@@ -132,7 +133,7 @@ def test_invalid_definitions(extra_root, mutate, code, fld):
     hit = problems(code, fld)
     assert hit and all(p["severity"] == "error" for p in hit), CATALOG.problems
     assert hit[0]["file"].endswith("component.toml") and hit[0]["message"]
-    assert "BAD" not in CATALOG.defs and set(CATALOG.defs) == KINDS         # rejected, built-ins untouched
+    assert "BAD" not in CATALOG.defs and KINDS <= set(CATALOG.defs)         # rejected, built-ins untouched
 
 
 def test_diagnostic_messages_say_what_and_how_to_fix(extra_root):
@@ -186,10 +187,11 @@ def test_bad_symbol_svg_is_warning(extra_root):
 
 
 def test_bad_definition_does_not_block_good_one(extra_root):
+    base = len(catalog.reload().defs)
     write_def(extra_root, "AAA_BAD", mutate=_abc, reload=False)             # sorts first: still must not stop the scan
     write_def(extra_root, "ZZZ_GOOD", reload=False)
     catalog.reload([BUILTIN_ROOT, extra_root])
-    assert "ZZZ_GOOD" in CATALOG.defs and "AAA_BAD" not in CATALOG.defs and len(CATALOG.defs) == 11
+    assert "ZZZ_GOOD" in CATALOG.defs and "AAA_BAD" not in CATALOG.defs and len(CATALOG.defs) == base + 1
     assert [p["id"] for p in CATALOG.problems] == ["AAA_BAD"]
 
 
