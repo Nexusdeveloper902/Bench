@@ -1,0 +1,135 @@
+format = 1
+id = "V"
+version = 1
+name = "Voltage source"
+description = "Independent voltage source: DC, pulse train or sine."
+designator = "V"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["supply", "signal generator", "function generator"]
+keywords = ["dc", "pulse", "sine", "square", "clock"]
+tags = ["source"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "dc"
+animate_when = [["mode", "PULSE"], ["mode", "SIN"]]
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [60, 15]
+
+[[params]]
+key = "mode"
+label = "Waveform"
+default = "DC"
+kind = "choice"
+choices = ["DC", "PULSE", "SIN"]
+
+[[params]]
+key = "dc"
+label = "Voltage"
+unit = "V"
+default = "5"
+when = { mode = "DC" }
+
+[[params]]
+key = "v1"
+label = "Initial value"
+unit = "V"
+default = "0"
+when = { mode = "PULSE" }
+
+[[params]]
+key = "v2"
+label = "Pulsed value"
+unit = "V"
+default = "5"
+when = { mode = "PULSE" }
+
+[[params]]
+key = "td"
+label = "Delay"
+unit = "s"
+default = "0"
+min = 0
+when = { mode = "PULSE" }
+
+[[params]]
+key = "tr"
+label = "Rise time"
+unit = "s"
+default = "1e-6"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "tf"
+label = "Fall time"
+unit = "s"
+default = "1e-6"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "pw"
+label = "Pulse width"
+unit = "s"
+default = "1e-3"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "per"
+label = "Period"
+unit = "s"
+default = "2e-3"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "vo"
+label = "Offset"
+unit = "V"
+default = "0"
+when = { mode = "SIN" }
+
+[[params]]
+key = "va"
+label = "Amplitude"
+unit = "V"
+default = "1"
+when = { mode = "SIN" }
+
+[[params]]
+key = "freq"
+label = "Frequency"
+unit = "Hz"
+default = "1000"
+min = 0
+min_exclusive = true
+when = { mode = "SIN" }
+
+[sim.electrical]
+device = "V"
+current = "i({dev_lc})"
+
+[sim.electrical.line]
+select = "mode"
+DC = "{dev} {p} {n} DC {dc}"
+PULSE = "{dev} {p} {n} PULSE({v1} {v2} {td} {tr} {tf} {pw} {per})"
+SIN = "{dev} {p} {n} SIN({vo} {va} {freq})"

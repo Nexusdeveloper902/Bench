@@ -1,0 +1,60 @@
+format = 1
+id = "SW"
+version = 1
+name = "Switch"
+description = "Manual switch: a resistor that is Ron when closed and Roff when open."
+designator = "SW"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["toggle"]
+keywords = ["open", "closed", "contact"]
+tags = ["manual"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Static: the state is set in the inspector and does not change during a run."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = { select = "state", open = "switch-open.svg", closed = "switch-closed.svg" }
+value = "state"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "state"
+label = "State"
+default = "open"
+kind = "choice"
+choices = ["open", "closed"]
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "0.01"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1e9"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "R"
+current = "@{dev_lc}[i]"
+
+[sim.electrical.line]
+select = "state"
+open = "{dev} {a} {b} {roff}"
+closed = "{dev} {a} {b} {ron}"

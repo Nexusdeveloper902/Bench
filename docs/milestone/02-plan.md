@@ -542,3 +542,14 @@ Scenarios:
 - A3: Run/Re-run/Reset enablement follows 03-design.md §9.4 R2.
 - A4: Library card highlight vs inspector selection follows 03-design.md §9.4 R1. The card details view opens on right-click or Shift+Enter (T8).
 - A5: Category counts in the design are illustrative; real counts come from the catalog. Power is populated by BAT (§10 T5).
+
+## 13. T5 notes (implementation choices where the plan was silent or needed a smaller step)
+
+- **Persistence stays v1 in T5.** The part dict carries `"version"` (definition version) in memory, but `to_dict` still writes v1 without it (T6 owns v2), so `test_v1_schema` and the roundtrip tests are unchanged.
+- **Message change:** `Catalog.get` raises `unknown component type X` (§3), so the file-load rejection text changed from `unknown part kind`. T6 turns that rejection into a placeholder.
+- **Golden oracle:** `app/tests/fixtures/netlist_golden.json` was captured from the pre-catalog `components.build_netlist` (before any code change) by `app/tests/golden_netlists.py` (11 circuits covering all 10 kinds, V DC/PULSE/SIN, SW open/closed, D with custom Is/N/Rs, C/L `ic`, shared LED model). `test_catalog.py::test_template_netlist_matches_golden` compares full dicts (lines, models, saves, observables, derived, signals). Regenerate only on a deliberate netlist change: `python3 -m app.tests.golden_netlists`.
+- **Model API:** added `Document.definition(name)` and `Document.unmodeled()`; `netlist()` passes only modeled parts. Placeholder-aware `pins()`, `wired()`, `catalog.geometry/placeholder_geometry` are T6.
+- **Extra `electrical.check` rules:** pin ids of an electrical part must be plain identifiers (`3V3` cannot be a `{placeholder}`) and not `dev`/`dev_lc`; unknown keys in `[sim.electrical]` are DEF-SIM (not DEF-FIELD). Catalog adds: unknown capability strings and a `[sim.<d>]` section without its capability are DEF-CAPABILITY; a non-existent root directory is a DEF-PARSE warning.
+- **Symbols:** `part_transform` moved from `window.py` to `symbols.py` (window imports it). `symbols.py` has `renderer`, `add_symbol`, `add_generic_body` (minimal: rounded box, pin stubs and names, title; placeholder styling and badges are T9) but not `icon_pixmap` (T8). SVG strokes are a fixed 2 px, so a selected part is no longer drawn 2.5 px (colour and selection rectangle still mark it). Switch dots are hollow circles (fill none), previously filled-looking.
+- **Removed from `window.py`:** `SYMBOLS`, `symbol()`, `SHOW_CURRENT`, `GLOWS`, `LABELS` (the toolbar and status text read `Definition.name` directly; LABELS would go stale on `catalog.reload`).
+- **Tests:** `conftest.py` gained `extra_root`, `write_def(root, id, mutate=None, reload=True, **top)` and `minimal_def`; test modules import them with `from conftest import ...`. XML for SVG checks uses stdlib `xml.etree` as planned (no new dependency); the files are local package files, not network input.

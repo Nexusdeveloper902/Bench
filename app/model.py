@@ -1,10 +1,9 @@
 """Circuit document: parts, wires, params, nets, netlist lines. Pure Python, no Qt, no simcore."""
 import json, math, os, re
 
-from .components import CATALOG, ROTATIONS, ModelError, Param, get, build_netlist
-
-# kind -> (name prefix, terminal names); kept for callers that predate the catalog
-KINDS = {k: (c.prefix, c.terminals) for k, c in CATALOG.items()}
+from .catalog import CATALOG, get
+from .components import ROTATIONS, ModelError, Param
+from .electrical import build_netlist
 FORMAT, VERSION = "sim-circuit", 1
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
               "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
@@ -52,7 +51,7 @@ def diag(code, severity, message, part=None, pins=(), param=None):
 
 class Document:
     def __init__(self):
-        self.parts = {}      # name -> {"kind","x","y","rot","params"}  (insertion order = creation order)
+        self.parts = {}      # name -> {"kind","version","x","y","rot","params"}  (insertion order = creation order)
         self.wires = []      # [("R1.b", "C1.a"), ...]
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
@@ -65,15 +64,15 @@ class Document:
         if rot not in ROTATIONS:
             raise ModelError(f"rotation must be one of {ROTATIONS}")
         n = self._count.get(kind, 0) + 1
-        name = f"{c.prefix}{n}"
+        name = f"{c.designator}{n}"
         while name in self.parts:
-            n += 1; name = f"{c.prefix}{n}"
+            n += 1; name = f"{c.designator}{n}"
         self._count[kind] = n
         p = c.defaults()
         for k, v in params.items():
-            if k not in p: raise ModelError(f"{c.label} has no parameter {k}")
+            if k not in p: raise ModelError(f"{c.name} has no parameter {k}")
             p[k] = str(v)
-        self.parts[name] = {"kind": kind, "x": x, "y": y, "rot": rot, "params": p}
+        self.parts[name] = {"kind": kind, "version": c.version, "x": x, "y": y, "rot": rot, "params": p}
         return name
 
     def remove_part(self, name):
@@ -110,6 +109,14 @@ class Document:
         self.parts = {(new if n == old else n): p for n, p in self.parts.items()}
         self.wires = [tuple(f"{new}.{e.partition('.')[2]}" if e.partition(".")[0] == old else e for e in w)
                       for w in self.wires]
+
+    def definition(self, name):
+        """Catalog Definition of part `name`."""
+        return get(self.parts[name]["kind"])
+
+    def unmodeled(self):
+        """Names of parts the electrical simulation cannot model (their definition has no sim:electrical)."""
+        return [n for n, d in self.parts.items() if not get(d["kind"]).simulated]
 
     def pins(self, name):
         return [f"{name}.{p}" for p in get(self.parts[name]["kind"]).terminals]
@@ -168,8 +175,9 @@ class Document:
         return {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
 
     def netlist(self):
-        """-> components.build_netlist(...) dict. Raises ModelError on bad values."""
-        return build_netlist(self.parts, self.nets())
+        """-> electrical.build_netlist(...) dict over the modeled parts. Raises ModelError on bad values."""
+        skip = set(self.unmodeled())
+        return build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG)
 
     def validate(self):
         """Pre-run checks -> [diag(...)]: run settings, empty circuit, missing ground, unconnected parts/terminals,
@@ -278,7 +286,7 @@ class Document:
                      for v in (x, y))
             if not ok or type(rot) is not int or rot not in ROTATIONS:
                 raise ModelError(f"{n}: bad layout {lay}")
-            doc.parts[n] = {"kind": comp.id, "x": x, "y": y, "rot": rot, "params": params}
+            doc.parts[n] = {"kind": comp.id, "version": comp.version, "x": x, "y": y, "rot": rot, "params": params}
         seen = set()
         for w in wires:
             if not isinstance(w, (list, tuple)) or len(w) != 2: raise ModelError(f"bad connection {w}")
@@ -290,8 +298,8 @@ class Document:
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
         if sim.get("analysis", "transient") != "transient":
             raise ModelError(f"unsupported analysis {sim['analysis']}")
-        for kind, c in CATALOG.items():  # keep auto-naming collision free
-            k = len(c.prefix)
+        for kind, c in CATALOG.defs.items():  # keep auto-naming collision free
+            k = len(c.designator)
             doc._count[kind] = max([int(n[k:]) for n, p in doc.parts.items()
                                     if p["kind"] == kind and n[k:].isdigit()] or [0])
         return doc

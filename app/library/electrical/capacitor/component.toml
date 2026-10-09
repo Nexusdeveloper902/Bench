@@ -1,0 +1,48 @@
+format = 1
+id = "C"
+version = 1
+name = "Capacitor"
+description = "Ideal capacitor with an optional initial voltage."
+designator = "C"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["condenser"]
+keywords = ["farad", "passive", "filter"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "C"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "C"
+label = "Capacitance"
+unit = "F"
+default = "1e-6"
+min = 0
+min_exclusive = true
+help = "Capacitance, e.g. 10u or 4.7n"
+
+[[params]]
+key = "ic"
+label = "Initial voltage"
+unit = "V"
+default = "0"
+help = "Voltage across the capacitor at t = 0 (a - b)"
+
+[sim.electrical]
+device = "C"
+line = "{dev} {a} {b} {C} IC={ic}"
+current = "@{dev_lc}[i]"

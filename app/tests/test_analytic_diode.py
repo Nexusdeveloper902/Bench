@@ -15,7 +15,6 @@ change of N moves Vj by ~14 mV and the current by >1 % in these circuits, i.e. 1
 import math
 import pytest
 from app.model import Document, led_level, I_OFF
-from app.components import LED_MODEL
 from app.sim import run_document
 
 VT = 1.380649e-23 * 300.15 / 1.602176634e-19     # 25.865 mV
@@ -98,8 +97,7 @@ LED = dict(zip(("Is", "N", "Rs"), (1e-20, 1.8, 5.0)))
 
 
 def test_led_card_is_what_the_oracle_assumes():
-    assert LED_MODEL == ".model dled D(Is=1e-20 N=1.8 Rs=5)"
-    assert Document.led_example().netlist()["models"] == [LED_MODEL]
+    assert Document.led_example().netlist()["models"] == [".model dled D(Is=1e-20 N=1.8 Rs=5)"]
 
 
 def test_led_example_current_is_self_consistent():

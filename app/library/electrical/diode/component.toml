@@ -1,0 +1,57 @@
+format = 1
+id = "D"
+version = 1
+name = "Diode"
+description = "Shockley diode with adjustable saturation current, emission coefficient and series resistance."
+designator = "D"
+category = "Electrical"
+subcategory = "Semiconductors"
+aliases = ["rectifier"]
+keywords = ["semiconductor", "shockley", "pn junction"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "Is"
+label = "Saturation current"
+unit = "A"
+default = "1e-14"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "N"
+label = "Emission coefficient"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Rs"
+label = "Series resistance"
+unit = "Ω"
+default = "0"
+min = 0
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} dmod_{dev_lc}"
+models = [".model dmod_{dev_lc} D(Is={Is} N={N} Rs={Rs})"]
+current = "@{dev_lc}[id]"

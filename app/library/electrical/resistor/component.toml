@@ -1,0 +1,41 @@
+format = 1
+id = "R"
+version = 1
+name = "Resistor"
+description = "Ideal linear resistor."
+designator = "R"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["resistance"]
+keywords = ["ohm", "passive", "load"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "R"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "R"
+label = "Resistance"
+unit = "Ω"
+default = "1000"
+min = 0
+min_exclusive = true
+help = "Resistance, e.g. 330 or 4.7k"
+
+[sim.electrical]
+device = "R"
+line = "{dev} {a} {b} {R}"
+current = "@{dev_lc}[i]"

@@ -1,0 +1,48 @@
+format = 1
+id = "L"
+version = 1
+name = "Inductor"
+description = "Ideal inductor with an optional initial current."
+designator = "L"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["coil", "choke"]
+keywords = ["henry", "passive", "filter"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "L"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "L"
+label = "Inductance"
+unit = "H"
+default = "1e-3"
+min = 0
+min_exclusive = true
+help = "Inductance, e.g. 1m or 10u"
+
+[[params]]
+key = "ic"
+label = "Initial current"
+unit = "A"
+default = "0"
+help = "Current through the inductor at t = 0 (a to b)"
+
+[sim.electrical]
+device = "L"
+line = "{dev} {a} {b} {L} IC={ic}"
+current = "@{dev_lc}[i]"

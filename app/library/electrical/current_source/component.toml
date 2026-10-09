@@ -1,0 +1,40 @@
+format = 1
+id = "I"
+version = 1
+name = "Current source"
+description = "Independent DC current source."
+designator = "I"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["constant current"]
+keywords = ["dc", "source"]
+tags = ["source"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["The source's own current is its parameter: it has no current signal of its own."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "dc"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [60, 15]
+
+[[params]]
+key = "dc"
+label = "Current"
+unit = "A"
+default = "1e-3"
+
+[sim.electrical]
+device = "I"
+line = "{dev} {p} {n} DC {dc}"

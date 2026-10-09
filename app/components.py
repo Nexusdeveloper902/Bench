@@ -1,13 +1,11 @@
-"""Component catalog + SI units + netlist builder. Pure Python: no Qt, no simcore.
+"""SI units + parameter metadata + rotation math. Pure Python: no Qt, no simcore.
 
-Every part kind the app offers is one `Component` entry in CATALOG. Consumers (model, sim, GUI) read metadata
-from here instead of branching on the kind; the only per-kind code is each entry's `emit` function, which turns
-already-validated parameter values into SPICE device lines for the core's netlist-in Simulation API.
-"""
+Component definitions live in app/library/**/component.toml and are loaded by app.catalog; SPICE rendering is
+app.electrical. This module only holds what both of them (and the model) share."""
 import math
 import re
 from decimal import Decimal
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 class ModelError(ValueError):
@@ -78,6 +76,7 @@ class Param:
     min_exclusive: bool = False  # True: value must be > min, else >= min
     max: float = None
     when: tuple = ()            # ((other_key, value), ...): param applies only if all match
+    help: str = ""              # one-line hint (tooltip)
 
     def applies(self, params):
         return all(params.get(k) == v for k, v in self.when)
@@ -97,147 +96,6 @@ class Param:
         return x
 
 
-@dataclass(frozen=True)
-class Observable:
-    name: str       # readable, '{name}' = part name, e.g. 'I({name})'
-    vector: str     # ngspice vector, '{dev}' = lowercase SPICE device name, e.g. '@{dev}[i]'
-    quantity: str   # "current" | "voltage"
-
-
-@dataclass(frozen=True)
-class Component:
-    id: str                     # stable kind id, saved in files
-    label: str                  # display name
-    prefix: str                 # auto-name prefix (R -> R1, R2 ...)
-    terminals: tuple            # terminal names, in SPICE node order
-    pos: dict                   # terminal -> (x, y) in local unrotated coords, relative to the part anchor
-    box: tuple                  # (x0, y0, w, h) body rectangle in local coords; rotation is about its centre
-    symbol: str                 # symbol key for the GUI renderer
-    params: tuple = ()          # Param...
-    letter: str = None          # SPICE device letter; None = not a SPICE device (Ground)
-    emit: object = None         # (dev, nodes, values) -> (lines, models)
-    observables: tuple = ()     # Observable... (part-specific; V(part) across 2-terminal parts is generic)
-    value_param: str = None     # param shown as the part's value label on the canvas
-    ground: bool = False        # every terminal is the reference node '0'
-
-    def param(self, key):
-        return next(p for p in self.params if p.key == key)
-
-    def defaults(self):
-        return {p.key: p.default for p in self.params}
-
-    def fields(self, params):
-        """Param keys that apply to these values (e.g. PULSE fields only in PULSE mode), in display order."""
-        return [p.key for p in self.params if p.applies(params)]
-
-    def values(self, params, owner=""):
-        """Parse every applicable param. Raises ModelError on the first bad one."""
-        return {k: self.param(k).parse(params[k], owner) for k in self.fields(params)}
-
-    def device(self, name):
-        """SPICE device name for part `name` (the letter decides the device type: SW1 -> RSW1)."""
-        return name if name.upper().startswith(self.letter) else self.letter + name
-
-
-def _pins(a, b):   # left/right terminals of the standard 60 x 30 body
-    return {a: (0, 15), b: (60, 15)}
-
-
-def _r(f):          # numeric value as the core receives it
-    return repr(float(f))
-
-
-I_THROUGH = Observable("I({name})", "@{dev}[i]", "current")
-I_DIODE = Observable("I({name})", "@{dev}[id]", "current")
-I_SOURCE = Observable("I({name})", "i({dev})", "current")
-POS = dict(min=0, min_exclusive=True)
-LED_MODEL = ".model dled D(Is=1e-20 N=1.8 Rs=5)"   # red LED: Vf ~1.98 V at 10 mA
-WAVE = {"DC": ["dc"], "PULSE": ["v1", "v2", "td", "tr", "tf", "pw", "per"], "SIN": ["vo", "va", "freq"]}
-
-
-def _vsrc(dev, n, v):
-    vals = " ".join(_r(v[k]) for k in WAVE[v["mode"]])
-    return [f"{dev} {n[0]} {n[1]} DC {vals}" if v["mode"] == "DC" else f"{dev} {n[0]} {n[1]} {v['mode']}({vals})"], []
-
-
-def _diode(dev, n, v):
-    model = f"dmod_{dev.lower()}"
-    return [f"{dev} {n[0]} {n[1]} {model}"], [f".model {model} D(Is={_r(v['Is'])} N={_r(v['N'])} Rs={_r(v['Rs'])})"]
-
-
-def _p(key, label, unit, default, **kw):
-    return Param(key, label, unit, default, **kw)
-
-
-_VS = [_p("mode", "Waveform", "", "DC", kind="choice", choices=("DC", "PULSE", "SIN"))] + [
-    _p(k, lab, u, d, when=(("mode", m),), **kw) for m, k, lab, u, d, kw in (
-        ("DC", "dc", "Voltage", "V", "5", {}),
-        ("PULSE", "v1", "Initial value", "V", "0", {}), ("PULSE", "v2", "Pulsed value", "V", "5", {}),
-        ("PULSE", "td", "Delay", "s", "0", dict(min=0)), ("PULSE", "tr", "Rise time", "s", "1e-6", POS),
-        ("PULSE", "tf", "Fall time", "s", "1e-6", POS), ("PULSE", "pw", "Pulse width", "s", "1e-3", POS),
-        ("PULSE", "per", "Period", "s", "2e-3", POS),
-        ("SIN", "vo", "Offset", "V", "0", {}), ("SIN", "va", "Amplitude", "V", "1", {}),
-        ("SIN", "freq", "Frequency", "Hz", "1000", POS))]
-
-CATALOG = {c.id: c for c in (
-    Component("R", "Resistor", "R", ("a", "b"), _pins("a", "b"), (0, 0, 60, 30), "resistor",
-              (_p("R", "Resistance", "Ω", "1000", **POS),), "R",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} {_r(v['R'])}"], []), (I_THROUGH,), "R"),
-    Component("C", "Capacitor", "C", ("a", "b"), _pins("a", "b"), (0, 0, 60, 30), "capacitor",
-              (_p("C", "Capacitance", "F", "1e-6", **POS), _p("ic", "Initial voltage", "V", "0")), "C",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} {_r(v['C'])} IC={_r(v['ic'])}"], []), (I_THROUGH,), "C"),
-    Component("L", "Inductor", "L", ("a", "b"), _pins("a", "b"), (0, 0, 60, 30), "inductor",
-              (_p("L", "Inductance", "H", "1e-3", **POS), _p("ic", "Initial current", "A", "0")), "L",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} {_r(v['L'])} IC={_r(v['ic'])}"], []), (I_THROUGH,), "L"),
-    Component("V", "Voltage source", "V", ("p", "n"), _pins("p", "n"), (0, 0, 60, 30), "vsource",
-              tuple(_VS), "V", _vsrc, (I_SOURCE,), "dc"),
-    Component("BAT", "Battery", "V", ("p", "n"), _pins("p", "n"), (0, 0, 60, 30), "battery",
-              (_p("dc", "Voltage", "V", "5"),), "V",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} DC {_r(v['dc'])}"], []), (I_SOURCE,), "dc"),
-    Component("I", "Current source", "I", ("p", "n"), _pins("p", "n"), (0, 0, 60, 30), "isource",
-              (_p("dc", "Current", "A", "1e-3"),), "I",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} DC {_r(v['dc'])}"], []), (), "dc"),
-    Component("D", "Diode", "D", ("a", "k"), _pins("a", "k"), (0, 0, 60, 30), "diode",
-              (_p("Is", "Saturation current", "A", "1e-14", **POS), _p("N", "Emission coefficient", "", "1", **POS),
-               _p("Rs", "Series resistance", "Ω", "0", min=0)), "D", _diode, (I_DIODE,)),
-    Component("GND", "Ground", "GND", ("g",), {"g": (0, 10)}, (-16, 8, 32, 24), "ground", ground=True),
-    # SPICE letter decides the device, so LED reuses the D prefix (LED parts are named D1, D2 ...)
-    Component("LED", "LED", "D", ("a", "k"), _pins("a", "k"), (0, 0, 60, 30), "led", (), "D",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} dled"], [LED_MODEL]), (I_DIODE,)),
-    # Ideal-ish switch = a real resistor (Ron/Roff) chosen by `state`. A real S device would need the core
-    # validator to treat S/W as DC-conducting (it reports NO-DC-PATH today); time-controlled switching is out of scope.
-    Component("SW", "Switch", "SW", ("a", "b"), _pins("a", "b"), (0, 0, 60, 30), "switch",
-              (_p("state", "State", "", "open", kind="choice", choices=("open", "closed")),
-               _p("ron", "On resistance", "Ω", "0.01", **POS), _p("roff", "Off resistance", "Ω", "1e9", **POS)), "R",
-              lambda d, n, v: ([f"{d} {n[0]} {n[1]} {_r(v['ron'] if v['state'] == 'closed' else v['roff'])}"], []),
-              (I_THROUGH,), "state"),
-)}
-
-
-def get(kind):
-    try:
-        return CATALOG[kind]
-    except KeyError:
-        raise ModelError(f"unknown part kind {kind}") from None
-
-
-def summary(kind, params):
-    """Canvas value label, e.g. '1 kΩ', '5 V', 'PULSE', 'open'. Shows raw text if it does not parse."""
-    c = get(kind)
-    if not c.value_param:
-        return ""
-    p = c.param(c.value_param)
-    if not p.applies(params):    # e.g. a PULSE source has no 'dc': show the selector value instead
-        p = next(q for q in c.params if q.kind == "choice")
-    text = params.get(p.key, "")
-    if p.kind == "choice":
-        return text
-    try:
-        return format_si(parse_si(text, p.unit), p.unit)
-    except ModelError:
-        return text
-
-
 ROTATIONS = (0, 90, 180, 270)
 
 
@@ -247,58 +105,3 @@ def rotate(pt, center, rot):
     for _ in range((rot // 90) % 4):
         x, y = -y, x
     return (center[0] + x, center[1] + y)
-
-
-def terminal_offset(kind, terminal, rot=0):
-    """Terminal position relative to the part anchor (x, y) after rotation."""
-    c = get(kind)
-    x0, y0, w, h = c.box
-    return rotate(c.pos[terminal], (x0 + w / 2, y0 + h / 2), rot)
-
-
-# ---------------------------------------------------------------- netlist builder
-def build_netlist(parts, nets):
-    """parts: {name: {"kind", "params", ...}} in creation order; nets: {"Part.term": net}.
-    -> {"lines", "models", "saves", "observables", "derived", "signals"}; raises ModelError on a bad value.
-
-    observables: ngspice vector names to read from the core. derived: {'v(R1)': (netA, netB)} across-part
-    voltages that sim.py computes by subtracting two core node series. signals: readable names for all of them,
-    [{"name", "vector", "quantity", "unit", "kind": "node"|"across"|"current", "part", "pins"}]."""
-    if not parts:
-        raise ModelError("circuit is empty")
-    lines, models, cur, derived, signals = [], [], [], {}, []
-    used = set()
-    for name, d in parts.items():
-        c = get(d["kind"])
-        if c.letter is None:
-            continue
-        nodes = [nets[f"{name}.{t}"] for t in c.terminals]
-        used |= set(nodes)
-        dev = c.device(name)
-        ls, ms = c.emit(dev, nodes, c.values(d["params"], name))
-        lines += ls
-        models += [m for m in ms if m not in models]
-        if len(nodes) == 2:
-            derived[f"v({name})"] = tuple(nodes)
-            signals.append({"name": f"V({name})", "vector": f"v({name})", "quantity": "voltage", "unit": "V",
-                            "kind": "across", "part": name, "pins": [f"{name}.{t}" for t in c.terminals]})
-        for o in c.observables:
-            vec = o.vector.format(dev=dev.lower())
-            cur.append(vec)
-            signals.append({"name": o.name.format(name=name), "vector": vec, "quantity": o.quantity,
-                            "unit": "A" if o.quantity == "current" else "V", "kind": "current", "part": name,
-                            "pins": [f"{name}.{c.terminals[0]}"]})
-    if not lines:
-        raise ModelError("circuit has no components")
-    node_obs = [f"v({n})" for n in sorted(used - {"0"}, key=lambda s: int(s[1:]))]
-    members = {}
-    for pin, n in nets.items():
-        members.setdefault(n, []).append(pin)
-    signals = [{"name": f"V({v[2:-1]})", "vector": v, "quantity": "voltage", "unit": "V", "kind": "node",
-                "part": None, "pins": members[v[2:-1]]} for v in node_obs] + signals
-    # vectors only reachable through '.save' (device internals, written @dev[x]); i(vsrc) is always saved
-    saves = [f".save all {v}" for v in cur if v.startswith("@")]
-    # observable order (kept from the pre-catalog app): nodes, source currents, device currents
-    obs = node_obs + [v for v in cur if not v.startswith("@")] + [v for v in cur if v.startswith("@")]
-    return {"lines": lines, "models": models, "saves": saves, "observables": obs, "derived": derived,
-            "signals": signals}

@@ -1,13 +1,13 @@
 """Thin Qt layer over app.model / app.sim / app.history. All logic lives there; handlers just call it.
 
-Everything per component (pins, body box, symbol key, params, units, value label) comes from app.components.CATALOG.
-The only per-symbol code here is SYMBOLS: how each catalog `symbol` key is drawn."""
+Everything per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the
+app.catalog Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
 import os
 import time
 import traceback
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QKeySequence, QAction, QFont, QRadialGradient, \
-    QPolygonF, QTransform
+    QPolygonF
 from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGraphicsScene, QGraphicsView,
                                QPushButton, QLabel, QLineEdit, QFormLayout, QComboBox, QFileDialog, QToolBar,
                                QSplitter, QSlider, QScrollArea, QListWidget, QListWidgetItem, QPlainTextEdit, QMessageBox)
@@ -15,7 +15,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 from .model import Document, ModelError, RUN_PARAMS, led_level, value_at
-from .components import CATALOG, summary, terminal_offset, format_si
+from .catalog import CATALOG, summary, terminal_offset
+from .components import format_si
+from .symbols import add_symbol, part_transform
 from .sim import run_document, RunResult
 from .history import History
 
@@ -23,7 +25,6 @@ GRID = 20
 SLIDER_MAX = 10000
 LOOP_SECONDS = 4.0   # wall-clock time for one pass over the simulated window (blink example: ~1 Hz)
 LED_OFF, LED_ON = (90, 90, 90), (255, 70, 30)
-LABELS = {k: c.label for k, c in CATALOG.items()}
 HINT = "1 Place: pick a part, click the canvas.   2 Connect: click a pin, then another pin (or drag pin to pin).   " \
        "3 Configure: select a part, edit values (1k, 10u, 4.7n ...).   4 Run (F5).   " \
        "R rotates, drag moves, Delete removes, Ctrl+Z undoes. Click a wire to plot its node."
@@ -32,21 +33,12 @@ OK_PIN, OPEN_PIN, BAD = QColor("#2fa82f"), QColor("#d02020"), QColor("#b00020")
 STATE_COLORS = {"idle": "#666", "running": "#1a5fb4", "completed": "#1b6e1b", "failed": "#b00020"}
 GROUPS = (("node", "Node voltages"), ("across", "Voltage across parts"), ("current", "Currents"))
 QUANTITY = {"V": "Voltage", "A": "Current"}
-SHOW_CURRENT = {"diode", "led"}   # symbols that print their current at the cursor time
-GLOWS = {"led"}                   # symbols lit by their current (display mapping only: model.led_level)
 
 
 # ---------------------------------------------------------------- geometry (catalog driven)
 def _box(kind):
-    x0, y0, w, h = CATALOG[kind].box
+    x0, y0, w, h = CATALOG.get(kind).box
     return x0, y0, w, h, x0 + w / 2, y0 + h / 2
-
-
-def part_transform(d):
-    """Local (unrotated catalog coords) -> scene. Rotation is clockwise about the body centre, as in components."""
-    *_, cx, cy = _box(d["kind"])
-    t = QTransform(); t.translate(d["x"] + cx, d["y"] + cy); t.rotate(d.get("rot", 0)); t.translate(-cx, -cy)
-    return t
 
 
 def pin_pos(doc, ref):
@@ -65,7 +57,7 @@ def exits_horizontally(doc, ref):
     name, _, pin = ref.partition(".")
     d = doc.parts[name]
     *_, cx, cy = _box(d["kind"])
-    px, py = CATALOG[d["kind"]].pos[pin]
+    px, py = CATALOG.get(d["kind"]).pos[pin]
     return (abs(px - cx) >= abs(py - cy)) == (d.get("rot", 0) % 180 == 0)
 
 
@@ -92,65 +84,6 @@ def seg_dist(p, a, b):
     t = 0 if L == 0 else max(0, min(1, (ap.x() * ab.x() + ap.y() * ab.y()) / L))
     q = a + ab * t
     return ((p.x() - q.x()) ** 2 + (p.y() - q.y()) ** 2) ** 0.5
-
-
-# ---------------------------------------------------------------- symbols (local coords, y = 15 is the axis)
-def _lines(p, *polys):
-    for pts in polys:
-        p.moveTo(pts[0][0], 15 + pts[0][1])
-        for x, y in pts[1:]: p.lineTo(x, 15 + y)
-
-
-def _inductor(p, _):
-    _lines(p, [(0, 0), (12, 0)], [(48, 0), (60, 0)])
-    p.moveTo(12, 15)
-    for i in range(3): p.arcTo(QRectF(12 + 12 * i, 9, 12, 12), 180, -180)
-
-
-def _source(p, _, arrow=False):
-    _lines(p, [(0, 0), (17, 0)], [(43, 0), (60, 0)]); p.addEllipse(QPointF(30, 15), 13, 13)
-    if arrow: _lines(p, [(21, 0), (39, 0)], [(34, -4), (39, 0), (34, 4)])
-    else: _lines(p, [(20, 0), (26, 0)], [(23, -3), (23, 3)], [(34, 0), (40, 0)])   # + at p, - at n
-
-
-def _diode(p, _, led=False):
-    _lines(p, [(0, 0), (20, 0)], [(40, 0), (60, 0)], [(40, -10), (40, 10)], [(20, -10), (20, 10), (40, 0), (20, -10)])
-    if led:
-        for dx in (0, 8): _lines(p, [(24 + dx, -12), (32 + dx, -20)], [(28 + dx, -20), (32 + dx, -20), (32 + dx, -16)])
-
-
-def _switch(p, params):
-    _lines(p, [(0, 0), (18, 0)], [(42, 0), (60, 0)])
-    p.addEllipse(QPointF(18, 15), 2.5, 2.5); p.addEllipse(QPointF(42, 15), 2.5, 2.5)
-    _lines(p, [(18, 0), (42, 0)] if params.get("state") == "closed" else [(18, 0), (40, -13)])
-
-
-def _ground(p, _):
-    p.moveTo(0, 10); p.lineTo(0, 18)
-    for i, hw in enumerate((14, 9, 4)): p.moveTo(-hw, 18 + 5 * i); p.lineTo(hw, 18 + 5 * i)
-
-
-SYMBOLS = {   # catalog Component.symbol -> painter(path, params)
-    "resistor": lambda p, _: _lines(p, [(0, 0), (12, 0), (15, -7), (21, 7), (27, -7), (33, 7), (39, -7), (45, 7),
-                                        (48, 0), (60, 0)]),
-    "capacitor": lambda p, _: _lines(p, [(0, 0), (27, 0)], [(33, 0), (60, 0)], [(27, -10), (27, 10)], [(33, -10), (33, 10)]),
-    "inductor": _inductor,
-    "battery": lambda p, _: _lines(p, [(0, 0), (25, 0)], [(33, 0), (60, 0)], [(25, -11), (25, 11)], [(33, -5), (33, 5)],
-                                   [(12, -10), (18, -10)], [(15, -13), (15, -7)]),
-    "vsource": _source,
-    "isource": lambda p, v: _source(p, v, arrow=True),
-    "diode": _diode,
-    "led": lambda p, v: _diode(p, v, led=True),
-    "switch": _switch,
-    "ground": _ground,
-}
-
-
-def symbol(d):
-    """Scene path of a part's symbol (catalog symbol key, rotated)."""
-    p = QPainterPath()
-    SYMBOLS[CATALOG[d["kind"]].symbol](p, d["params"])
-    return part_transform(d).map(p)
 
 
 def eng(m):
@@ -324,8 +257,8 @@ class MainWindow(QMainWindow):
         pb = QToolBar("Parts"); self.addToolBar(pb)
         pb.addWidget(QLabel("Place: "))
         self.tool_btns = {}
-        for k in CATALOG:
-            b = QPushButton(LABELS[k]); b.setCheckable(True)
+        for k, c in CATALOG.defs.items():
+            b = QPushButton(c.name); b.setCheckable(True)
             b.clicked.connect(lambda _=False, k=k: self.set_tool(None if self.tool == k else k))
             pb.addWidget(b); self.tool_btns[k] = b
         pb.addSeparator(); pb.addAction(self.a_rotate); pb.addAction(self.a_delete)
@@ -399,7 +332,7 @@ class MainWindow(QMainWindow):
     def set_tool(self, k):
         self.tool = k
         for kk, b in self.tool_btns.items(): b.setChecked(kk == k)
-        if k: self.set_status(f"Click the canvas to place a {LABELS[k]}")
+        if k: self.set_status(f"Click the canvas to place a {CATALOG.get(k).name}")
 
     def select(self, name):
         self.sel, self.sel_wire = name, None; self.refresh()
@@ -545,8 +478,8 @@ class MainWindow(QMainWindow):
         except ModelError as e:
             mark(ed, str(e)); self.param_msg.setText(str(e)); self.param_msg.setStyleSheet("color: #b00020"); return
         mark(ed, None)
-        self.param_msg.setText(f"{CATALOG[self.doc.parts[n]['kind']].param(k).label} = "
-                               f"{format_si(v, CATALOG[self.doc.parts[n]['kind']].param(k).unit, 6)}")
+        self.param_msg.setText(f"{self.doc.definition(n).param(k).label} = "
+                               f"{format_si(v, self.doc.definition(n).param(k).unit, 6)}")
         self.param_msg.setStyleSheet("color: #555")
 
     # --- run controls ---
@@ -569,7 +502,8 @@ class MainWindow(QMainWindow):
         self.set_status(("SUCCESS: " if r.ok else "FAILED: ") + r.message, not r.ok)
         self._show_result()
         self.draw()
-        if self.autoplay and r.ok and any(p["params"].get("mode", "DC") != "DC" for p in self.doc.parts.values()):
+        if self.autoplay and r.ok and any(p["params"].get(k) == v for p in self.doc.parts.values()
+                                          for k, v in CATALOG.get(p["kind"]).animate_when):
             self.play()
 
     def reset(self):
@@ -744,14 +678,14 @@ class MainWindow(QMainWindow):
             sc.addEllipse(q.x() - 10, q.y() - 10, 20, 20, QPen(QColor("#e0a000"), 3))
         font = QFont(); font.setPointSize(9)
         for n, d in doc.parts.items():
-            c, sel = CATALOG[d["kind"]], n == self.sel
+            c, sel = CATALOG.get(d["kind"]), n == self.sel
             col, r = (SEL if sel else INK), part_rect(d)
             if sel:
                 sc.addRect(r.adjusted(-6, -6, 6, 6), QPen(SEL, 1.5, Qt.DashLine), QBrush(QColor(255, 230, 190, 140)))
-            cur = self.part_current(n) if c.symbol in SHOW_CURRENT else None
-            if c.symbol in GLOWS and cur is not None:
+            cur = self.part_current(n) if c.show_current else None
+            if c.indicator == "glow" and cur is not None:
                 self._glow(d, n)
-            sc.addPath(symbol(d), QPen(col, 2.5 if sel else 2))
+            add_symbol(sc, d, c, col)
             lines = [f"{n} {summary(d['kind'], d['params'])}".strip()]
             if cur is not None: lines.append(format_si(cur, "A", 3))
             for i, text in enumerate(lines):
@@ -825,8 +759,8 @@ class MainWindow(QMainWindow):
         """Inspector rows from catalog Param metadata: label, unit, choice -> combo box, number -> SI text field."""
         n = self.sel
         d = self.doc.parts[n]
-        c, p = CATALOG[d["kind"]], d["params"]
-        self.form.addRow(QLabel(f"<b>{n}</b> ({c.label})"))
+        c, p = CATALOG.get(d["kind"]), d["params"]
+        self.form.addRow(QLabel(f"<b>{n}</b> ({c.name})"))
         keys = c.fields(p)
         if not keys:
             self.form.addRow(QLabel("no parameters")); return

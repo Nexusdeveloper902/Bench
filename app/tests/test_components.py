@@ -1,8 +1,10 @@
 """Qt-free tests: component catalog contract, SI units, netlist emission, validation, save format v1."""
 import json
 import pytest
-from app import components as cat
-from app.components import CATALOG, ModelError, parse_si, format_si
+from app import catalog as cat
+from app.catalog import CATALOG
+from app.components import ROTATIONS, ModelError, parse_si, format_si
+from app import electrical
 from app.model import Document
 from app.sim import run_document
 
@@ -41,13 +43,14 @@ REQUIRED = {"GND", "R", "C", "L", "V", "I", "D", "LED", "SW"}
 
 
 def test_catalog_covers_milestone_set():
-    assert REQUIRED <= set(CATALOG)
+    assert REQUIRED <= set(CATALOG.defs)
 
 
-@pytest.mark.parametrize("kind", sorted(CATALOG))
+@pytest.mark.parametrize("kind", sorted(CATALOG.defs))
 def test_catalog_entry_contract(kind):
-    c = CATALOG[kind]
-    assert c.id == kind and c.label and c.prefix and c.symbol and c.terminals
+    c = CATALOG.get(kind)
+    assert c.id == kind and c.name and c.designator and c.terminals
+    assert (c.symbol_for(c.defaults()) is not None) and c.simulated and c.version >= 1
     assert set(c.pos) == set(c.terminals) and len(c.box) == 4
     keys = [p.key for p in c.params]
     assert len(keys) == len(set(keys))
@@ -56,12 +59,13 @@ def test_catalog_entry_contract(kind):
     for p in c.params:
         assert p.label and p.kind in ("number", "choice")
         if p.kind == "choice": assert p.default in p.choices
+    sec = c.sim["electrical"]
     if c.ground:
-        assert c.letter is None
+        assert "device" not in sec
     else:
-        lines, models = c.emit(c.device(c.prefix + "1"), ["n1", "n2"][:len(c.terminals)], vals)
-        assert lines and all(l.upper().startswith(c.letter) for l in lines)
-    for r in cat.ROTATIONS:                          # rotation keeps terminals at distinct positions
+        lines, models = electrical.emit(sec, c.designator + "1", dict(zip(c.terminals, ["n1", "n2"])), vals)
+        assert lines and all(l.upper().startswith(sec["device"]) for l in lines)
+    for r in ROTATIONS:                          # rotation keeps terminals at distinct positions
         offs = [cat.terminal_offset(kind, t, r) for t in c.terminals]
         assert len(set(offs)) == len(offs)
 
@@ -85,8 +89,8 @@ def test_param_bounds_messages():
 def test_summary():
     assert cat.summary("R", {"R": "1k"}) == "1 kΩ"
     assert cat.summary("C", {"C": "1e-6", "ic": "0"}) == "1 µF"
-    assert cat.summary("V", dict(CATALOG["V"].defaults(), mode="PULSE")) == "PULSE"
-    assert cat.summary("SW", CATALOG["SW"].defaults()) == "open"
+    assert cat.summary("V", dict(CATALOG.get("V").defaults(), mode="PULSE")) == "PULSE"
+    assert cat.summary("SW", CATALOG.get("SW").defaults()) == "open"
     assert cat.summary("R", {"R": "oops"}) == "oops" and cat.summary("GND", {}) == ""
 
 
@@ -115,6 +119,23 @@ def test_netlist_emission_all_kinds():
     assert "RSW1 n8 0 1000000000.0" in d.netlist()["lines"]
     d.set_param("V1", "mode", "PULSE")
     assert "V1 n1 0 PULSE(0.0 5.0 0.0 1e-06 1e-06 0.001 0.002)" in d.netlist()["lines"]
+
+
+def test_template_netlist_matches_golden():
+    """Literal lines captured from the pre-catalog emit code (complements test_netlist_emission_all_kinds);
+    fixtures/netlist_golden.json pins the full dict for every kind and mode (see test_catalog)."""
+    def one(kind, **p):
+        d = Document(); n = d.add_part(kind, **p); d.add_part("GND"); d.connect(d.pins(n)[-1], "GND1.g")
+        return d.netlist()
+    assert one("V", mode="PULSE", v1=0, v2=3.3, td="1u", tr="2u", tf="5u", pw="1m", per="3m")["lines"] == \
+        ["V1 n1 0 PULSE(0.0 3.3 1e-06 2e-06 5e-06 0.001 0.003)"]
+    assert one("V", mode="SIN", vo="0.5", va="1", freq="2k")["lines"] == ["V1 n1 0 SIN(0.5 1.0 2000.0)"]
+    assert one("SW")["lines"] == ["RSW1 n1 0 1000000000.0"]
+    assert one("SW", state="closed", ron="0.1")["lines"] == ["RSW1 n1 0 0.1"]
+    nl = one("D", Is="2e-14", N="1.5", Rs="10")
+    assert nl["lines"] == ["D1 n1 0 dmod_d1"] and nl["models"] == [".model dmod_d1 D(Is=2e-14 N=1.5 Rs=10.0)"]
+    assert one("C", C="4.7n", ic="2")["lines"] == ["C1 n1 0 4.7e-09 IC=2.0"]
+    assert one("L", L="10m", ic="1m")["lines"] == ["L1 n1 0 0.01 IC=0.001"]
 
 
 def test_netlist_bad_value_raises():
@@ -214,7 +235,7 @@ def test_load_v0_unversioned(tmp_path):
           "tstop": "1e-3", "tstep": "1e-5"}
     p = tmp_path / "old.json"; p.write_text(json.dumps(v0))
     d = Document.load(p)
-    assert d.parts["R1"]["rot"] == 0 and d.parts["D1"]["params"] == CATALOG["D"].defaults()
+    assert d.parts["R1"]["rot"] == 0 and d.parts["D1"]["params"] == CATALOG.get("D").defaults()
     assert d.to_dict()["version"] == 1 and d.tstop == "1e-3"
     assert run_document(d).ok
 
@@ -222,7 +243,7 @@ def test_load_v0_unversioned(tmp_path):
 @pytest.mark.parametrize("mutate,needle", [
     (lambda t: t.update(version=2), "newer"),
     (lambda t: t.pop("format"), "not a simulation file"),
-    (lambda t: t["components"]["R1"].update(type="XYZ"), "unknown part kind"),
+    (lambda t: t["components"]["R1"].update(type="XYZ"), "unknown component type"),
     (lambda t: t["components"]["R1"]["params"].update(bogus="1"), "unknown parameter"),
     (lambda t: t["layout"]["R1"].update(rotation=45), "bad layout"),
     (lambda t: t["connections"].append(["R1.zz", "C1.a"]), "no such pin"),

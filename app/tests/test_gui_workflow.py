@@ -6,8 +6,7 @@ import pytest
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFormLayout, QFileDialog, QMessageBox, QLineEdit, QComboBox
-from app.window import MainWindow, pin_pos, wire_pts, part_rect, symbol, SYMBOLS
-from app.components import CATALOG, terminal_offset
+from app.window import MainWindow, pin_pos, wire_pts, part_rect
 
 VF, R, C = 5.0, 1e3, 10e-6
 TAU = R * C                 # 10 ms
@@ -256,16 +255,3 @@ def test_unsaved_prompt_and_save_error(win, tmp_path, monkeypatch):
     monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Discard))
     w.a_open.trigger()
     assert "cannot open" in errors[-1] and "R1" in w.doc.parts       # failed open keeps the current circuit
-
-
-def test_every_catalog_symbol_drawn_with_pins_at_its_ends(win):
-    """Each catalog component has a renderer, and in every rotation its pins sit on its drawn symbol."""
-    w = win
-    assert {c.symbol for c in CATALOG.values()} <= set(SYMBOLS)
-    for kind in CATALOG:
-        for rot in (0, 90, 180, 270):
-            d = {"kind": kind, "x": 200, "y": 200, "rot": rot, "params": CATALOG[kind].defaults()}
-            box = symbol(d).boundingRect().adjusted(-1, -1, 1, 1)
-            for t in CATALOG[kind].terminals:
-                ox, oy = terminal_offset(kind, t, rot)
-                assert box.contains(QPointF(200 + ox, 200 + oy)), (kind, rot, t)

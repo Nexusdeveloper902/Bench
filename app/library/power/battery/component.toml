@@ -1,0 +1,41 @@
+format = 1
+id = "BAT"
+version = 1
+name = "Battery"
+description = "Ideal DC battery (a fixed voltage source)."
+designator = "V"                       # shares V numbering with the voltage source, as before
+category = "Power"
+subcategory = "Batteries"
+aliases = ["cell", "dc supply"]
+keywords = ["dc", "supply", "power"]
+tags = ["source"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal source: no internal resistance and no discharge."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "dc"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [60, 15]
+
+[[params]]
+key = "dc"
+label = "Voltage"
+unit = "V"
+default = "5"
+
+[sim.electrical]
+device = "V"
+line = "{dev} {p} {n} DC {dc}"
+current = "i({dev_lc})"
