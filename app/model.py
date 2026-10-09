@@ -1,10 +1,10 @@
 """Circuit document: parts, wires, params, nets, netlist lines. Pure Python, no Qt, no simcore."""
-import json, math, os, re
+import copy, json, math, os, re
 
-from .catalog import CATALOG, get
+from .catalog import CATALOG, PIN_RE, get
 from .components import ROTATIONS, ModelError, Param
 from .electrical import build_netlist
-FORMAT, VERSION = "sim-circuit", 1
+FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
               "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
 
@@ -52,6 +52,8 @@ def diag(code, severity, message, part=None, pins=(), param=None):
 class Document:
     def __init__(self):
         self.parts = {}      # name -> {"kind","version","x","y","rot","params"}  (insertion order = creation order)
+        #                      + "placeholder": {"reason": "missing"|"incompatible", "pins": [ids], "detail": str}
+        #                        only for parts loaded without a usable definition (kind/version/params kept verbatim)
         self.wires = []      # [("R1.b", "C1.a"), ...]
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
@@ -84,6 +86,7 @@ class Document:
 
     def set_param(self, name, key, value):
         """Store the text as typed (validated at run / by validate()); see check_param for edit-time checks."""
+        self._editable(name)
         if key not in self.parts[name]["params"]:
             raise ModelError(f"{name} has no parameter {key}")
         self.parts[name]["params"][key] = str(value)
@@ -91,6 +94,7 @@ class Document:
     def check_param(self, name, key, value=None):
         """Parse `value` (default: the stored text) with the catalog metadata -> float | choice str.
         Raises ModelError with a user message. Does not modify the document."""
+        self._editable(name)
         d = self.parts[name]
         return get(d["kind"]).param(key).parse(d["params"][key] if value is None else str(value), name)
 
@@ -110,20 +114,33 @@ class Document:
         self.wires = [tuple(f"{new}.{e.partition('.')[2]}" if e.partition(".")[0] == old else e for e in w)
                       for w in self.wires]
 
+    def _editable(self, name):
+        if "placeholder" in self.parts[name]:
+            raise ModelError(f"{name} has no usable definition; its parameters are read-only")
+
     def definition(self, name):
-        """Catalog Definition of part `name`."""
-        return get(self.parts[name]["kind"])
+        """Catalog Definition of part `name`, or None for a placeholder (missing/incompatible definition)."""
+        d = self.parts[name]
+        return None if "placeholder" in d else get(d["kind"])
+
+    def placeholders(self):
+        return [n for n, d in self.parts.items() if "placeholder" in d]
 
     def unmodeled(self):
-        """Names of parts the electrical simulation cannot model (their definition has no sim:electrical)."""
-        return [n for n, d in self.parts.items() if not get(d["kind"]).simulated]
+        """Names of parts the electrical simulation cannot model: placeholders, and parts whose definition has no
+        sim:electrical. Never substituted, never silently dropped: see netlist() and validate()."""
+        return [n for n in self.parts if (c := self.definition(n)) is None or not c.simulated]
+
+    def wired(self, name):
+        return any(e.partition(".")[0] == name for w in self.wires for e in w)
 
     def pins(self, name):
-        return [f"{name}.{p}" for p in get(self.parts[name]["kind"]).terminals]
+        d = self.parts[name]
+        return [f"{name}.{p}" for p in (d["placeholder"]["pins"] if "placeholder" in d else get(d["kind"]).terminals)]
 
     def _check_pin(self, ref):
         name, _, pin = ref.partition(".") if isinstance(ref, str) else (None, 0, None)
-        if name not in self.parts or pin not in get(self.parts[name]["kind"]).terminals:
+        if name not in self.parts or f"{name}.{pin}" not in self.pins(name):
             raise ModelError(f"no such pin {ref}")
 
     def connect(self, p1, p2):
@@ -145,10 +162,11 @@ class Document:
             while parent[a] != a:
                 parent[a] = parent[parent[a]]; a = parent[a]
             return a
-        order = [pin for n in self.parts for pin in self.pins(n)]
+        unm = set(self.unmodeled())   # modeled pins are named first, so excluded parts never renumber the nets
+        order = [pin for k in (False, True) for n in self.parts if (n in unm) == k for pin in self.pins(n)]
         for p in order: find(p)
         for a, b in self.wires: parent[find(a)] = find(b)
-        gnd = {find(p) for n, d in self.parts.items() if get(d["kind"]).ground for p in self.pins(n)}
+        gnd = {find(p) for n, d in self.parts.items() if (c := self.definition(n)) and c.ground for p in self.pins(n)}
         names, out = {}, {}
         for p in order:
             r = find(p)
@@ -175,26 +193,44 @@ class Document:
         return {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
 
     def netlist(self):
-        """-> electrical.build_netlist(...) dict over the modeled parts. Raises ModelError on bad values."""
-        skip = set(self.unmodeled())
-        return build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG)
+        """-> electrical.build_netlist(...) dict over the modeled parts, plus "excluded": the unmodeled parts left out
+        (always all of them: callers must report them). Raises ModelError on bad values, or if an unmodeled part is
+        wired (a part that cannot be simulated must never be dropped from a circuit it is connected to)."""
+        skip = self.unmodeled()
+        if bad := [n for n in skip if self.wired(n)]:
+            raise ModelError(f"{', '.join(bad)} cannot be simulated and {'is' if len(bad) == 1 else 'are'} wired to "
+                             "the circuit: disconnect to run")
+        nl = build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG)
+        return {**nl, "excluded": skip}
 
     def validate(self):
-        """Pre-run checks -> [diag(...)]: run settings, empty circuit, missing ground, unconnected parts/terminals,
-        invalid parameters. Electrical checks (floating islands, source loops, ...) are left to the core."""
+        """Pre-run checks -> [diag(...)]: run settings, duplicate names, unsimulated parts, empty circuit, missing
+        ground, unconnected parts/terminals, invalid parameters. Electrical checks (floating islands, source loops,
+        ...) are left to the core."""
         out = []
         try:
             self.config()
         except ModelError as e:
             out.append(diag("BAD-CONFIG", "error", str(e)))
-        devices = [n for n, d in self.parts.items() if not get(d["kind"]).ground]
+        first = {}
+        for n in self.parts:
+            if (o := first.setdefault(n.lower(), n)) != n:
+                out.append(diag("DUP-NAME-CASE", "error",
+                                f"{o} and {n} differ only in case; SPICE names are case-insensitive.", n))
+        unm = self.unmodeled()
+        for n in unm:
+            out.append(self._unmodeled_diag(n))
+        devices = [n for n, d in self.parts.items() if n not in unm and not self.definition(n).ground]
         if not devices:
-            out.append(diag("EMPTY", "error", "Circuit is empty: place some components."))
+            msg = "Nothing to simulate: place simulated components." if unm else "Circuit is empty: place some components."
+            out.append(diag("EMPTY", "error", msg))
+            out.sort(key=lambda x: x["severity"] != "error")
             return out
         nets, wired = self.nets(), {p for w in self.wires for p in w}
         if not any(nets[p] == "0" for n in devices for p in self.pins(n)):
             out.append(diag("NO-GROUND", "error", "No ground: place a Ground and wire it to the circuit."))
         for n, d in self.parts.items():
+            if n in unm: continue
             pins = self.pins(n)
             loose = [p for p in pins if p not in wired]
             if len(loose) == len(pins) and n in devices:
@@ -209,6 +245,19 @@ class Document:
                     out.append(diag("BAD-PARAM", "error", str(e), n, (), k))
         out.sort(key=lambda x: x["severity"] != "error")   # stable: errors first, in check order
         return out
+
+    def _unmodeled_diag(self, n):
+        """Error if the unmodeled part is wired (the run is refused), else a warning (it is excluded and reported)."""
+        d, wired = self.parts[n], self.wired(n)
+        if ph := d.get("placeholder"):
+            code = "MISSING-DEFINITION" if ph["reason"] == "missing" else "INCOMPATIBLE-DEFINITION"
+            msg = f"{n}: {ph['detail']}; kept unchanged"
+            msg += ". It is wired to the circuit: disconnect it to run." if wired else "; excluded from the run."
+        else:
+            code, name = "NOT-SIMULATED", f"{n} ({get(d['kind']).name})"
+            msg = (f"{name} has no electrical model and is wired to the circuit: disconnect it to run." if wired else
+                   f"{name} is not simulated and is excluded from the run.")
+        return diag(code, "error" if wired else "warning", msg, n, self.pins(n))
 
     @classmethod
     def led_example(cls):
@@ -232,24 +281,42 @@ class Document:
         d.tstop, d.tstep = "8.5m", "20u"
         return d
 
-    # ---- persistence (format v1, see docs/frontend-components.md) ----
+    # ---- persistence (format v2, see docs/persistence.md) ----
     def to_dict(self):
         return {"format": FORMAT, "version": VERSION,
-                "components": {n: {"type": p["kind"], "params": dict(p["params"])} for n, p in self.parts.items()},
+                "components": {n: {"type": p["kind"], "version": p["version"], "params": copy.deepcopy(p["params"])}
+                               for n, p in self.parts.items()},
                 "connections": [list(w) for w in self.wires],
                 "simulation": self.sim_config(),
                 "layout": {n: {"x": p["x"], "y": p["y"], "rotation": p["rot"]} for n, p in self.parts.items()}}
 
     @classmethod
     def from_dict(cls, d):
-        """v1 dict, or the unversioned v0 layout {parts:{name:{kind,x,y,params}}, wires, tstop, tstep}.
-        Validates the whole schema; every problem is a ModelError('bad simulation file: ...')."""
+        """v2 dict, v1 (components without versions), or the unversioned v0 layout {parts:{name:{kind,x,y,params}},
+        wires, tstop, tstep}. Validates the whole schema; every problem is a ModelError('bad simulation file: ...').
+        A component with no usable definition (unknown type, newer version, unknown param or pin) is not an error:
+        it loads as a placeholder (see docs/persistence.md)."""
         try:
             return cls._from_dict(d)
         except ModelError as e:
             raise ModelError(f"bad simulation file: {e}") from None
         except (KeyError, TypeError, AttributeError, ValueError, RecursionError, OverflowError) as e:
             raise ModelError(f"bad simulation file: {e!r}") from None
+
+    @staticmethod
+    def _resolve(typ, ver, params, pins):
+        """-> (Definition, None) or (None, (reason, detail)) for a saved component. Ids are matched exactly."""
+        c = CATALOG.defs.get(typ)
+        if c is None:
+            return None, ("missing", f"component type {typ!r} (version {ver}) is not in the catalog")
+        if ver > c.version:
+            return None, ("incompatible", f"saved with {typ} version {ver}; this catalog has version {c.version}")
+        bad = [f"parameter {k!r}" for k in params if k not in c.defaults()] + \
+              [f"pin {p!r}" for p in sorted(pins) if p not in c.terminals]
+        if bad:
+            return None, ("incompatible", f"saved with {typ} version {ver} using {', '.join(bad)}, which "
+                                          f"{typ} version {c.version} does not have")
+        return c, None
 
     @classmethod
     def _from_dict(cls, d):
@@ -263,7 +330,7 @@ class Document:
             comps = {n: {"type": need(p, dict, n)["kind"], "params": p["params"]} for n, p in parts.items()}
             layout = {n: {"x": p["x"], "y": p["y"], "rotation": 0} for n, p in parts.items()}
             wires, sim = d["wires"], {"tstop": d["tstop"], "tstep": d["tstep"]}
-        elif type(ver) is int and ver == VERSION and d.get("format") == FORMAT:
+        elif type(ver) is int and 1 <= ver <= VERSION and d.get("format") == FORMAT:
             comps, wires, sim, layout = d["components"], d["connections"], d["simulation"], d.get("layout", {})
         elif type(ver) is int and ver > VERSION:
             raise ModelError(f"file format version {ver} is newer than this app supports ({VERSION})")
@@ -271,30 +338,43 @@ class Document:
             raise ModelError("not a simulation file (missing format/version)")
         need(comps, dict, "components"); need(layout, dict, "layout"); need(sim, dict, "simulation")
         need(wires, (list, tuple), "connections")
-        doc = cls()
+        recs = {}
         for n, c in comps.items():
             check_name(n)
             need(c, dict, n)
-            comp = get(need(c["type"], str, f"{n} type"))
-            params = comp.defaults()          # older files may lack params added later: use defaults
-            for k, v in need(c["params"], dict, f"{n} params").items():
-                if k not in params: raise ModelError(f"{n}: unknown parameter {k}")
-                params[k] = str(need(v, (str, int, float), f"{n} {k}"))
+            typ = need(c["type"], str, f"{n} type")
+            v = need(c.get("version"), int, f"{n} version") if ver == 2 else 1   # v0/v1 files only hold version-1 parts
+            if v < 1: raise ModelError(f"{n}: bad version {v}")
+            params = need(c["params"], dict, f"{n} params")
             lay = need(layout.get(n, {}), dict, f"{n} layout")
             x, y, rot = lay.get("x", 0), lay.get("y", 0), lay.get("rotation", 0)
-            ok = all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and abs(v) <= MAX_COORD
-                     for v in (x, y))
+            ok = all(isinstance(q, (int, float)) and not isinstance(q, bool) and math.isfinite(q) and abs(q) <= MAX_COORD
+                     for q in (x, y))
             if not ok or type(rot) is not int or rot not in ROTATIONS:
                 raise ModelError(f"{n}: bad layout {lay}")
-            doc.parts[n] = {"kind": comp.id, "version": comp.version, "x": x, "y": y, "rot": rot, "params": params}
-        seen = set()
+            recs[n] = (typ, v, params, x, y, rot)
+        wl, seen, used = [], set(), {}   # used: part -> pin ids its connections reference
         for w in wires:
             if not isinstance(w, (list, tuple)) or len(w) != 2: raise ModelError(f"bad connection {w}")
-            for pin in w: doc._check_pin(pin)
+            for ref in w:
+                name, _, pin = ref.partition(".") if isinstance(ref, str) else (None, 0, "")
+                if name not in recs or not PIN_RE.match(pin): raise ModelError(f"no such pin {ref}")
+                used.setdefault(name, set()).add(pin)
             if w[0] == w[1]: raise ModelError(f"connection {list(w)} joins a pin to itself")
             if frozenset(w) in seen: raise ModelError(f"duplicate connection {list(w)}")
             seen.add(frozenset(w))
-            doc.wires.append(tuple(w))
+            wl.append(tuple(w))
+        doc = cls()
+        for n, (typ, v, raw, x, y, rot) in recs.items():
+            comp, why = cls._resolve(typ, v, raw, used.get(n, ()))
+            if comp:
+                params = comp.defaults()          # older files may lack params added later: use defaults
+                for k, val in raw.items(): params[k] = str(need(val, (str, int, float), f"{n} {k}"))
+                doc.parts[n] = {"kind": comp.id, "version": comp.version, "x": x, "y": y, "rot": rot, "params": params}
+            else:   # kept verbatim, never substituted; its pins are the ones the connections use
+                doc.parts[n] = {"kind": typ, "version": v, "x": x, "y": y, "rot": rot, "params": copy.deepcopy(raw),
+                                "placeholder": {"reason": why[0], "pins": sorted(used.get(n, ())), "detail": why[1]}}
+        doc.wires = wl
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
         if sim.get("analysis", "transient") != "transient":
             raise ModelError(f"unsupported analysis {sim['analysis']}")
@@ -305,7 +385,7 @@ class Document:
         return doc
 
     def save(self, path=None):
-        """Write format v1 JSON to `path` (default: self.path) and remember it. Atomic: a failed write leaves the
+        """Write format v2 JSON to `path` (default: self.path) and remember it. Atomic: a failed write leaves the
         old file intact. Raises ModelError (with the OS reason) on failure."""
         path = path or self.path
         if not path:

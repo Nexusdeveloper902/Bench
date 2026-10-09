@@ -113,7 +113,7 @@ def test_reversed_led_blocks(win):
 
 def test_led_without_battery_fails_informatively(win):
     w = win; build(w, battery=False); w.a_run.trigger()
-    assert w.status.text().startswith("FAILED") and len(w.status.text()) > 20
+    assert w.status.text().startswith("BLOCKED") and len(w.status.text()) > 20
     assert not w.result.ok and w.result.message in w.status.text()
 
 

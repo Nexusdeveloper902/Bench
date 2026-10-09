@@ -9,12 +9,12 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen, QTransform
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtSvgWidgets import QGraphicsSvgItem
 
-from .catalog import CATALOG
+from .catalog import Pin, geometry
 
 
 def part_transform(d):
     """Local (unrotated catalog coords) -> scene. Rotation is clockwise about the body centre, as in components."""
-    x0, y0, w, h = CATALOG.get(d["kind"]).box
+    x0, y0, w, h = geometry(d)[0]
     cx, cy = x0 + w / 2, y0 + h / 2
     t = QTransform(); t.translate(d["x"] + cx, d["y"] + cy); t.rotate(d.get("rot", 0)); t.translate(-cx, -cy)
     return t
@@ -62,3 +62,10 @@ def add_symbol(scene, part, defn, color):
                       * QTransform().translate(vb.x(), vb.y()) * part_transform(part))
     scene.addItem(item)
     return [item]
+
+
+def add_placeholder(scene, part, color):
+    """Generic body for a part whose definition is missing or incompatible (T9 styles it further)."""
+    box, pos = geometry(part)
+    return add_generic_body(scene, part_transform(part), box, [Pin(p, p, at) for p, at in pos.items()],
+                            f"? {part['kind']}", color)

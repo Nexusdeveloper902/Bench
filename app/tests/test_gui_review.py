@@ -33,7 +33,7 @@ def test_pending_invalid_edit_blocks_run_with_message(win):
     w = win; w._reset(Document.led_example()); select(w, "R1")
     ed = typing(w, "abc")
     w.a_run.trigger()
-    assert w.state == "failed" and "R1" in w.result.message
+    assert w.state == "blocked" and "R1" in w.result.message
 
 
 @pytest.mark.parametrize("which,text", [("tstop", "1m"), ("tstep", "20u")])

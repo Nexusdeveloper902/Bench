@@ -27,7 +27,6 @@ BAD = {
     "huge x": lambda d: d["layout"]["R1"].update(x=1e308),
     "bool x": lambda d: d["layout"]["R1"].update(x=True),
     "float rot": lambda d: d["layout"]["R1"].update(rotation=90.0),
-    "unknown type": lambda d: d["components"]["R1"].update(type="XYZ"),
     "type list": lambda d: d["components"]["R1"].update(type=["R"]),
     "params list": lambda d: d["components"]["R1"].update(params=[1]),
     "param nested": lambda d: d["components"]["R1"]["params"].update(R=[1]),

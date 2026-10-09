@@ -176,7 +176,7 @@ def test_validate_unconnected_and_params():
 def test_run_document_returns_structured_failure():
     d = Document(); d.add_part("R"); d.add_part("V"); d.connect("V1.p", "R1.a"); d.connect("V1.n", "R1.b")
     res = run_document(d)
-    assert not res.ok and res.state == "failed" and res.message.startswith("[NO-GROUND]")
+    assert not res.ok and res.state == "blocked" and res.status == "blocked" and res.message.startswith("[NO-GROUND]")
     assert res.diagnostics[0]["code"] == "NO-GROUND" and "NO-GROUND" in res.details
 
 
@@ -204,9 +204,9 @@ def sample():
 
 def test_v1_schema():
     t = sample().to_dict()
-    assert t["format"] == "sim-circuit" and t["version"] == 1
+    assert t["format"] == "sim-circuit" and t["version"] == 2
     assert set(t) == {"format", "version", "components", "connections", "simulation", "layout"}
-    assert t["components"]["R1"] == {"type": "R", "params": {"R": "1k"}}
+    assert t["components"]["R1"] == {"type": "R", "version": 1, "params": {"R": "1k"}}
     assert t["layout"]["R1"] == {"x": 160, "y": 60, "rotation": 90} and t["layout"]["C1"]["rotation"] == 270
     assert t["simulation"] == {"analysis": "transient", "tstop": "5m", "tstep": "10u"}
     assert ["R1.b", "C1.a"] in t["connections"]
@@ -236,17 +236,15 @@ def test_load_v0_unversioned(tmp_path):
     p = tmp_path / "old.json"; p.write_text(json.dumps(v0))
     d = Document.load(p)
     assert d.parts["R1"]["rot"] == 0 and d.parts["D1"]["params"] == CATALOG.get("D").defaults()
-    assert d.to_dict()["version"] == 1 and d.tstop == "1e-3"
+    assert d.to_dict()["version"] == 2 and d.tstop == "1e-3"
     assert run_document(d).ok
 
 
 @pytest.mark.parametrize("mutate,needle", [
-    (lambda t: t.update(version=2), "newer"),
+    (lambda t: t.update(version=3), "newer"),
     (lambda t: t.pop("format"), "not a simulation file"),
-    (lambda t: t["components"]["R1"].update(type="XYZ"), "unknown component type"),
-    (lambda t: t["components"]["R1"]["params"].update(bogus="1"), "unknown parameter"),
     (lambda t: t["layout"]["R1"].update(rotation=45), "bad layout"),
-    (lambda t: t["connections"].append(["R1.zz", "C1.a"]), "no such pin"),
+    (lambda t: t["connections"].append(["Q9.a", "C1.a"]), "no such pin"),
     (lambda t: t.pop("simulation"), "simulation"),
 ])
 def test_load_rejects_bad_files(tmp_path, mutate, needle):

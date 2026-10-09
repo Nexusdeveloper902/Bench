@@ -74,7 +74,7 @@ def test_floating_led_fails_cleanly():
     d = led(float_led=True)
     d.disconnect("D1.a")                       # LED fully unconnected: core must reject
     res = run_document(d)
-    assert not res.ok and res.status == "failed" and res.message and not res.series
+    assert not res.ok and res.status == "blocked" and res.message and not res.series
 
 
 def test_dangling_cathode_is_flagged():

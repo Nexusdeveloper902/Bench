@@ -191,7 +191,7 @@ def test_no_ground_shows_diagnostics_and_details(win):
     texts = [w.problems.item(i).text() for i in range(w.problems.count())]
     assert any("NO-GROUND" in t for t in texts)                       # shown before running
     w.a_run.trigger()
-    assert w.state == "failed" and "failed" in w.state_lbl.text() and w.status.text().startswith("FAILED")
+    assert w.state == "blocked" and "blocked" in w.state_lbl.text() and w.status.text().startswith("BLOCKED")
     assert w.err.isVisible() and "No ground" in w.err.text() and not w.ax.lines and w.stats.text() == ""
     w.details_btn.click()
     assert w.details.isVisible() and "ValidationError" in w.details.toPlainText()

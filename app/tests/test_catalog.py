@@ -208,7 +208,7 @@ def test_template_netlist_matches_golden():
     for name, d in docs.items():
         got = electrical.build_netlist(d.parts, d.nets(), CATALOG)
         assert json.loads(json.dumps(got)) == golden[name], name
-        assert d.netlist() == got
+        assert d.netlist() == {**got, "excluded": []}
 
 
 def test_emit_is_data_driven(extra_root):

@@ -113,7 +113,7 @@ def test_load_bad_file(tmp_path):
 # ---------------- failure cases ----------------
 def fail(d, *needles):
     res = run_document(d)
-    assert res.ok is False and res.status == "failed"
+    assert res.ok is False and res.status == "blocked"   # pre-check refusals (plan A1); core errors are "failed"
     assert res.message and any(n in res.message for n in needles), res.message
     return res
 
@@ -227,7 +227,7 @@ def test_gui_edit_through_param_panel(qapp):
 def test_gui_bad_value_shows_failed(qapp, r, needle):
     w = build_window(qapp, r=r)
     w.run()
-    assert w.status.text().startswith("FAILED") and needle in w.status.text()
+    assert w.status.text().startswith("BLOCKED") and needle in w.status.text()
     assert not w.result.ok and w.stats.text() == ""
 
 
@@ -235,10 +235,10 @@ def test_gui_failures(qapp):
     w = build_window(qapp)
     w.select("GND1"); w.delete_selected()
     w.run()
-    assert w.status.text().startswith("FAILED") and ("NO-GROUND" in w.status.text() or "NO-DC-PATH" in w.status.text())
+    assert w.status.text().startswith("BLOCKED") and ("NO-GROUND" in w.status.text() or "NO-DC-PATH" in w.status.text())
     w = build_window(qapp, tstop="0")
     w.run()
-    assert w.status.text().startswith("FAILED") and "tstop" in w.status.text()
+    assert w.status.text().startswith("BLOCKED") and "tstop" in w.status.text()
     # recovery: fix and rerun succeeds
     w.tstop.setText("5e-3"); w.run()
     assert w.status.text().startswith("SUCCESS")

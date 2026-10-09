@@ -409,8 +409,25 @@ def summary(kind, params):
         return text
 
 
+def placeholder_geometry(pins):
+    """(box, {pin: at}) of the generic body of a part with no usable definition: 80 wide, pins down the left edge."""
+    return (0, 0, 80, 40 * math.ceil((len(pins) + 1) / 2)), {p: (0, 20 * (i + 1)) for i, p in enumerate(pins)}
+
+
+def geometry(part):
+    """(box, {pin id: at}) of a document part: its definition's, or the placeholder body."""
+    if part.get("placeholder"):
+        return placeholder_geometry(part["placeholder"]["pins"])
+    c = get(part["kind"])
+    return c.box, c.pos
+
+
+def pin_offset(part, pin):
+    """Pin position relative to the part anchor (x, y) after the part's rotation."""
+    (x0, y0, w, h), pos = geometry(part)
+    return rotate(pos[pin], (x0 + w / 2, y0 + h / 2), part.get("rot", 0))
+
+
 def terminal_offset(kind, terminal, rot=0):
-    """Pin position relative to the part anchor (x, y) after rotation."""
-    c = get(kind)
-    x0, y0, w, h = c.box
-    return rotate(c.pos[terminal], (x0 + w / 2, y0 + h / 2), rot)
+    """pin_offset for a catalog kind (no placeholder)."""
+    return pin_offset({"kind": kind, "rot": rot}, terminal)

@@ -15,9 +15,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 from .model import Document, ModelError, RUN_PARAMS, led_level, value_at
-from .catalog import CATALOG, summary, terminal_offset
+from .catalog import CATALOG, geometry, pin_offset, summary
 from .components import format_si
-from .symbols import add_symbol, part_transform
+from .symbols import add_placeholder, add_symbol, part_transform
 from .sim import run_document, RunResult
 from .history import History
 
@@ -30,34 +30,34 @@ HINT = "1 Place: pick a part, click the canvas.   2 Connect: click a pin, then a
        "R rotates, drag moves, Delete removes, Ctrl+Z undoes. Click a wire to plot its node."
 INK, SEL, HOVER, WIRE = QColor("#222"), QColor("#e07000"), QColor("#2a7fff"), QColor("#1a5fb4")
 OK_PIN, OPEN_PIN, BAD = QColor("#2fa82f"), QColor("#d02020"), QColor("#b00020")
-STATE_COLORS = {"idle": "#666", "running": "#1a5fb4", "completed": "#1b6e1b", "failed": "#b00020"}
+STATE_COLORS = {"idle": "#666", "running": "#1a5fb4", "completed": "#1b6e1b", "failed": "#b00020", "blocked": "#a05000"}
 GROUPS = (("node", "Node voltages"), ("across", "Voltage across parts"), ("current", "Currents"))
 QUANTITY = {"V": "Voltage", "A": "Current"}
 
 
 # ---------------------------------------------------------------- geometry (catalog driven)
-def _box(kind):
-    x0, y0, w, h = CATALOG.get(kind).box
+def _box(part):
+    x0, y0, w, h = geometry(part)[0]
     return x0, y0, w, h, x0 + w / 2, y0 + h / 2
 
 
 def pin_pos(doc, ref):
     name, _, pin = ref.partition(".")
     d = doc.parts[name]
-    ox, oy = terminal_offset(d["kind"], pin, d.get("rot", 0))
+    ox, oy = pin_offset(d, pin)
     return QPointF(d["x"] + ox, d["y"] + oy)
 
 
 def part_rect(d):
-    x0, y0, w, h, *_ = _box(d["kind"])
+    x0, y0, w, h, *_ = _box(d)
     return part_transform(d).mapRect(QRectF(x0, y0, w, h))
 
 
 def exits_horizontally(doc, ref):
     name, _, pin = ref.partition(".")
     d = doc.parts[name]
-    *_, cx, cy = _box(d["kind"])
-    px, py = CATALOG.get(d["kind"]).pos[pin]
+    *_, cx, cy = _box(d)
+    px, py = geometry(d)[1][pin]
     return (abs(px - cx) >= abs(py - cy)) == (d.get("rot", 0) % 180 == 0)
 
 
@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
         self.doc, self.result, self.sel, self.sel_wire = Document(), None, None, None
         self.ran_key = None     # circuit signature of the last run; a mismatch means the result is stale
         self.tool, self.pending_pin = None, None
-        self.state = "idle"     # idle | running | completed | failed (no pause: the core runs synchronously)
+        self.state = "idle"     # idle | running | completed | failed | blocked (no pause: the core runs synchronously)
         self.want = None        # observable the user picked; kept across reruns
         self.hist = History()
         self.clean = self.doc.to_dict()
@@ -411,7 +411,13 @@ class MainWindow(QMainWindow):
             doc = Document.load(p)
         except ModelError as e:
             return self.error("Open failed", str(e))
-        self._reset(doc); self.set_status(f"Opened {p}")
+        self._reset(doc)
+        ph = doc.placeholders()
+        if ph:
+            self.set_status(f"Opened {p}. {len(ph)} part{'s have' if len(ph) > 1 else ' has'} no usable definition: "
+                            + ", ".join(f"{n} ({doc.parts[n]['kind']} v{doc.parts[n]['version']})" for n in ph), True)
+        else:
+            self.set_status(f"Opened {p}")
 
     def save(self):
         return self._write(self.path) if self.path else self.save_as()
@@ -499,11 +505,12 @@ class MainWindow(QMainWindow):
         except Exception as e:
             r = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}", details=traceback.format_exc())
         self.result, self.ran_key = r, self._key()
-        self.set_status(("SUCCESS: " if r.ok else "FAILED: ") + r.message, not r.ok)
+        self.set_status(("SUCCESS: " if r.ok else "BLOCKED: " if r.status == "blocked" else "FAILED: ") + r.message,
+                        not r.ok)
         self._show_result()
         self.draw()
-        if self.autoplay and r.ok and any(p["params"].get(k) == v for p in self.doc.parts.values()
-                                          for k, v in CATALOG.get(p["kind"]).animate_when):
+        if self.autoplay and r.ok and any(self.doc.parts[n]["params"].get(k) == v for n in self.doc.parts
+                                          if self.doc.definition(n) for k, v in self.doc.definition(n).animate_when):
             self.play()
 
     def reset(self):
@@ -519,7 +526,8 @@ class MainWindow(QMainWindow):
         self.set_state("idle" if r is None else r.state)
         self.findings.setText("\n".join(f"Finding [{f['severity']}] {f['code']}: {f['message']}"
                                         for f in (r.findings if r else [])))
-        self.err.setText(f"Simulation failed: {r.message}" if r and not r.ok else "")
+        self.err.setText("" if not r or r.ok else
+                         f"{'Run blocked' if r.status == 'blocked' else 'Simulation failed'}: {r.message}")
         self.err.setVisible(bool(r and not r.ok))
         self.details.setPlainText(r.details if r else "")
         self.details_btn.setEnabled(r is not None)
@@ -564,7 +572,8 @@ class MainWindow(QMainWindow):
             self.stats.setText("   ".join(f"{k} {format_si(s[k], u, 6)}" for k in ("final", "min", "max")))
         else:
             self.stats.setText("")
-            msg, col = (("Simulation failed - see the message below", "#b00020") if r and not r.ok else
+            msg, col = ((f"{'Run blocked' if r.status == 'blocked' else 'Simulation failed'} - see the message below",
+                         "#b00020") if r and not r.ok else
                         ("Press Run (F5) to simulate", "#888") if r is None else ("", "#888"))
             self.ax.text(0.5, 0.5, msg, ha="center", va="center", color=col, transform=self.ax.transAxes)
             self.ax.set_xticks([]); self.ax.set_yticks([])
@@ -678,15 +687,15 @@ class MainWindow(QMainWindow):
             sc.addEllipse(q.x() - 10, q.y() - 10, 20, 20, QPen(QColor("#e0a000"), 3))
         font = QFont(); font.setPointSize(9)
         for n, d in doc.parts.items():
-            c, sel = CATALOG.get(d["kind"]), n == self.sel
+            c, sel = doc.definition(n), n == self.sel
             col, r = (SEL if sel else INK), part_rect(d)
             if sel:
                 sc.addRect(r.adjusted(-6, -6, 6, 6), QPen(SEL, 1.5, Qt.DashLine), QBrush(QColor(255, 230, 190, 140)))
-            cur = self.part_current(n) if c.show_current else None
-            if c.indicator == "glow" and cur is not None:
+            cur = self.part_current(n) if c and c.show_current else None
+            if c and c.indicator == "glow" and cur is not None:
                 self._glow(d, n)
-            add_symbol(sc, d, c, col)
-            lines = [f"{n} {summary(d['kind'], d['params'])}".strip()]
+            add_symbol(sc, d, c, col) if c else add_placeholder(sc, d, col)
+            lines = [f"{n} {summary(d['kind'], d['params']) if c else ''}".strip()]
             if cur is not None: lines.append(format_si(cur, "A", 3))
             for i, text in enumerate(lines):
                 t = sc.addSimpleText(text, font); t.setBrush(QBrush(col if i == 0 else BAD))
@@ -711,7 +720,7 @@ class MainWindow(QMainWindow):
 
     def _glow(self, d, n):
         sc, g = self.canvas.sc, self.led_glow(n)
-        x0, y0, w, h, cx, cy = _box(d["kind"])
+        x0, y0, w, h, cx, cy = _box(d)
         t = part_transform(d); ctr = t.map(QPointF(cx, cy))
         if g > 0:
             gr = QRadialGradient(ctr, 55); a = int(255 * min(1, 0.4 + g))
@@ -759,7 +768,12 @@ class MainWindow(QMainWindow):
         """Inspector rows from catalog Param metadata: label, unit, choice -> combo box, number -> SI text field."""
         n = self.sel
         d = self.doc.parts[n]
-        c, p = CATALOG.get(d["kind"]), d["params"]
+        c, p = self.doc.definition(n), d["params"]
+        if c is None:
+            self.form.addRow(QLabel(f"<b>{n}</b> ({d['kind']} v{d['version']})"))
+            self.form.addRow(QLabel(f"No usable definition: {d['placeholder']['detail']}.\n"
+                                    "Kept unchanged; parameters are read-only."))
+            return
         self.form.addRow(QLabel(f"<b>{n}</b> ({c.name})"))
         keys = c.fields(p)
         if not keys:

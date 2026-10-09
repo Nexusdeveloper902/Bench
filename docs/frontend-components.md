@@ -111,54 +111,41 @@ signals      [{"name": "V(C1)", "vector": "v(C1)", "quantity": "voltage", "unit"
 | code | severity | when |
 |---|---|---|
 | BAD-CONFIG | error | stop time / time step invalid, tstep > tstop, too many points (> 100 000, or > 2e6 samples) |
-| EMPTY | error | no non-ground part |
+| EMPTY | error | no modeled non-ground part ("Nothing to simulate" when only unsimulated parts exist) |
 | NO-GROUND | error | no device terminal on net `0` (no Ground, or Ground not wired) |
 | UNCONNECTED-PART | error | a device with no wired terminal |
 | UNCONNECTED-PIN | warning | a single unwired terminal (the core still solves it and reports DANGLING) |
 | BAD-PARAM | error | an applicable parameter fails `Param.parse` |
+| DUP-NAME-CASE | error | two part names equal ignoring case (`r2`, `R2`): SPICE names are case-insensitive |
+| NOT-SIMULATED | error / warning | part without `sim:electrical`: error if any pin is wired (Run refused), warning if unwired (excluded) |
+| MISSING-DEFINITION | error / warning | placeholder, type not in the catalog (same wired/unwired split) |
+| INCOMPATIBLE-DEFINITION | error / warning | placeholder, newer version or unknown param/pin (same split) |
 
 Electrical checks (floating islands, voltage-source loops, capacitor-only nodes) stay in the core (`[NO-DC-PATH]`, ...).
-`run_document` stops on the first app error and does not call the core.
+`run_document` stops on the first app error and does not call the core: status `blocked`. Only errors raised by the
+core (`simcore.SimError` subclasses) become status `failed`; an exception from app code propagates.
 
-`RunResult`: `ok`, `status` (`success`/`failed`), `state` (`completed`/`failed`), `message` (one line, `[CODE] text`
-for app diagnostics), `series` (keyed by vector name), `signals`, `diagnostics`, `findings` (core),
+`RunResult`: `ok`, `status` (`success`/`failed`/`blocked`), `state` (`completed`/`failed`/`blocked`), `message` (one
+line, `[CODE] text` for app diagnostics), `excluded` (unsimulated parts left out of an otherwise successful run; the
+success message ends `; not simulated: U1, U2`), `series` (keyed by vector name), `signals`, `diagnostics`, `findings` (core),
 `details` (developer text: error type, full message, diagnostics, findings, netlist sent), `get(name)` and
 `stats(name)` (accept readable or vector names), `signal(name)`.
 
 `simcore.Simulation.state` is now `idle` -> `running` -> `completed` | `failed` (it used to stay `running` after
 a raising `run`). Runs are synchronous, so `paused` is never observed from Python.
 
-## Save format v1
+## Save format
 
-```json
-{
- "format": "sim-circuit",
- "version": 1,
- "components": {"R1": {"type": "R", "params": {"R": "1k"}}, "GND1": {"type": "GND", "params": {}}},
- "connections": [["V1.p", "R1.a"], ["R1.b", "GND1.g"]],
- "simulation": {"analysis": "transient", "tstop": "5e-3", "tstep": "10e-6"},
- "layout": {"R1": {"x": 160, "y": 60, "rotation": 90}, "GND1": {"x": 200, "y": 260, "rotation": 0}}
-}
-```
+The writer emits format v2; the reader accepts v0, v1 and v2. The full description, compatibility rules and
+placeholder behaviour are in `docs/persistence.md`. In short: v2 is v1 plus a per-component definition `version`
+(`{"type": "R", "version": 1, "params": {...}}`). A component whose definition is missing or incompatible loads as a
+placeholder and is saved back unchanged; it is never substituted. `version` > 2 is refused ("newer than this app
+supports"). Within a version, changes are additive only (new types, new params with defaults, new optional keys);
+unknown extra top-level, component or layout keys are ignored.
 
-- `components`: name -> catalog `type` + params as typed text. Terminals are not stored: they come from the catalog
-  for that `type`, and `connections` reference them as `Part.terminal`. Each connection is one wire between two terminals.
-- `simulation`: run settings as typed text. Only `transient` exists.
-- `layout`: rendering-only data (position, rotation in degrees clockwise). It can be dropped (parts load at 0,0)
-  without changing the circuit. Nothing else in the file depends on rendering.
-- Load: missing params are filled with catalog defaults; unknown kind/param/terminal, bad rotation, missing sections
-  -> `ModelError("bad simulation file: ...")`. Files without `version` but with `parts` are the pre-v1 layout
-  (`{parts:{name:{kind,x,y,params}}, wires, tstop, tstep}`) and load as rotation 0. `version` > 1 is refused
-  ("newer than this app supports").
 - Save: `Document.save(path=None)` writes to `path` or `doc.path` and then sets `doc.path` (Save As = `save(new_path)`).
   The text is serialised first, written to `<path>.tmp` and atomically renamed, so a failed save leaves the old file
   intact. OS errors become `ModelError("cannot save <path>: <reason>")`.
-
-**Stability promise.** Within version 1, changes are additive only: new component types, new parameters with
-defaults (old files keep loading, see above), new optional keys. Existing keys, kind ids, parameter keys, terminal names
-and the meaning of values do not change. Anything that breaks that bumps `version`, and the loader keeps reading
-older versions. Unknown component types, parameters and terminals are refused rather than silently
-dropped; unknown extra top-level or layout keys are ignored.
 
 ## Tests
 
