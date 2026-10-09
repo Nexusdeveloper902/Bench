@@ -1,0 +1,263 @@
+{
+ "indep": [
+  {
+   "check": "A1-scipy",
+   "ng_vs_scipy": 1.4688284320829581e-05,
+   "scipy_vs_closed": 1.2805934090920346e-08,
+   "pass": true
+  },
+  {
+   "check": "A2b-scipy",
+   "ng_vs_scipy": 0.0012540684826354287,
+   "pass": true
+  },
+  {
+   "check": "B5-newton",
+   "ng": 1.03611,
+   "newton": 1.0355178319458531,
+   "pass": true
+  }
+ ],
+ "notes": [
+  "INDEP A1: ngspice-vs-scipyBDF maxerr=1.47e-05 (run_all closed-form err was 1.47e-05)",
+  "INDEP A1: scipyBDF-vs-closedform maxerr=1.28e-08 (validates the closed form itself)",
+  "INDEP A2b-slow: ngspice-vs-scipyRadau maxerr=1.25e-03",
+  "INDEP B5: ngspice=1.036110 damped-Newton=1.035518 diff=0.592 mV",
+  "DET B2: deterministic=True sample=('rc', 0, 'peak', 0.0, 'fatals', ())",
+  "DET D4: deterministic=True sample=('rc', 0, 'fatals', (), 'warns', 0)",
+  "DET C3: deterministic=True sample=('rc', 1, 'fatals', ('timestep too small',), 'warns', 6)",
+  "DET C4: deterministic=True sample=('rc', 0, 'fatals', ('singular matrix',), 'warns', 5)",
+  "DET D5: deterministic=True sample=('rc', 0, 'fatals', ('singular matrix',), 'warns', 5)",
+  "XCHECK tanh embed==batch: False (9.866142981514303)",
+  "XCHECK D4 embed: v=[0.001] warnings=[]"
+ ],
+ "determinism": {
+  "B2": {
+   "runs": [
+    [
+     "rc",
+     0,
+     "peak",
+     0.0,
+     "fatals",
+     []
+    ],
+    [
+     "rc",
+     0,
+     "peak",
+     0.0,
+     "fatals",
+     []
+    ],
+    [
+     "rc",
+     0,
+     "peak",
+     0.0,
+     "fatals",
+     []
+    ]
+   ],
+   "deterministic": true
+  },
+  "D4": {
+   "runs": [
+    [
+     "rc",
+     0,
+     "fatals",
+     [],
+     "warns",
+     0
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [],
+     "warns",
+     0
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [],
+     "warns",
+     0
+    ]
+   ],
+   "deterministic": true
+  },
+  "C3": {
+   "runs": [
+    [
+     "rc",
+     1,
+     "fatals",
+     [
+      "timestep too small"
+     ],
+     "warns",
+     6
+    ],
+    [
+     "rc",
+     1,
+     "fatals",
+     [
+      "timestep too small"
+     ],
+     "warns",
+     6
+    ],
+    [
+     "rc",
+     1,
+     "fatals",
+     [
+      "timestep too small"
+     ],
+     "warns",
+     6
+    ]
+   ],
+   "deterministic": true
+  },
+  "C4": {
+   "runs": [
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ]
+   ],
+   "deterministic": true
+  },
+  "D5": {
+   "runs": [
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ],
+    [
+     "rc",
+     0,
+     "fatals",
+     [
+      "singular matrix"
+     ],
+     "warns",
+     5
+    ]
+   ],
+   "deterministic": true
+  }
+ },
+ "xcheck": {
+  "tanh": {
+   "embed": 9.866142981514303,
+   "batch": 9.866143,
+   "match": false
+  },
+  "D4": {
+   "embed": [
+    0.001
+   ],
+   "embed_warnings": []
+  }
+ },
+ "classifier_confusion": {
+  "reliable->reliable": [
+   "A1",
+   "A2b",
+   "A4",
+   "A5",
+   "A6",
+   "B1",
+   "B3",
+   "B5",
+   "B6",
+   "C1",
+   "C2",
+   "C3b",
+   "D2",
+   "D6a",
+   "D6b",
+   "D7",
+   "D8L",
+   "D8C",
+   "E2",
+   "E3",
+   "F1",
+   "F2",
+   "F3"
+  ],
+  "reliable->questionable": [
+   "A2",
+   "A3",
+   "B2b",
+   "E1-1e-2",
+   "E1-1e-3",
+   "E1-1e-6"
+  ],
+  "silent-failure->silent-failure": [
+   "B2",
+   "D4"
+  ],
+  "questionable->reliable": [
+   "B4"
+  ],
+  "failed->failed": [
+   "C3",
+   "C4",
+   "C5",
+   "D1",
+   "D3",
+   "D5",
+   "D5b"
+  ]
+ }
+}

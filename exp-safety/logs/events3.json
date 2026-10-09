@@ -1,0 +1,122 @@
+[
+ {
+  "id": "hump k=0 w/1",
+  "peak": 0.626666185,
+  "caught": false,
+  "npts": 1011,
+  "wall_ms": 32.32171199942968,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=0 w/10",
+  "peak": 4.9384417,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 260.50495999970735,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=1 w/1",
+  "peak": 3.06453528,
+  "caught": false,
+  "npts": 1011,
+  "wall_ms": 33.50783399946522,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=1 w/10",
+  "peak": 4.99013364,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 261.708543000168,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=2 w/1",
+  "peak": 4.64888243,
+  "caught": true,
+  "npts": 1011,
+  "wall_ms": 32.71212700019532,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=2 w/10",
+  "peak": 4.9975328,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 261.6083200000503,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=3 w/1",
+  "peak": 4.9384417,
+  "caught": true,
+  "npts": 1011,
+  "wall_ms": 32.77742899990699,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=3 w/10",
+  "peak": 4.96057351,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 261.2591120005163,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=4 w/1",
+  "peak": 3.85256621,
+  "caught": false,
+  "npts": 1011,
+  "wall_ms": 31.86990500034881,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=4 w/10",
+  "peak": 4.97780982,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 261.6712480003116,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=5 w/1",
+  "peak": 1.6936896,
+  "caught": false,
+  "npts": 1011,
+  "wall_ms": 32.58382799958781,
+  "dt_max": 1.0000000000001327e-06,
+  "tmax": 1e-06,
+  "width": 1e-06
+ },
+ {
+  "id": "hump k=5 w/10",
+  "peak": 5.0,
+  "caught": true,
+  "npts": 10007,
+  "wall_ms": 264.29841499975737,
+  "dt_max": 1.0000000000005664e-07,
+  "tmax": 1e-07,
+  "width": 1e-06
+ }
+]

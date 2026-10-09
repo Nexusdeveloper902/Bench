@@ -1,0 +1,35 @@
+{
+ "T1_seq": {
+  "vals": [
+   0.5,
+   1.5,
+   0.5,
+   1.5,
+   0.5,
+   1.5
+  ],
+  "wall_ms": 5.463632999635593,
+  "ok": true
+ },
+ "T3_renamed_concurrent": {
+  "res": {
+   "A": {
+    "last": 0.5,
+    "npts": 2008,
+    "expect": 0.5
+   },
+   "B": {
+    "last": 1.5,
+    "npts": 2008,
+    "expect": 1.5
+   }
+  },
+  "wall_ms": 9.639838000111922,
+  "alive": true
+ },
+ "T2_same_concurrent": {
+  "rc": -11,
+  "stdout": "",
+  "stderr": "timeout: the monitored command dumped core\n"
+ }
+}

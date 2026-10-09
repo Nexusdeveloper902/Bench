@@ -1,0 +1,32 @@
+[
+ {
+  "mode": "none",
+  "wall_ms": 1.0155390000363695,
+  "npts": 96,
+  "vsrc": 352,
+  "sync": 191,
+  "clamps": 0,
+  "edge_err_ns": 6240.000000000008,
+  "max_step_us": 8.000000000000005
+ },
+ {
+  "mode": "clamp",
+  "wall_ms": 2.7598870001384057,
+  "npts": 440,
+  "vsrc": 1031,
+  "sync": 879,
+  "clamps": 399,
+  "edge_err_ns": 279.99999999981435,
+  "max_step_us": 1.0000000000000242
+ },
+ {
+  "mode": "breakpoint",
+  "wall_ms": 0.88121999942814,
+  "npts": 115,
+  "vsrc": 381,
+  "sync": 229,
+  "clamps": 0,
+  "edge_err_ns": 0.0,
+  "max_step_us": 8.000000000000005
+ }
+]

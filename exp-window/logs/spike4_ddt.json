@@ -1,0 +1,668 @@
+{
+ "cases": {
+  "SIN seam=25us tmax=200n": {
+   "status": "OK",
+   "err0": -1176.3768431499934,
+   "dropout_vs_local": 0.9933335356687599,
+   "dropout_vs_peak": 0.018722619301787497,
+   "ref_o_seam": 1184.2717485199973,
+   "peak": 62831.8519,
+   "errs_first8": [
+    -1176.3768431499934,
+    -1168.4819377800027,
+    -1164.5356522399948,
+    -1144.799555559992,
+    -1105.3273587,
+    -1026.3829390799892,
+    -868.4938898399946,
+    -773.7687734799845
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 0,
+   "recovery_s": 2e-09,
+   "npts": 1386
+  },
+  "SIN seam=50us tmax=200n": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261
+  },
+  "SIN seam=150us tmax=200n": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 761
+  },
+  "STEP seam=50us tmax=200n": {
+   "status": "OK",
+   "err0": 0.0,
+   "dropout_vs_local": 0.0,
+   "dropout_vs_peak": 0.0,
+   "ref_o_seam": 0.0,
+   "peak": 20000000.0,
+   "errs_first8": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 0,
+   "recovery_s": 2e-09,
+   "npts": 1270
+  },
+  "STEP seam=100us tmax=200n": {
+   "status": "DRIVE-REFUSE",
+   "reason": "G2: PWL varies across segment start (would re-fire/lose history)"
+  },
+  "STEP seam=200us tmax=200n": {
+   "status": "OK",
+   "err0": 0.0,
+   "dropout_vs_local": 0.0,
+   "dropout_vs_peak": 0.0,
+   "ref_o_seam": 0.0,
+   "peak": 20000000.0,
+   "errs_first8": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 0,
+   "recovery_s": 2e-09,
+   "npts": 511
+  },
+  "IMP seam=50us tmax=200n": {
+   "status": "OK",
+   "err0": 0.0,
+   "dropout_vs_local": 0.0,
+   "dropout_vs_peak": 0.0,
+   "ref_o_seam": 0.0,
+   "peak": 10000000.0,
+   "errs_first8": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 0,
+   "recovery_s": 2e-09,
+   "npts": 1273
+  },
+  "IMP seam=100us tmax=200n": {
+   "status": "DRIVE-REFUSE",
+   "reason": "G2: PWL varies across segment start (would re-fire/lose history)"
+  },
+  "IMP seam=200us tmax=200n": {
+   "status": "OK",
+   "err0": 0.0,
+   "dropout_vs_local": 0.0,
+   "dropout_vs_peak": 0.0,
+   "ref_o_seam": 0.0,
+   "peak": 10000000.0,
+   "errs_first8": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 0,
+   "recovery_s": 2e-09,
+   "npts": 511
+  },
+  "SIN seam=50u tmax=2000ns": {
+   "status": "OK",
+   "err0": 61669.78673,
+   "dropout_vs_local": 1.0001666572744308,
+   "dropout_vs_peak": 0.9815069482409489,
+   "ref_o_seam": -61659.510724,
+   "peak": 62831.7373,
+   "errs_first8": [
+    61669.78673,
+    61680.062736,
+    -1131.1225520000007,
+    -1089.6712279999992,
+    -1006.074179999996,
+    -836.1018839999961,
+    -485.0468919999985,
+    -65.76787600000534
+   ],
+   "local_dts_first8": [
+    2e-08,
+    4e-08,
+    8e-08,
+    1.6e-07,
+    3.2e-07,
+    6.4e-07,
+    1.28e-06,
+    2e-06
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-08,
+   "npts": 136
+  },
+  "SIN seam=50u tmax=500ns": {
+   "status": "OK",
+   "err0": 62758.975914999995,
+   "dropout_vs_local": 1.000010273743552,
+   "dropout_vs_peak": 0.9988402396257471,
+   "ref_o_seam": -62758.331152,
+   "peak": 62831.8458,
+   "errs_first8": [
+    62758.975914999995,
+    62759.620678,
+    -70.93559600000299,
+    -68.33484399999725,
+    -63.0899400000053,
+    -52.426432000000204,
+    -30.405015999996976,
+    -4.117187999996531
+   ],
+   "local_dts_first8": [
+    5e-09,
+    1e-08,
+    2e-08,
+    4e-08,
+    8e-08,
+    1.6e-07,
+    3.2e-07,
+    5e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 2e-08,
+   "npts": 511
+  },
+  "SIN seam=50u tmax=200ns": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261
+  },
+  "SIN seam=50u tmax=100ns": {
+   "status": "OK",
+   "err0": 62828.937385000005,
+   "dropout_vs_local": 1.0000004105912286,
+   "dropout_vs_peak": 0.9999535997289579,
+   "ref_o_seam": -62828.911588,
+   "peak": 62831.8528,
+   "errs_first8": [
+    62828.937385000005,
+    62828.963182,
+    -2.838023999996949,
+    -2.733935999996902,
+    -2.5240600000033737,
+    -2.097507999998925,
+    -1.2164040000061505,
+    -0.1646320000072592
+   ],
+   "local_dts_first8": [
+    1e-09,
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 4e-09,
+   "npts": 2511
+  },
+  "STEP seam=100u tmax=500ns": {
+   "status": "DRIVE-REFUSE",
+   "reason": "G2: PWL varies across segment start (would re-fire/lose history)"
+  },
+  "STEP seam=100u tmax=100ns": {
+   "status": "DRIVE-REFUSE",
+   "reason": "G2: PWL varies across segment start (would re-fire/lose history)"
+  },
+  "solver TRAP-default": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261,
+   "ref_rc": 0
+  },
+  "solver GEAR": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261,
+   "ref_rc": 0
+  },
+  "solver GEAR-maxord1": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261,
+   "ref_rc": 0
+  },
+  "solver TRAP-maxord1": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261,
+   "ref_rc": 0
+  },
+  "solver tight-tol": {
+   "status": "OK",
+   "err0": 62820.19052,
+   "dropout_vs_local": 1.0000016425319411,
+   "dropout_vs_peak": 0.9998144033695113,
+   "ref_o_seam": -62820.087336,
+   "peak": 62831.8519,
+   "errs_first8": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ],
+   "local_dts_first8": [
+    2e-09,
+    4e-09,
+    8e-09,
+    1.6e-08,
+    3.2e-08,
+    6.4e-08,
+    1.28e-07,
+    2e-07
+   ],
+   "recovery_steps": 2,
+   "recovery_s": 8e-09,
+   "npts": 1261,
+   "ref_rc": 0
+  },
+  "refill K=0": {
+   "status": "OK",
+   "err_at_seam": 62820.19052,
+   "err_at_seam_vs_peak": 0.9998144033695113,
+   "post_errs": [
+    62820.19052,
+    62820.293703999996,
+    -11.351828000006208,
+    -10.935592000001634,
+    -10.096320000004198,
+    -8.389776000003621,
+    -4.865588000000571,
+    -0.6588239999982761
+   ]
+  },
+  "refill K=5": {
+   "status": "OK",
+   "err_at_seam": 0.0,
+   "err_at_seam_vs_peak": 0.0,
+   "post_errs": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "refill K=20": {
+   "status": "OK",
+   "err_at_seam": 0.0,
+   "err_at_seam_vs_peak": 0.0,
+   "post_errs": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "refill K=100": {
+   "status": "OK",
+   "err_at_seam": 0.0,
+   "err_at_seam_vs_peak": 0.0,
+   "post_errs": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ },
+ "probes": {
+  "idt": {
+   "rc": 1,
+   "no_such_fn": true
+  },
+  "show_b1": {
+   "rc": 0,
+   "b1_lines": [
+    "b1#branch                                    0",
+    "     device                    b1"
+   ],
+   "exposes_history": false
+  },
+  "osdi_card": {
+   "rc": 1,
+   "out_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: osdi-probe\n\nError on line 4 or its substitute:\n  .osdi /nonexistent_xyz_123.osdi\n unimplemented dot command '.osdi'\n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n",
+   "parser_knows_osdi": true
+  }
+ },
+ "ref_ok": {
+  "sin": 0,
+  "step": 0,
+  "imp": 0,
+  "npts_sin": 1511
+ },
+ "followups": {
+  "edge_seam": {
+   "rc": 0,
+   "err0": 0.0,
+   "err0_vs_peak": 0.0,
+   "ref_o_seam": 0.0,
+   "peak": 20000000.0,
+   "errs8": [
+    0.0,
+    0.0,
+    20000000.0,
+    20000000.0,
+    13999999.999983737,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "coupled": {
+   "rc": [
+    0,
+    0
+   ],
+   "final_offset_V": 0.32466999999996915,
+   "final_ref_V": 1300.15114,
+   "post_seam_errs": [
+    1.257390714111807,
+    2.514034274034657,
+    3.767922074031958,
+    3.762687674033714,
+    3.753368874034095,
+    3.7394012740314793
+   ]
+  },
+  "nested": {
+   "rc": [
+    0,
+    0
+   ],
+   "err0": 148296676.24999967,
+   "err0_vs_peak": 9.440859788758076e-06,
+   "peak": 15707963000000.0,
+   "ref_q_seam": -148792514.19999906,
+   "errs8": [
+    148296676.24999967,
+    147800838.29999858,
+    146809162.3999998,
+    -15707818174189.4,
+    141293180.98899865,
+    133793882.42499994,
+    118795235.53999913,
+    102680779.13200067
+   ],
+   "recovery_steps": 0
+  }
+ },
+ "verdicts": {
+  "part4": "REFUSED",
+  "part5": "REFUSED",
+  "missing_invariant_p4": "B-ddt differentiator history: solver state-vector past values + step/order memory over last >=2 accepted steps (more when nested); settable via no .ic/.save control (show b1 exposes only branch current; idt() does not exist: no-such-function). Terminal-node handoff provably insufficient.",
+  "missing_invariant_p5": "OSDI compiled-model hidden analog state vector (Verilog-A real integration states, ddt/idt memory, event/hysteresis registers); no ngspice API to enumerate/restore; this ngspice-47 build lacks .osdi entirely."
+ }
+}

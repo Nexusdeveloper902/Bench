@@ -1,0 +1,286 @@
+[
+ {
+  "label": "or-double-pipe",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>3)||(V(in)<1)?5:0",
+   ".op"
+  ],
+  "ok": true,
+  "val": "5.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-or-double-pipe\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf    "
+ },
+ {
+  "label": "not-combo",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=!(V(in)>1)?5:0",
+   ".op"
+  ],
+  "ok": true,
+  "val": "5.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-not-combo\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf         "
+ },
+ {
+  "label": "sdt-func",
+  "lines": [
+   "V1 in 0 DC 1",
+   "R1 in 0 1k",
+   "B1 out 0 V=sdt(V(in))",
+   "R2 out 0 1k",
+   ".tran 1u 1m"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-sdt-func\n\nError: no such function 'sdt' at line 4\nfrom file\n  /tmp/tmpuo8ovey7.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "limit-order",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=limit(V(in),0,1)",
+   ".op"
+  ],
+  "ok": true,
+  "val": "0.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-limit-order\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf       "
+ },
+ {
+  "label": "scale-meg",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(in)*1meg",
+   "R2 out 0 1G",
+   ".op"
+  ],
+  "ok": true,
+  "val": "2.000000e+06",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-scale-meg\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.000000e+06\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.000000e+06\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        -2.00000e-03\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf         "
+ },
+ {
+  "label": "scale-u",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(in)*1u*1meg",
+   ".op"
+  ],
+  "ok": true,
+  "val": "2.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-scale-u\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.000000e+00\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf           "
+ },
+ {
+  "label": "subckt-params",
+  "lines": [
+   "V1 in 0 DC 0.5",
+   "X1 in out amp GAIN=10 OFF=0.7",
+   ".subckt amp a b GAIN=1 OFF=0",
+   "B1 b 0 V={GAIN}*V(a)+{OFF}",
+   ".ends amp",
+   ".op"
+  ],
+  "ok": true,
+  "val": "5.700000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-subckt-params\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.700000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.700000e+00\n\tin                               5.000000e-01\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb.x1.b1#branch                   0.000000e+00\n\nNo matching models\n ASRC: Arbitrary Source \n     device               b.x1.b1\n      dtemp                     0\n          i                     0\n          v                   5.7\n   pos_node                     2\n   neg_node                     0\n\n Vsource: Independent voltage source\n     device                    v1\n         dc                   0.5\n      acmag                     0\n      pulse                     -\n        sin                     -\n        exp                     -\n        pwl                     -\n       sffm"
+ },
+ {
+  "label": "b-missing-node",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(nonexistent)*2",
+   ".op"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b",
+   "\\bsingular\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-b-missing-node\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nnonexistent                                       0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nn"
+ },
+ {
+  "label": "b-wrong-node-typo",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(inn)*2",
+   ".op"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b",
+   "\\bsingular\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-b-wrong-node-typo\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\ninn                                               0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    "
+ },
+ {
+  "label": "b-unbalanced",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)*2",
+   ".op"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b",
+   "syntax error",
+   "parse error"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-b-unbalanced\n\n\nYYparse error, syntax error, in expression: parsing stopped at line 4\n     in \n\nfrom file    /tmp/tmpr9a58whz.cir\n\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "b-empty-expr",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=",
+   ".op"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b",
+   "syntax error",
+   "parse error"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-b-empty-expr\n\n\nYYparse error, syntax error, in expression: parsing stopped at line 4\n     in \n\nfrom file    /tmp/tmp5ea8ajr9.cir\n\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "div-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=1/V(in)",
+   "R2 out 0 1k",
+   ".op"
+  ],
+  "ok": true,
+  "val": "1.000000e+32",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-div-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 1.000000e+32\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              1.000000e+32\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        -1.00000e+29\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf          "
+ },
+ {
+  "label": "sqrt-neg",
+  "lines": [
+   "V1 in 0 DC -4",
+   "R1 in 0 1k",
+   "B1 out 0 V=sqrt(V(in))",
+   ".op"
+  ],
+  "ok": false,
+  "val": null,
+  "errs": [
+   "\\berror\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "rc": 1,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-sqrt-neg\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                               -4                    0 *\nout                                          -4e+32                    0 *\nb1#branch                                         0                    0\nv1#branch                                     0.004                    0 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                               -4                    0 *\nout                                          -4e+32                    0 *\nb1#branch                                         0                    0"
+ },
+ {
+  "label": "ln-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=ln(V(in))",
+   ".op"
+  ],
+  "ok": true,
+  "val": "-1.00000e+99",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-ln-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = -1.00000e+99\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              -1.00000e+99\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf           "
+ },
+ {
+  "label": "exp-huge",
+  "lines": [
+   "V1 in 0 DC 100",
+   "R1 in 0 1k",
+   "B1 out 0 V=exp(V(in))",
+   ".op"
+  ],
+  "ok": true,
+  "val": "2.688117e+43",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-exp-huge\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.688117e+43\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.688117e+43\n\tin                               1.000000e+02\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -1.00000e-01\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf          "
+ },
+ {
+  "label": "alg-loop",
+  "lines": [
+   "B1 out 0 V=V(out)*2",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "ok": true,
+  "val": "0.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-alg-loop\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device          "
+ },
+ {
+  "label": "u-at-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=u(V(in))",
+   ".op"
+  ],
+  "ok": true,
+  "val": "5.000000e-01",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-u-at-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e-01\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e-01\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf         "
+ },
+ {
+  "label": "v-sense-cur-direct",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "B1 bout 0 I=I(V1)/10",
+   "R2 bout 0 1k",
+   ".op"
+  ],
+  "ok": true,
+  "val": "5.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: probe3-v-sense-cur-direct\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tbout                             0.000000e+00\n\tout                              5.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf"
+ }
+]

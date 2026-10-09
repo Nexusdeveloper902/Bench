@@ -1,0 +1,338 @@
+{
+ "L1-R": {
+  "label": "R-behav",
+  "avg_wall_ms": 5.844462999903044,
+  "val": 4.999995,
+  "raw": "4.999995e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "B1 out 0 I=V(out)/1k",
+   "R1 in out 0.001",
+   ".op",
+   ".control",
+   "run",
+   "print v(out) i(v1)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L1-R-series": {
+  "label": "R-series",
+  "avg_wall_ms": 5.503075999968132,
+  "val": 1.666667,
+  "raw": "1.666667e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in mid 1k",
+   "B1 mid out I=V(mid,out)/1k",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L1-Vconst": {
+  "label": "Vconst",
+  "avg_wall_ms": 5.874187999961578,
+  "val": 5.0,
+  "raw": "5.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "B1 out 0 V=5",
+   "R1 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L1- gain": {
+  "label": "gain10",
+  "avg_wall_ms": 5.69620259993826,
+  "val": 5.0,
+  "raw": "5.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 0.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=10*V(in)",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L1-affine": {
+  "label": "affine",
+  "avg_wall_ms": 5.733316399891919,
+  "val": 1.7,
+  "raw": "1.700000e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 0.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=2*V(in)+0.7",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L1-Isrc": {
+  "label": "isrc",
+  "avg_wall_ms": 5.96776240008694,
+  "val": 1.0,
+  "raw": "1.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "I1 0 out DC 1m",
+   "R1 out 0 1k",
+   "B1 bout 0 V=I(I1)*1k",
+   "R2 bout 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out) v(bout)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "analytic_diode_Vd": 1.0355178319458531,
+ "L2-Dref": {
+  "label": "D-model",
+  "avg_wall_ms": 5.619167000077141,
+  "val": 1.03611,
+  "raw": "1.036110e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "D1 out 0 DLED",
+   ".model DLED D(IS=1e-14 N=1.5)",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-Bdiode": {
+  "label": "B-diode",
+  "avg_wall_ms": 9.255566600040765,
+  "val": 1.035518,
+  "raw": "1.035518e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "B1 out 0 I=1e-14*(exp(V(out)/0.038775)-1)",
+   "C1 out 0 1p",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-Bdiode-nocap": {
+  "label": "B-diode-nocap",
+  "avg_wall_ms": 9.584004799853574,
+  "val": 1.035518,
+  "raw": "1.035518e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "B1 out 0 I=1e-14*(exp(V(out)/0.038775)-1)",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-tanh": {
+  "label": "tanh-sat",
+  "avg_wall_ms": 5.812755199895037,
+  "val": 9.866143,
+  "raw": "9.866143e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=10*tanh(V(in)/2)",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-tanh-expect": 9.866142981514303,
+ "L2-clip": {
+  "label": "clip",
+  "avg_wall_ms": 5.502517000149965,
+  "val": 1.0,
+  "raw": "1.000000e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=min(max(V(in),-1),1)",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-pwl": {
+  "label": "pwl",
+  "avg_wall_ms": 5.9031304001109675,
+  "val": 0.5,
+  "raw": "5.000000e-01",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 1.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=pwl(V(in),0,0,1,1,2,0)",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-log": {
+  "label": "log",
+  "avg_wall_ms": 5.737591200067982,
+  "val": 0.9999993,
+  "raw": "9.999993e-01",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC 2.71828",
+   "R1 in 0 1k",
+   "B1 out 0 V=ln(V(in))",
+   "R2 out 0 1k",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-log-expect": 1.0,
+ "L2-param": {
+  "label": "param-diode",
+  "avg_wall_ms": 9.433509800146567,
+  "val": 1.035518,
+  "raw": "1.035518e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   ".param IS=1e-14 NVT=0.038775",
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "B1 out 0 I={IS}*(exp(V(out)/{NVT})-1)",
+   "C1 out 0 1p",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-rev50": {
+  "label": "rev-50V",
+  "avg_wall_ms": 5.643360199974268,
+  "val": -50.0,
+  "raw": "-5.00000e+01",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC -50",
+   "R1 in out 1k",
+   "B1 out 0 I=1e-14*(exp(V(out)/0.038775)-1)",
+   "C1 out 0 1p",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ },
+ "L2-rev50-ref": {
+  "label": "rev-50V-ref",
+  "avg_wall_ms": 5.766589199902228,
+  "val": -5.41542,
+  "raw": "-5.41542e+00",
+  "errs": [],
+  "rc": 0,
+  "net": [
+   "t",
+   "V1 in 0 DC -50",
+   "R1 in out 1k",
+   "D1 out 0 DLED",
+   ".model DLED D(IS=1e-14 N=1.5 BV=5 IBV=1u)",
+   ".op",
+   ".control",
+   "run",
+   "print v(out)",
+   ".endc",
+   ".end"
+  ]
+ }
+}

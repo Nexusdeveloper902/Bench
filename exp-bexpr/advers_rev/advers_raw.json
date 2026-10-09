@@ -1,0 +1,984 @@
+[
+ {
+  "label": "c1-limit-mid",
+  "lines": [
+   "V1 in 0 DC 0.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=limit(V(in),0,1)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.536084999879677,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-mid\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               5.000000e-01\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-04\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                0.0005\n          p    "
+ },
+ {
+  "label": "c1-limit-high",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=limit(V(in),0,1)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.039439999767637,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-high\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.005\n          p   "
+ },
+ {
+  "label": "c1-limit-low",
+  "lines": [
+   "V1 in 0 DC -5",
+   "R1 in 0 1k",
+   "B1 out 0 V=limit(V(in),0,1)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.05173099984313,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-low\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               -5.00000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        5.000000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                -0.005\n          p    "
+ },
+ {
+  "label": "c1-limit-const",
+  "lines": [
+   "B1 out 0 V=limit(5,0,1)",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.88900000002468,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-const\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        -5.00000e-03\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                -0.005\n          v                     5\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.005\n          p                 0.025\n\n\nTotal analysis time (seconds) = 0.000177958\n\nTotal elapsed time (second"
+ },
+ {
+  "label": "c1-limit-const-mid",
+  "lines": [
+   "B1 out 0 V=limit(0.5,0,1)",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e-01",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.0540360000231885,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-const-mid\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e-01\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e-01\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        -5.00000e-04\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i               -0.0005\n          v                   0.5\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                0.0005\n          p               0.00025\n\n\nTotal analysis time (seconds) = 0.000174535\n\nTotal elapsed time (se"
+ },
+ {
+  "label": "c1-limit-swapped",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=limit(0,V(in),1)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.07966799998394,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-limit-swapped\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.005\n          p"
+ },
+ {
+  "label": "c1-minmax-ctrl",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in 0 1k",
+   "B1 out 0 V=min(max(V(in),0),1)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "1.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.610329999854002,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c1-minmax-ctrl\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 1.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              1.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     1\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.005\n          p  "
+ },
+ {
+  "label": "c2-single-and",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>1)&(V(in)<3)?5:0",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "unknown (parameter|function|node|device)"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.618782000055944,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-single-and\n\nError on line 4 or its substitute:\n  b1 out 0 v= ( v(in) >   1.0000000000e+00 ) & ( v(in) <   3.0000000000e+00 ) ?   5.0000000000e+00 :   0.0000000000e+00\n  unknown parameter (&) \n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+ },
+ {
+  "label": "c2-single-or",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>3)|(V(in)<1)?5:0",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "unknown (parameter|function|node|device)"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 4.872729999988223,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-single-or\n\nError on line 4 or its substitute:\n  b1 out 0 v= ( v(in) >   3.0000000000e+00 ) | ( v(in) <   1.0000000000e+00 ) ?   5.0000000000e+00 :   0.0000000000e+00\n  unknown parameter (|) \n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+ },
+ {
+  "label": "c2-dbl-and",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>1)&&(V(in)<3)?5:0",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.674097000337497,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-dbl-and\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p      "
+ },
+ {
+  "label": "c2-dbl-or",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>3)||(V(in)<1)?5:0",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.049846000223624,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-dbl-or\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p       "
+ },
+ {
+  "label": "c2-not",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=!(V(in)>1)?5:0",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.805677999887848,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-not\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p          "
+ },
+ {
+  "label": "c2-bool-mult",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=(V(in)>1)*(V(in)<3)*5",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.714326000088477,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c2-bool-mult\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p    "
+ },
+ {
+  "label": "c3-idt",
+  "lines": [
+   "V1 in 0 DC 1",
+   "R1 in 0 1k",
+   "B1 out 0 V=idt(V(in))",
+   "R2 out 0 1k",
+   ".tran 1u 1m"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.297090000112803,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c3-idt\n\nError: no such function 'idt' at line 4\nfrom file\n  /tmp/tmpbx31iuqv.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c3-sdt",
+  "lines": [
+   "V1 in 0 DC 1",
+   "R1 in 0 1k",
+   "B1 out 0 V=sdt(V(in))",
+   "R2 out 0 1k",
+   ".tran 1u 1m"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.099298000004637,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c3-sdt\n\nError: no such function 'sdt' at line 4\nfrom file\n  /tmp/tmp9h42nv_k.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c3-ddt",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=ddt(0.001*TIME)",
+   "R2 out 0 1k",
+   ".tran 10u 2m UIC"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": null,
+  "last_tran": "--------------------------------------------------------------------------------",
+  "npts": 4,
+  "wall_ms": 10.524197999984608,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c3-ddt\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\nOperating point simulation skipped by 'uic',\n  now using transient initial conditions.\n\nNo. of Data Rows : 211\n                                   adv-c3-ddt\n                                   Transient Analysis  Sat Oct  3 19:58:04  2026\n--------------------------------------------------------------------------------\nIndex   time            v(out)          \n--------------------------------------------------------------------------------\n0\t1.000000e-07\t0.000000e+00\t\n1\t2.000000e-07\t0.000000e+00\t\n2\t4.000000e-07\t2.000000e-03\t\n3\t8.000000e-07\t2.000000e-03\t\n4\t1.600000e-06\t2.000000e-03\t\n5\t3.200000e-06\t2.000000e-03\t\n6\t6.400000e-06\t2.000000e-03\t\n7\t1.000000e-05\t1.125000e-03\t\n8\t1.064000e-05\t1.777778e-04\t\n9\t1.192000e-05\t2.000000e-03\t\n10\t1.448000e-05\t2.000000e-03\t\n11\t1.960000e-05\t2.000000e-03\t\n12\t2.960000e-05\t1.953125e-03\t\n13\t3.960000e-05\t1.000000e-03\t\n14\t4.960000e-05\t1.000000e-03\t\n15\t5.960000e-05\t1.000000e-03\t\n16\t6.960000e-05\t1.000000e-03\t\n17\t7.960000e-05\t1.000000e-03\t\n18\t8.960000e-05\t1.000000e-03\t\n19\t9.960000e-05\t1.000000e-03\t\n20\t1.096000e-04\t1.000000e-03\t\n21\t1.196000e-04\t1.000000e-03\t\n22\t1.296000e-04\t1.000000e-03\t\n23\t1.396000e-04\t1.000000e-03\t\n24\t1.496000e-04\t1.000000e-03\t\n25\t1.596000e-04\t1.000000e-03\t\n26\t1.696000e-04\t1.000000e-03\t\n27\t1.796000e-04\t1.000000e-03\t\n28\t1.896000e-04\t1.000000e-03\t\n29\t1.996000e-04\t1.000000e-03\t\n30\t2.096000e-04\t1.000000e-03\t\n31\t2.196000e-04\t1.000000e-03\t\n32\t2.296000e-04\t1.000000e-03\t\n33\t2.396000e-04\t1.000000e-03\t\n34\t2.496000e-04\t1.000000e-03\t\n35\t2.596000e-04\t1.000000e-03\t\n36\t2.696000e-04\t1.000000e-03\t\n37\t2.796000e-04\t1.000000e-03\t\n38\t2.896000e-04\t1.000000e-03\t\n39\t2.996000e-04\t1.000000e-03\t\n40\t3.0960"
+ },
+ {
+  "label": "c4-gauss-1arg",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=gauss(1)",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.016046000037022,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c4-gauss-1arg\n\nERROR: Incomplete function gauss in line b1 out 0 v= gauss (   1.0000000000e+00 )\nError: bogus gauss form\nError on line 4 or its substitute:\n  b1 out 0 v= gauss (   1.0000000000e+00 )\nparameter value out of range or the wrong type\n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+ },
+ {
+  "label": "c4-gauss-2arg",
+  "lines": [
+   "V1 in 0 DC 1",
+   "R1 in 0 1k",
+   "B1 out 0 V=gauss(0,1)",
+   "R2 out 0 1k",
+   ".tran 1u 1m"
+  ],
+  "rc": -11,
+  "ran": false,
+  "errs": [],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 7.59167600017463,
+  "log": ""
+ },
+ {
+  "label": "c4-white-ctrl",
+  "lines": [
+   "V1 in 0 DC 1",
+   "R1 in 0 1k",
+   "B1 out 0 V=white(1)",
+   "R2 out 0 1k",
+   ".tran 1u 1m"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.306099999870639,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c4-white-ctrl\n\nError: no such function 'white' at line 4\nfrom file\n  /tmp/tmpofmps_kr.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c5-temp-bare",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=TEMP",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bundefined\\b",
+   "cannot"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.713416999697074,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c5-temp-bare\n\nError in netlist line no. 6, new internal line no. 4:\n\nUndefined parameter [temp]\nError in netlist line no. 6, new internal line no. 4:\n\nCannot compute substitute\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c5-temper",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=temper",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "2.700000e+01",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.9348859999772685,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c5-temper\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.700000e+01\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.700000e+01\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                    27\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p       "
+ },
+ {
+  "label": "c5-temp-brace",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V={TEMP}",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bundefined\\b",
+   "cannot"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.010389000290161,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c5-temp-brace\n\nError in netlist line no. 6, new internal line no. 4:\n\nUndefined parameter [temp]\nError in netlist line no. 6, new internal line no. 4:\n\nCannot compute substitute\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c5-tnom",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=tnom",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bundefined\\b",
+   "cannot"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.3364099999271275,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c5-tnom\n\nError in netlist line no. 6, new internal line no. 4:\n\nUndefined parameter [tnom]\nError in netlist line no. 6, new internal line no. 4:\n\nCannot compute substitute\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "c6-typo",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(inn)*2",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bsingular\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 11.175053999977536,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c6-typo\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\ninn                                               0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\ninn                                               0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\n\nTotal analysis time (seconds) = 0.00575693\n\nTotal elapsed time (seconds) = 0.007 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  232.859 MB.\nMaximum ngspice program size =   20.176 MB.\nCurrent ngspice program size =   11.441 MB.\n\nShared ngspice pages =    9.641 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.887 MB.\n\nWarning: singular matri"
+ },
+ {
+  "label": "c6-missing",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(nonexistent)*2",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bsingular\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 11.07958000011422,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c6-missing\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nnonexistent                                       0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nnonexistent                                       0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    2 *\n\n\nTotal analysis time (seconds) = 0.00566097\n\nTotal elapsed time (seconds) = 0.007 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  231.844 MB.\nMaximum ngspice program size =   20.176 MB.\nCurrent ngspice program size =   11.387 MB.\n\nShared ngspice pages =    9.586 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.887 MB.\n\nWarning: singular ma"
+ },
+ {
+  "label": "c7-div0",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=1/V(in)",
+   "R2 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "1.000000e+32",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.813361000036821,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c7-div0\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 1.000000e+32\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              1.000000e+32\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        -1.00000e+29\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                -1e+29\n          v                 1e+32\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r2                    r1\n      model                     R                     R\n resistance                  1000                  1000\n         ac                  1000                  1000\n      dtemp                     0                     0\n     bv_max "
+ },
+ {
+  "label": "c7-div0-lit",
+  "lines": [
+   "B1 out 0 V=1/0",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "1.000000e+32",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.416797999714618,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c7-div0-lit\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 1.000000e+32\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              1.000000e+32\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        -1.00000e+29\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                -1e+29\n          v                 1e+32\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 1e+29\n          p                 1e+61\n\n\nTotal analysis time (seconds) = 0.000173277\n\nTotal elapsed time (seconds) "
+ },
+ {
+  "label": "c7-exp100",
+  "lines": [
+   "V1 in 0 DC 100",
+   "R1 in 0 1k",
+   "B1 out 0 V=exp(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "2.688117e+43",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.7933869998123555,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c7-exp100\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.688117e+43\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.688117e+43\n\tin                               1.000000e+02\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -1.00000e-01\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v           2.68812e+43\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                   0.1\n          p       "
+ },
+ {
+  "label": "c8-latch-op",
+  "lines": [
+   "B1 q 0 V=(V(qb)>2.5)?0:5",
+   "B2 qb 0 V=(V(q)>2.5)?0:5",
+   "R1 q 0 1k",
+   "R2 qb 0 1k",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 771.5546009999343,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c8-latch-op\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nq                                                 0                    5 *\nqb                                                0                    5 *\nb2#branch                                         0               -0.005 *\nb1#branch                                         0               -0.005 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nq                                                 0                    5 *\nqb                                                0                    5 *\nb2#branch                                         0               -0.005 *\nb1#branch                                         0               -0.005 *\n\n\nTotal analysis time (seconds) = 0.765912\n\nTotal elapsed time (seconds) = 0.767 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  227.352 MB.\nMaximum ngspice program size =   20.172 MB.\nCurrent ngspice program size =   11.309 MB.\n\nShared ngspice pages =    9.512 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.883 MB.\n\nNote: Starting dynamic gmin stepping\nWarning: Dynamic gmin stepping failed\nNote: Starting true gmin stepping\nWarning: True gmin stepping failed\nNote: Start"
+ },
+ {
+  "label": "c8-latch-cap",
+  "lines": [
+   "B1 q 0 V=(V(qb)>2.5)?0:5",
+   "B2 qb 0 V=(V(q)>2.5)?0:5",
+   "R1 q 0 1k",
+   "R2 qb 0 1k",
+   "C1 q 0 1p",
+   "C2 qb 0 1p",
+   ".tran 10u 2m UIC"
+  ],
+  "rc": 1,
+  "ran": true,
+  "errs": [
+   "\\berror\\b",
+   "timestep too small",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 17.69528500017259,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c8-latch-cap\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\nOperating point simulation skipped by 'uic',\n  now using transient initial conditions.\n\nNo. of Data Rows : 0\ndoAnalyses: TRAN:  Timestep too small; initial timepoint: trouble with node \"q\"\n\n\nrun simulation(s) aborted\nWarning from checkvalid: vector out is not available or has zero length.\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+ },
+ {
+  "label": "c8-schmitt-res",
+  "lines": [
+   "V1 in 0 PWL(0 0 1m 0 1.01m 5 2m 5 2.01m 0 3m 0)",
+   "R1 in mid 10k",
+   "R2 out mid 10k",
+   "B1 out 0 V=(V(mid)>2.5)?5:0",
+   "R3 out 0 1k",
+   ".tran 10u 3m"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": null,
+  "last_tran": "--------------------------------------------------------------------------------",
+  "npts": 6,
+  "wall_ms": 14.154929000142147,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c8-schmitt-res\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nInitial Transient Solution\n--------------------------\n\nNode                                   Voltage\n----                                   -------\nin                                           0\nmid                                          0\nout                                          0\nb1#branch                                    0\nv1#branch                                    0\n\n\nNo. of Data Rows : 320\n                               adv-c8-schmitt-res\n                               Transient Analysis  Sat Oct  3 19:58:05  2026\n--------------------------------------------------------------------------------\nIndex   time            v(out)          \n--------------------------------------------------------------------------------\n0\t0.000000e+00\t0.000000e+00\t\n1\t1.000000e-07\t0.000000e+00\t\n2\t2.000000e-07\t0.000000e+00\t\n3\t4.000000e-07\t0.000000e+00\t\n4\t8.000000e-07\t0.000000e+00\t\n5\t1.600000e-06\t0.000000e+00\t\n6\t3.200000e-06\t0.000000e+00\t\n7\t6.400000e-06\t0.000000e+00\t\n8\t1.280000e-05\t0.000000e+00\t\n9\t2.280000e-05\t0.000000e+00\t\n10\t3.280000e-05\t0.000000e+00\t\n11\t4.280000e-05\t0.000000e+00\t\n12\t5.280000e-05\t0.000000e+00\t\n13\t6.280000e-05\t0.000000e+00\t\n14\t7.280000e-05\t0.000000e+00\t\n15\t8.280000e-05\t0.000000e+00\t\n16\t9.280000e-05\t0.000000e+00\t\n17\t1.028000e-04\t0.000000e+00\t\n18\t1.128000e-04\t0.000000e+00\t\n19\t1.228000e-04\t0.000000e+00\t\n20\t1.328000e-04\t0.000000e+00\t\n21\t1.428000e-04\t0.000000e+00\t\n22\t1.528000e-04\t0.000000e+00\t\n23\t1.628000e-04\t0.000000e+00\t\n24\t1.728000e-04\t0.000000e+00\t\n25\t1.828000e-04\t0.000000e+00\t\n26\t1.928000e-04\t0.000000e+00\t\n27\t2.028000e-04\t0.000000e+00\t\n28\t2.128000e-04\t0.000000e+00\t\n29\t2.228000e-04\t0.000000e+00\t\n30"
+ },
+ {
+  "label": "c8-schmitt-selfread",
+  "lines": [
+   "V1 in 0 PWL(0 0 1m 0 1.01m 5 2m 5 2.01m 0 3m 0)",
+   "R1 in mid 1k",
+   "B2 out 0 V=(V(mid)>2.75)?5:((V(mid)<2.25)?0:V(out))",
+   "R2 out 0 1k",
+   ".tran 10u 3m"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": null,
+  "last_tran": "--------------------------------------------------------------------------------",
+  "npts": 6,
+  "wall_ms": 15.018385000075796,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-c8-schmitt-selfread\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nInitial Transient Solution\n--------------------------\n\nNode                                   Voltage\n----                                   -------\nin                                           0\nmid                                          0\nout                                          0\nb2#branch                                    0\nv1#branch                                    0\n\n\nNo. of Data Rows : 320\n                            adv-c8-schmitt-selfread\n                            Transient Analysis  Sat Oct  3 19:58:05  2026\n--------------------------------------------------------------------------------\nIndex   time            v(out)          \n--------------------------------------------------------------------------------\n0\t0.000000e+00\t0.000000e+00\t\n1\t1.000000e-07\t0.000000e+00\t\n2\t2.000000e-07\t0.000000e+00\t\n3\t4.000000e-07\t0.000000e+00\t\n4\t8.000000e-07\t0.000000e+00\t\n5\t1.600000e-06\t0.000000e+00\t\n6\t3.200000e-06\t0.000000e+00\t\n7\t6.400000e-06\t0.000000e+00\t\n8\t1.280000e-05\t0.000000e+00\t\n9\t2.280000e-05\t0.000000e+00\t\n10\t3.280000e-05\t0.000000e+00\t\n11\t4.280000e-05\t0.000000e+00\t\n12\t5.280000e-05\t0.000000e+00\t\n13\t6.280000e-05\t0.000000e+00\t\n14\t7.280000e-05\t0.000000e+00\t\n15\t8.280000e-05\t0.000000e+00\t\n16\t9.280000e-05\t0.000000e+00\t\n17\t1.028000e-04\t0.000000e+00\t\n18\t1.128000e-04\t0.000000e+00\t\n19\t1.228000e-04\t0.000000e+00\t\n20\t1.328000e-04\t0.000000e+00\t\n21\t1.428000e-04\t0.000000e+00\t\n22\t1.528000e-04\t0.000000e+00\t\n23\t1.628000e-04\t0.000000e+00\t\n24\t1.728000e-04\t0.000000e+00\t\n25\t1.828000e-04\t0.000000e+00\t\n26\t1.928000e-04\t0.000000e+00\t\n27\t2.028000e-04\t0.000000e+00\t\n28\t2.128000e-04\t0.000000e+00\t\n29\t2.228000e-04\t0.000000e+00"
+ },
+ {
+  "label": "n1-pwr-neg-even",
+  "lines": [
+   "V1 in 0 DC -2",
+   "R1 in 0 1k",
+   "B1 out 0 V=pwr(V(in),2)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "-4.00000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.7773229996200826,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n1-pwr-neg-even\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = -4.00000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              -4.00000e+00\n\tin                               -2.00000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        2.000000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                    -4\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                -0.002\n          p "
+ },
+ {
+  "label": "n1-pwr-neg-odd",
+  "lines": [
+   "V1 in 0 DC -2",
+   "R1 in 0 1k",
+   "B1 out 0 V=pwr(V(in),3)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "-8.00000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.493485999977565,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n1-pwr-neg-odd\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = -8.00000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              -8.00000e+00\n\tin                               -2.00000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        2.000000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                    -8\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                -0.002\n          p  "
+ },
+ {
+  "label": "n1-pow-neg-frac",
+  "lines": [
+   "V1 in 0 DC -8",
+   "R1 in 0 1k",
+   "B1 out 0 V=pow(V(in),0.333333)",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 8.996895000109362,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n1-pow-neg-frac\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    0\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                                0                    0\nout                                               0                    0\nb1#branch                                         0                    0\nv1#branch                                         0                    0\n\n\nTotal analysis time (seconds) = 0.00365909\n\nTotal elapsed time (seconds) = 0.005 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  230.219 MB.\nMaximum ngspice program size =   20.176 MB.\nCurrent ngspice program size =   11.281 MB.\n\nShared ngspice pages =    9.480 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.887 MB.\n\nError: 0, -0.666667 out of range for pwr\n    in line b1\n\nNote: Starting dynamic gmin stepping\nError: 0, -0.666667 out of range for pwr\n    in line b1\n\nError: 0, -0.6"
+ },
+ {
+  "label": "n1-pwr-neg-frac",
+  "lines": [
+   "V1 in 0 DC -8",
+   "R1 in 0 1k",
+   "B1 out 0 V=pwr(V(in),0.333333)",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "-2.00000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 6.199308000304882,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n1-pwr-neg-frac\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = -2.00000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              -2.00000e+00\n\tin                               -8.00000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        8.000000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                    -2\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                -0.008\n          p "
+ },
+ {
+  "label": "n2-u-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=u(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e-01",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.414493999978731,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n2-u-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e-01\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e-01\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                   0.5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p       "
+ },
+ {
+  "label": "n2-u-neg",
+  "lines": [
+   "V1 in 0 DC -1",
+   "R1 in 0 1k",
+   "B1 out 0 V=u(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.545028000142338,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n2-u-neg\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               -1.00000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        1.000000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                -0.001\n          p        "
+ },
+ {
+  "label": "n2-uramp-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=uramp(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.751690000124654,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n2-uramp-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p   "
+ },
+ {
+  "label": "n3-ln-zero",
+  "lines": [
+   "V1 in 0 DC 0",
+   "R1 in 0 1k",
+   "B1 out 0 V=ln(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "-1.00000e+99",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.630655000004481,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n3-ln-zero\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = -1.00000e+99\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              -1.00000e+99\n\tin                               0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                -1e+99\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p      "
+ },
+ {
+  "label": "n3-sqrt-neg",
+  "lines": [
+   "V1 in 0 DC -4",
+   "R1 in 0 1k",
+   "B1 out 0 V=sqrt(V(in))",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 10.52985499973147,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n3-sqrt-neg\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                               -4                    0 *\nout                                          -4e+32                    0 *\nb1#branch                                         0                    0\nv1#branch                                     0.004                    0 *\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nin                                               -4                    0 *\nout                                          -4e+32                    0 *\nb1#branch                                         0                    0\nv1#branch                                     0.004                    0 *\n\n\nTotal analysis time (seconds) = 0.00489878\n\nTotal elapsed time (seconds) = 0.006 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  227.562 MB.\nMaximum ngspice program size =   20.172 MB.\nCurrent ngspice program size =   11.363 MB.\n\nShared ngspice pages =    9.566 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.883 MB.\n\nError: -4 out of range for sqrt\n    in line b1\n\nNote: Starting dynamic gmin stepping\nError: -3.996 out of range for sqrt\n    in line b1\n\nError: -3.97763 out "
+ },
+ {
+  "label": "n3-exp-neg1000",
+  "lines": [
+   "B1 out 0 V=exp(-1000)",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.870073000096454,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n3-exp-neg1000\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p                     0\n\n\nTotal analysis time (seconds) = 0.000172301\n\nTotal elapsed time (second"
+ },
+ {
+  "label": "n5-selfsense",
+  "lines": [
+   "B1 out 0 I=I(B1)",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [
+   "\\bsingular\\b",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 12.374031000035757,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n5-selfsense\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tout_vmeas_0                      0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv_b1#branch                      0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p                     0\n\n Vsource: Independent volta"
+ },
+ {
+  "label": "n5-sense-bbranch",
+  "lines": [
+   "V1 in 0 DC 5",
+   "R1 in out 1k",
+   "B1 bout 0 V=I(B1)*1k",
+   "R2 bout 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.7593040000938345,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n5-sense-bbranch\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tbout                             0.000000e+00\n\tbout_vmeas_0                     0.000000e+00\n\tout                              5.000000e+00\n\tin                               5.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        0.000000e+00\n\tv_b1#branch                      0.000000e+00\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     3\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r2                    r1\n      model                     R                     R\n resistance                  1"
+ },
+ {
+  "label": "n6-pwl-unsorted",
+  "lines": [
+   "V1 in 0 DC 1.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=pwl(V(in),2,99,0,0,1,1)",
+   "R2 out 0 1k",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.200567999963823,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n6-pwl-unsorted\n\nError: PWL(expr, points...) the abscissa of points must be descending at line 4\nfrom file\n  /tmp/tmp7ikjk6o3.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+ },
+ {
+  "label": "n7-scale-M",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(in)*1M",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "2.000000e-03",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.380829999921843,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n7-scale-m\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.000000e-03\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.000000e-03\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                 0.002\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p      "
+ },
+ {
+  "label": "n7-scale-meg",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(in)*1meg",
+   "R2 out 0 1G",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "2.000000e+06",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.425737999757985,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n7-scale-meg\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 2.000000e+06\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              2.000000e+06\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        -2.00000e-03\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                -0.002\n          v                 2e+06\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r2                    r1\n      model                     R                     R\n resistance                 1e+09                  1000\n         ac                 1e+09                  1000\n      dtemp                     0                     0\n     bv"
+ },
+ {
+  "label": "n8-ddt-dc",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=ddt(V(in))",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.342976000065391,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n8-ddt-dc\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p       "
+ },
+ {
+  "label": "n9-time-dc",
+  "lines": [
+   "B1 out 0 V=TIME*1000",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "0.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.521352999949158,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n9-time-dc\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 0.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              0.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     0\n   pos_node                     1\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                     0\n          p                     0\n\n\nTotal analysis time (seconds) = 0.00018124\n\nTotal elapsed time (seconds) = "
+ },
+ {
+  "label": "n10-hugegain",
+  "lines": [
+   "V1 in 0 DC 0.5",
+   "R1 in 0 1k",
+   "B1 out 0 V=1e6*(V(in)-V(out))",
+   "R2 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "4.999995e-01",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.192047000036837,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n10-hugegain\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 4.999995e-01\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              4.999995e-01\n\tin                               5.000000e-01\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-04\n\tb1#branch                        -5.00000e-04\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i               -0.0005\n          v                   0.5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r2                    r1\n      model                     R                     R\n resistance                  1000                  1000\n         ac                  1000                  1000\n      dtemp                     0                     0\n     bv"
+ },
+ {
+  "label": "n11-paramexpr",
+  "lines": [
+   ".param GAIN=5*2",
+   "V1 in 0 DC 0.5",
+   "R1 in 0 1k",
+   "B1 out 0 V={GAIN}*V(in)",
+   "R2 out 0 1k",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "5.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.648604000271007,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n11-paramexpr\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 5.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              5.000000e+00\n\tin                               5.000000e-01\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -5.00000e-04\n\tb1#branch                        -5.00000e-03\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                -0.005\n          v                     5\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r2                    r1\n      model                     R                     R\n resistance                  1000                  1000\n         ac                  1000                  1000\n      dtemp                     0                     0\n     b"
+ },
+ {
+  "label": "n12-case-node",
+  "lines": [
+   "V1 in 0 DC 2",
+   "R1 in 0 1k",
+   "B1 out 0 V=V(IN)*2",
+   ".op"
+  ],
+  "rc": 0,
+  "ran": true,
+  "errs": [],
+  "val": "4.000000e+00",
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 5.358132000310434,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n12-case-node\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\nv(out) = 4.000000e+00\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nNo. of Data Rows : 1\n\tNode                                  Voltage\n\t----                                  -------\n\t----\t-------\n\tout                              4.000000e+00\n\tin                               2.000000e+00\n\n\tSource\tCurrent\n\t------\t-------\n\n\tv1#branch                        -2.00000e-03\n\tb1#branch                        0.000000e+00\n\n Resistor models (Simple linear resistor)\n      model                     R\n\n        rsh                     0\n     narrow                     0\n      short                     0\n        tc1                     0\n        tc2                     0\n        tce                     0\n       defw                 1e-05\n          l                 1e-05\n         kf                     0\n         af                     0\n          r                     0\n     bv_max                 1e+99\n         lf                     1\n         wf                     1\n         ef                     1\n\n ASRC: Arbitrary Source \n     device                    b1\n      dtemp                     0\n          i                     0\n          v                     4\n   pos_node                     2\n   neg_node                     0\n\n Resistor: Simple linear resistor\n     device                    r1\n      model                     R\n resistance                  1000\n         ac                  1000\n      dtemp                     0\n     bv_max                 1e+99\n      noisy                     1\n          i                 0.002\n          p   "
+ },
+ {
+  "label": "n13-ib-source",
+  "lines": [
+   "B1 out 0 I=V(1)/1k",
+   "R1 out 0 1k",
+   ".op"
+  ],
+  "rc": 1,
+  "ran": false,
+  "errs": [
+   "\\berror\\b",
+   "\\bsingular\\b",
+   "timestep too small",
+   "\\bfailed\\b",
+   "\\bwarning\\b"
+  ],
+  "val": null,
+  "last_tran": null,
+  "npts": 0,
+  "wall_ms": 10.722408999754407,
+  "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: adv-n13-ib-source\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nout                                               0                    0\n1                                                 0                    0\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\n\nDC solution failed -\n\nLast Node Voltages\n------------------\n\nNode                                   Last Voltage        Previous Iter\n----                                   ------------        -------------\nout                                               0                    0\n1                                                 0                    0\n\n\nTotal analysis time (seconds) = 0.00562346\n\nTotal elapsed time (seconds) = 0.007 \n\nTotal DRAM available = 15771.836 MB.\nDRAM currently available =  229.430 MB.\nMaximum ngspice program size =   20.172 MB.\nCurrent ngspice program size =   11.520 MB.\n\nShared ngspice pages =    9.723 MB.\nText (code) pages =    6.469 MB.\nStack = 0 bytes.\nLibrary pages =    1.883 MB.\n\nWarning: singular matrix:  check node 1\n\nNote: Starting dynamic gmin stepping\nWarning: singular matrix:  check node 1\n\nWarning: singular matrix:  check node 1\n\nWarning: singular matrix:  check node 1\n\nWarning: singular matrix:  check node 1\n\nWarning: singular matrix:  check node 1\n\nWarning: Dynamic gmin stepping failed\nNote: Starting true gmin stepping\nWarning: True gmin stepping failed\nNote: Starting source stepping\nWarning: source stepping failed\nNote: "
+ }
+]

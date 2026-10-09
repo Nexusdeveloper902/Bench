@@ -1,0 +1,8 @@
+{
+  "name": "sim-proto",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "avr8js": "0.21.1"
+  }
+}

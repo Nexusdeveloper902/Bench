@@ -1,0 +1,26 @@
+[
+ {
+  "tstep": 5e-05,
+  "npts": 103,
+  "wall_ms": 0.7578989998364705,
+  "max_cmp": 0.0,
+  "max_cap": 1.9989999999995944,
+  "caught": false
+ },
+ {
+  "tstep": 5e-06,
+  "npts": 457,
+  "wall_ms": 2.5741070003277855,
+  "max_cmp": 0.0,
+  "max_cap": 1.9989999999999577,
+  "caught": false
+ },
+ {
+  "tstep": 5e-07,
+  "npts": 4011,
+  "wall_ms": 20.396945000356936,
+  "max_cmp": 5.0,
+  "max_cap": 4.256654144,
+  "caught": true
+ }
+]

@@ -1,0 +1,132 @@
+{
+ "equivalence": [
+  {
+   "model": "gain",
+   "hand": 5.0,
+   "thin": 5.0,
+   "identical": true
+  },
+  {
+   "model": "affine",
+   "hand": 1.7,
+   "thin": 1.7,
+   "identical": true
+  },
+  {
+   "model": "clip",
+   "hand": 1.0,
+   "thin": 1.0,
+   "identical": true
+  },
+  {
+   "model": "diode",
+   "hand": 1.035518,
+   "thin": 1.035518,
+   "identical": true
+  }
+ ],
+ "rejections": [
+  {
+   "test": "no-if",
+   "rejected": true,
+   "msg": "function 'if' rejected: use [\"tern\",cond,a,b] (ngspice has no if(); ternary ?: works)"
+  },
+  {
+   "test": "no-limit",
+   "rejected": true,
+   "msg": "function 'limit' rejected: limit() is silently wrong in B expr (verified; 2-arg const form even varies run to run); use [\"clamp\",x,lo,hi]"
+  },
+  {
+   "test": "no-gauss",
+   "rejected": true,
+   "msg": "function 'gauss' rejected: REFUSED: gauss() segfaults ngspice-47 in B expr (verified)"
+  },
+  {
+   "test": "no-pwr",
+   "rejected": true,
+   "msg": "function 'pwr' rejected: pwr() preserves input sign (pwr(-2,2)=-4) unlike pow() (pow(-2,2)=+4); use [\"call\",\"pow\",...] explicitly"
+  },
+  {
+   "test": "no-idt",
+   "rejected": true,
+   "msg": "function 'idt' rejected: no integrator in B expr; use C + current-source state node (see recipe)"
+  },
+  {
+   "test": "no-unknown-fn",
+   "rejected": true,
+   "msg": "function 'foo' rejected: (unknown function)"
+  },
+  {
+   "test": "no-ln-zero",
+   "rejected": true,
+   "msg": "ln() of literal 0.0: ngspice silently yields ~-1e99; guard the domain first"
+  },
+  {
+   "test": "no-sqrt-neg",
+   "rejected": true,
+   "msg": "sqrt() of literal -4.0: convergence wall; use sqrt(max(x,0)) if intended"
+  },
+  {
+   "test": "no-div-zero",
+   "rejected": true,
+   "msg": "literal division by zero (ngspice silently yields 1e32)"
+  },
+  {
+   "test": "typo-node",
+   "rejected": true,
+   "msg": "unknown node 'typo_node'; declared nodes: ['a', 'gnd'] (typo guard)"
+  },
+  {
+   "test": "unknown-param",
+   "rejected": true,
+   "msg": "unknown param 'NOSUCH'; declared: []"
+  },
+  {
+   "test": "exp-overflow",
+   "rejected": true,
+   "msg": "exp() of literal 1000.0: overflow-scale result, refuse silent nonsense"
+  },
+  {
+   "test": "inject:'x\\n.include /etc/passwd'",
+   "rejected": true
+  },
+  {
+   "test": "inject:'a;shell'",
+   "rejected": true
+  },
+  {
+   "test": "inject:'.control'",
+   "rejected": true
+  },
+  {
+   "test": "inject:'out gnd\\nB9 0 0'",
+   "rejected": true
+  }
+ ],
+ "warnings": [
+  "b1: expr mentions own node (out/gnd) - likely algebraic loop; use RC state node"
+ ],
+ "translation_ms_per_expr": 0.002043570000296313,
+ "structural": [
+  [
+   "I-typo-sense",
+   true
+  ],
+  [
+   "p-node-typo",
+   true
+  ],
+  [
+   "selfref",
+   true
+  ],
+  [
+   "R-param-ref",
+   true
+  ],
+  [
+   "m-suffix",
+   true
+  ]
+ ]
+}

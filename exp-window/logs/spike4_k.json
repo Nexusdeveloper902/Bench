@@ -1,0 +1,922 @@
+{
+ "cases": {
+  "k=0.01": {
+   "k": 0.01,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.00022790702,
+    "v(c)": 2.27173149e-05,
+    "i(l1)": 0.499977209,
+    "i(l2)": -2.27173149e-06
+   },
+   "ladder_conv": {
+    "v(b)": 3.965000000013099e-09,
+    "v(c)": 2.770999999993269e-10,
+    "i(l1)": 1.0000000272292198e-09,
+    "i(l2)": 2.770999999993269e-11
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5014
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.496628505,
+     "L2": -0.000168451372
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 1.0700000002694665e-07,
+      "prev": 0.496628505,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.199996002372,
+      "prev": -0.000168451372,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.00735771626,
+      "final_correct": 0.000227907055,
+      "final_corrupt": -0.000445898432
+     },
+     "v(c)": {
+      "max_abs": 1.9999599967700001,
+      "final_correct": 2.27173167e-05,
+      "final_corrupt": -0.0134632608
+     },
+     "i(l1)": {
+      "max_abs": 0.0007357709999999962,
+      "final_correct": 0.499977209,
+      "final_corrupt": 0.50004459
+     },
+     "i(l2)": {
+      "max_abs": 0.199995999677,
+      "final_correct": -2.27173167e-06,
+      "final_corrupt": 0.00134632608
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 6.699999999248973e-08,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 2.694999999992018e-09,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2514
+   }
+  },
+  "k=0.1": {
+   "k": 0.1,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.000319076423,
+    "v(c)": 0.000244350072,
+    "i(l1)": 0.499968092,
+    "i(l2)": -2.44350072e-05
+   },
+   "ladder_conv": {
+    "v(b)": 4.584000000006257e-09,
+    "v(c)": 2.796999999991022e-09,
+    "i(l1)": 1.0000000272292198e-09,
+    "i(l2)": 2.7970000000113507e-10
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5015
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.496379689,
+     "L2": -0.00168735547
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 4.7399999997255193e-07,
+      "prev": 0.496379689,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.19999598647000003,
+      "prev": -0.00168735547,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.0736990228,
+      "final_correct": 0.000319076416,
+      "final_corrupt": -0.00643034549
+     },
+     "v(c)": {
+      "max_abs": 1.999959597,
+      "final_correct": 0.000244350068,
+      "final_corrupt": -0.0142368945
+     },
+     "i(l1)": {
+      "max_abs": 0.007369901999999984,
+      "final_correct": 0.499968092,
+      "final_corrupt": 0.500643035
+     },
+     "i(l2)": {
+      "max_abs": 0.1999959597,
+      "final_correct": -2.44350068e-05,
+      "final_corrupt": 0.00142368945
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 6.999999996315509e-08,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 2.6770000000151534e-08,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2515
+   }
+  },
+  "k=0.5": {
+   "k": 0.5,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.00318158652,
+    "v(c)": 0.00318157622,
+    "i(l1)": 0.499681841,
+    "i(l2)": -0.000318157622
+   },
+   "ladder_conv": {
+    "v(b)": 1.641999999987473e-08,
+    "v(c)": 1.6430000000268452e-08,
+    "i(l1)": 1.9999999989472883e-09,
+    "i(l2)": 1.6429999999943191e-09
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5015
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.491070156,
+     "L2": -0.00890714413
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 2.7860000000323737e-06,
+      "prev": 0.491070156,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.19999478513,
+      "prev": -0.00890714413,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.3849005494,
+      "final_correct": 0.00318158657,
+      "final_corrupt": -0.03244699
+     },
+     "v(c)": {
+      "max_abs": 1.9999466666999999,
+      "final_correct": 0.00318157627,
+      "final_corrupt": -0.0325377989
+     },
+     "i(l1)": {
+      "max_abs": 0.03849005499999997,
+      "final_correct": 0.499681841,
+      "final_corrupt": 0.503244699
+     },
+     "i(l2)": {
+      "max_abs": 0.19999466667000002,
+      "final_correct": -0.000318157627,
+      "final_corrupt": 0.00325377989
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 1.1900000002063038e-07,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 1.1846000000023671e-07,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2515
+   }
+  },
+  "k=0.9": {
+   "k": 0.9,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.0129473047,
+    "v(c)": 0.0129473047,
+    "i(l1)": 0.49870527,
+    "i(l2)": -0.00129473047
+   },
+   "ladder_conv": {
+    "v(b)": 3.290000000037707e-08,
+    "v(c)": 3.290000000037707e-08,
+    "i(l1)": 3.000000026176508e-09,
+    "i(l2)": 3.2900000000810753e-09
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5015
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.482008818,
+     "L2": -0.0179911817
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 1.9133000000004508e-05,
+      "prev": 0.482008818,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.1999791407,
+      "prev": -0.0179911817,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.8044121200000001,
+      "final_correct": 0.0129473048,
+      "final_corrupt": -0.0590174218
+     },
+     "v(c)": {
+      "max_abs": 1.999789513,
+      "final_correct": 0.0129473048,
+      "final_corrupt": -0.0590174218
+     },
+     "i(l1)": {
+      "max_abs": 0.08044121200000004,
+      "final_correct": 0.49870527,
+      "final_corrupt": 0.505901742
+     },
+     "i(l2)": {
+      "max_abs": 0.1999789513,
+      "final_correct": -0.00129473048,
+      "final_corrupt": 0.00590174218
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 1.8899999998378547e-07,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 1.8939999999953439e-07,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2515
+   }
+  },
+  "k=0.99": {
+   "k": 0.99,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.0164268955,
+    "v(c)": 0.0164268955,
+    "i(l1)": 0.49835731,
+    "i(l2)": -0.00164268955
+   },
+   "ladder_conv": {
+    "v(b)": 3.629999999893441e-08,
+    "v(c)": 3.629999999893441e-08,
+    "i(l1)": 3.999999997894577e-09,
+    "i(l2)": 3.630000000023545e-09
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5015
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.479734947,
+     "L2": -0.0202650534
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 0.00019879899999997175,
+      "prev": 0.479734947,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.1997995974,
+      "prev": -0.0202650534,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.968791484,
+      "final_correct": 0.0164268954,
+      "final_corrupt": -0.0646333182
+     },
+     "v(c)": {
+      "max_abs": 1.997993937,
+      "final_correct": 0.0164268954,
+      "final_corrupt": -0.0646333182
+     },
+     "i(l1)": {
+      "max_abs": 0.09687914800000003,
+      "final_correct": 0.49835731,
+      "final_corrupt": 0.506463332
+     },
+     "i(l2)": {
+      "max_abs": 0.1997993937,
+      "final_correct": -0.00164268954,
+      "final_corrupt": 0.00646333182
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 2.040000000036457e-07,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 2.0369999999964028e-07,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2515
+   }
+  },
+  "k=0.999": {
+   "k": 0.999,
+   "tau_L": 0.0001,
+   "classify_both": true,
+   "classify_missing": false,
+   "ladder_final_finest": {
+    "v(b)": 0.0168027799,
+    "v(c)": 0.0168027799,
+    "i(l1)": 0.498319722,
+    "i(l2)": -0.00168027799
+   },
+   "ladder_conv": {
+    "v(b)": 3.6699999997336086e-08,
+    "v(c)": 3.6699999997336086e-08,
+    "i(l1)": 3.999999997894577e-09,
+    "i(l2)": 3.669999999863713e-09
+   },
+   "ladder_npts": [
+    1015,
+    2015,
+    5015
+   ],
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt_L2_200mA": {
+    "true_hi": {
+     "L1": 0.479504403,
+     "L2": -0.0204955971
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 0.0019599889999999953,
+      "prev": 0.479504403,
+      "refuse": true
+     },
+     "i(l2)": {
+      "jump": 0.1980384201,
+      "prev": -0.0204955971,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.997042903,
+      "final_correct": 0.01680278,
+      "final_corrupt": -0.0651796083
+     },
+     "v(c)": {
+      "max_abs": 1.98038215,
+      "final_correct": 0.01680278,
+      "final_corrupt": -0.0651796083
+     },
+     "i(l1)": {
+      "max_abs": 0.09970429099999994,
+      "final_correct": 0.498319722,
+      "final_corrupt": 0.506517961
+     },
+     "i(l2)": {
+      "max_abs": 0.198038215,
+      "final_correct": -0.001680278,
+      "final_corrupt": 0.00651796083
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 2.0499999997536378e-07,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 2.050999999975156e-07,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2515
+   }
+  },
+  "3winding": {
+   "ladder_finest": {
+    "v(b)": 0.0468594258,
+    "v(c)": 0.0468594258,
+    "v(d)": 0.0468594258,
+    "i(l1)": 0.495314057,
+    "i(l2)": -0.00468594258,
+    "i(l3)": -0.00468594258
+   },
+   "conv": {
+    "v(b)": 3.710000000267666e-08,
+    "v(c)": 3.710000000267666e-08,
+    "v(d)": 3.710000000267666e-08,
+    "i(l1)": 4.000000053405728e-09,
+    "i(l2)": 3.709999999920721e-09,
+    "i(l3)": 3.709999999920721e-09
+   },
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L3": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2', 'L3'] missing winding IC handoff for ['L3'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "true_hi": {
+    "L1": 0.472053794,
+    "L2": -0.027946206,
+    "L3": -0.027946206
+   },
+   "corrupt_L3_jump": 0.199973062,
+   "corrupt_L3_refuse": true,
+   "corr_start_c": 0.279331519,
+   "correct_start_c": 0.279460064
+  },
+  "reversed_sense": {
+   "ladder_finest": {
+    "v(b)": 0.0129473047,
+    "v(c)": -0.0129473047,
+    "i(l1)": 0.49870527,
+    "i(l2)": -0.00129473047
+   },
+   "conv": {
+    "v(b)": 3.290000000037707e-08,
+    "v(c)": 3.290000000037707e-08,
+    "i(l1)": 3.000000026176508e-09,
+    "i(l2)": 3.2900000000810753e-09
+   },
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "secondary_sign_vs_normal": [
+    -0.0129473047,
+    0.0129473047
+   ]
+  },
+  "unequal_L": {
+   "ladder_finest": {
+    "v(b)": 6.70527378e-05,
+    "v(c)": 0.000212039375,
+    "i(l1)": 0.499993295,
+    "i(l2)": -2.12039375e-06
+   },
+   "conv": {
+    "v(b)": 1.2178000000019791e-09,
+    "v(c)": 3.8520000000038385e-09,
+    "i(l1)": 0.0,
+    "i(l2)": 3.851999999997062e-11
+   },
+   "tau_L": 0.0001,
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt": {
+    "true_hi": {
+     "L1": 0.498705273,
+     "L2": -0.000409428684
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 7.489100000002136e-05,
+      "prev": 0.498705273,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 0.099973707484,
+      "prev": -0.000409428684,
+      "refuse": true
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 1.2719235775,
+      "final_correct": 6.70527345e-05,
+      "final_corrupt": -0.00812152097
+     },
+     "v(c)": {
+      "max_abs": 9.997369671,
+      "final_correct": 0.000212039364,
+      "final_corrupt": -0.0256825043
+     },
+     "i(l1)": {
+      "max_abs": 0.127192358,
+      "final_correct": 0.499993295,
+      "final_corrupt": 0.500812152
+     },
+     "i(l2)": {
+      "max_abs": 0.09997369671,
+      "final_correct": -2.12039364e-06,
+      "final_corrupt": 0.000256825043
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 3.39999999821039e-08,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 1.0773999999992047e-08,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2015
+   }
+  },
+  "unequal_R": {
+   "ladder_finest": {
+    "v(b)": 0.678363722,
+    "v(c)": 0.34173846,
+    "i(l1)": 0.432163628,
+    "i(l2)": -0.00034173846
+   },
+   "conv": {
+    "v(b)": 0.0,
+    "v(c)": 0.0,
+    "i(l1)": 0.0,
+    "i(l2)": 0.0
+   },
+   "tau_L": 1e-06,
+   "T": 0.0002,
+   "note": "earlier 1us/200ns grid correctly REFUSED by G4 (tau_L/100=10ns); compliant 10ns/2ns grid tested here",
+   "seg_both_compliant": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   }
+  },
+  "floating_winding": {
+   "ladder_finest": {
+    "v(b)": 0.000227000549,
+    "v(c)": 0.000204215897,
+    "i(l1)": 0.4999773,
+    "i(l2)": -2.04215897e-11
+   },
+   "conv": {
+    "v(b)": 3.955999999994851e-09,
+    "v(c)": 5.332700000001576e-08,
+    "i(l1)": 0.0,
+    "i(l2)": 5.332700000002304e-15
+   },
+   "seg_both": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G4: tmax_coarse=1e-06 exceeds tau_L/100=1e-12 (inductive background truncation [E spike-3: K2 2mV, small-L 4.75mV])"
+    ]
+   },
+   "seg_missing": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   },
+   "corrupt": {
+    "true_hi": {
+     "L1": 0.496631021,
+     "L2": -3.03205965e-09
+    },
+    "g5_jumps_corr": {
+     "i(l1)": {
+      "jump": 0.04457566300000004,
+      "prev": 0.496631021,
+      "refuse": true
+     },
+     "i(l2)": {
+      "jump": 0.00047056970605965004,
+      "prev": -3.03205965e-09,
+      "refuse": false
+     }
+    },
+    "divergence": {
+     "v(b)": {
+      "max_abs": 0.4500028239,
+      "final_correct": 0.000227000563,
+      "final_corrupt": -0.00280505909
+     },
+     "v(c)": {
+      "max_abs": 4705.697060208299,
+      "final_correct": 0.000204300524,
+      "final_corrupt": -0.0268287603
+     },
+     "i(l1)": {
+      "max_abs": 0.045000282,
+      "final_correct": 0.4999773,
+      "final_corrupt": 0.500280506
+     },
+     "i(l2)": {
+      "max_abs": 0.00047056970602083,
+      "final_correct": -2.04300524e-11,
+      "final_corrupt": 2.68287603e-09
+     }
+    },
+    "correct_jumps": {
+     "i(l1)": {
+      "jump": 6.699999999248973e-08,
+      "refuse": false
+     },
+     "i(l2)": {
+      "jump": 3.882000000004971e-14,
+      "refuse": false
+     }
+    },
+    "seg0_npts": 2511
+   },
+   "note": "10Meg-shunt version: G4 REFUSEs 1us grid (tau_L estimator takes max incident R=10Meg -> tau=100ps -> bound 1ps). Ladder converges to nV at 1us (estimator pessimism = availability REFUSE, not silent wrong). Unloaded (no-R) version tested here as floating_winding_unloaded: PASS."
+  },
+  "energy_one_vs_distributed": {
+   "one_winding_finest": {
+    "v(b)": -0.0129473047,
+    "v(c)": -0.0129473047,
+    "i(l1)": 0.00129473047,
+    "i(l2)": 0.00129473047
+   },
+   "one_conv": {
+    "v(b)": 3.290000000037707e-08,
+    "v(c)": 3.290000000037707e-08,
+    "i(l1)": 3.2900000000810753e-09,
+    "i(l2)": 3.2900000000810753e-09
+   },
+   "one_seg": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "distributed_finest": {
+    "v(b)": -0.0129473047,
+    "v(c)": -0.0129473047,
+    "i(l1)": 0.00129473047,
+    "i(l2)": 0.00129473047
+   },
+   "dist_conv": {
+    "v(b)": 3.290000000037707e-08,
+    "v(c)": 3.290000000037707e-08,
+    "i(l1)": 3.2900000000810753e-09,
+    "i(l2)": 3.2900000000810753e-09
+   },
+   "dist_seg": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   }
+  },
+  "resonant_coupled": {
+   "ladder_finest": {
+    "v(b)": -33.8954511,
+    "v(c)": -32.1209454,
+    "i(l1)": 0.186638108,
+    "i(l2)": -0.334755301
+   },
+   "conv": {
+    "v(b)": 0.008982400000000723,
+    "v(c)": 0.009253900000004478,
+    "i(l1)": 3.398400000001467e-05,
+    "i(l2)": 2.7585999999968358e-05
+   },
+   "tau_note": "LC-resonant: estimate_tau_l skips (None), tau_min from C+R? R absent -> None; no G4 inductive/RC bound",
+   "tau_L": null,
+   "tau_min": null,
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing_L2": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   }
+  },
+  "floating_winding_unloaded": {
+   "ladder_finest": {
+    "v(b)": 0.000226998894,
+    "v(c)": 0.000204299013,
+    "i(l1)": 0.4999773,
+    "i(l2)": 0.0
+   },
+   "conv": {
+    "v(b)": 3.955999999994851e-09,
+    "v(c)": 3.5699999999922426e-09,
+    "i(l1)": 9.999999717180685e-10,
+    "i(l2)": 0.0
+   },
+   "tau_L": 0.0001,
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   },
+   "seg_missing": {
+    "verdict": "REFUSE",
+    "reasons": [
+     "G1: [\"DENY: K coupling ['L1', 'L2'] missing winding IC handoff for ['L2'] (no-IC: 3.2V silent)\"]"
+    ]
+   }
+  },
+  "k=-0.9": {
+   "ladder_finest": {
+    "v(b)": 0.0129473047,
+    "v(c)": -0.0129473047,
+    "i(l1)": 0.49870527,
+    "i(l2)": 0.00129473047
+   },
+   "conv": {
+    "v(b)": 3.290000000037707e-08,
+    "v(c)": 3.290000000037707e-08,
+    "i(l1)": 3.000000026176508e-09,
+    "i(l2)": 3.2900000000810753e-09
+   },
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   }
+  },
+  "k=1.0": {
+   "ladder_finest": {
+    "v(b)": 0.0168448605,
+    "v(c)": 0.0168448605,
+    "i(l1)": 0.498315514,
+    "i(l2)": -0.00168448605
+   },
+   "conv": {
+    "v(b)": 3.659999999947039e-08,
+    "v(c)": 3.659999999947039e-08,
+    "i(l1)": 3.999999997894577e-09,
+    "i(l2)": 3.6600000001205113e-09
+   },
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   }
+  },
+  "k=0.9999": {
+   "ladder_finest": {
+    "v(b)": 0.0168406496,
+    "v(c)": 0.0168406496,
+    "i(l1)": 0.498315935,
+    "i(l2)": -0.00168406496
+   },
+   "conv": {
+    "v(b)": 3.659999999947039e-08,
+    "v(c)": 3.659999999947039e-08,
+    "i(l1)": 3.999999997894577e-09,
+    "i(l2)": 3.659999999903671e-09
+   },
+   "seg_both": {
+    "verdict": "PASS",
+    "reasons": [
+     "gates G1-G6 held (G1/G3/G4-completeness/G5/G2-residual enforced)"
+    ]
+   }
+  }
+ }
+}

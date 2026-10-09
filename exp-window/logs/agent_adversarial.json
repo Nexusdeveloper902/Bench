@@ -1,0 +1,268 @@
+[
+ {
+  "id": "A1a-B-integrator",
+  "tag": "[E]",
+  "verdict": "UNCONSTRUCTIBLE-IN-TOOLCHAIN[E]",
+  "one_liner": "B functions idt()/sdt() -> 'no such function', rc=1; ddt() exists. True B-integrator hidden state untestable here [U]; integrator-state kill demonstrated via T-line (A9) + diode-TT (A1c/A6b) instead.",
+  "detail": {
+   "idt": "missing",
+   "sdt": "missing",
+   "ddt": "present"
+  },
+  "wall_s": 0.0
+ },
+ {
+  "id": "A1a-OSDI",
+  "tag": "[U]",
+  "verdict": "SKIPPED-NO-BINARY",
+  "one_liner": "no OpenVAF binary at /tmp/opencode/openvaf -> OSDI diode charge-state probe skipped [U].",
+  "detail": {},
+  "wall_s": 0.0
+ },
+ {
+  "id": "A1b-ddt-at-step",
+  "tag": "[E]",
+  "one_liner": "impulse_area(should be dV=1): ref=1.000 seg1[ends@step]=0.000 seg2[starts@step,drv0=1]=0.000 stitched=0.000 CONTROL(step+5ns inside seg2)=3.000 ddt_peak=1e+08(=V/dt) rc=0 runtime=PASS(clean)",
+  "verdict": "BROKEN-DROPPED",
+  "detail": {
+   "area_ref": 1.0000050000000111,
+   "area_seg1": 0.0,
+   "area_seg2": 0.0,
+   "area_control_5ns_in": 2.9999345541000366,
+   "seg2_drv_start": 1.0,
+   "ddt_peak": 100000000.0,
+   "rc": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean",
+   "mechanism": "event exactly ON the seam is owned by neither segment (seg1 endpoint lacks post-step slope; seg2 t=0 starts post-step). 5ns inside -> captured. Overlap windows double-count (2x) by symmetry [I]."
+  },
+  "wall_s": 0.2
+ },
+ {
+  "id": "A1c-diodeTT-split-before-event",
+  "tag": "[E]",
+  "one_liner": "seg2 diode re-charged only 0.5us (vs 8us): tail diffs(abs ts)=[(8, 38.1), (9, 39.3), (10, 43.5)]us_vs_mV final_diff=43.5mV rc=0 warns=0 runtime=PASS(clean)",
+  "verdict": "BROKEN-SILENT",
+  "detail": {
+   "tail_diffs_V": [
+    [
+     8.5e-06,
+     0.03812230213399992
+    ],
+    [
+     9e-06,
+     0.039348233487999984
+    ],
+    [
+     1e-05,
+     0.04348361899999997
+    ]
+   ],
+   "rc": 0,
+   "warns": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean"
+  },
+  "wall_s": 0.3
+ },
+ {
+  "id": "A6b-diodeTT-split-in-tail",
+  "tag": "[E]",
+  "one_liner": "split 8.15u in recovery tail: final ref=0.6521 seg=0.6426 DIFF=9mV (on 5V scale) continuity_jump=0.0068 rc=0 warns=0 runtime=PASS(clean)",
+  "verdict": "not-broken",
+  "detail": {
+   "final_ref": 0.652067762,
+   "final_seg": 0.642580836,
+   "diff_V": 0.009486926000000007,
+   "continuity_jump": 0.006767787000000025,
+   "rc": 0,
+   "warns": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean"
+  },
+  "wall_s": 0.3
+ },
+ {
+  "id": "A1d-diode-noTT",
+  "tag": "[E]",
+  "one_liner": "Tt=0: raw stitched maxerr=0.230 (edge-spike zone) interior maxerr=0.024 jump=0.024 -> junction C restores via .ic; residual is LTE edge-placement noise, not state loss",
+  "verdict": "not-broken",
+  "detail": {
+   "maxerr_raw": 0.2296383090136456,
+   "maxerr_interior": 0.023821806000000056,
+   "jump": 0.023821806000000056,
+   "runtime_verdict": "PASS"
+  },
+  "wall_s": 0.4
+ },
+ {
+  "id": "A1e-inductor",
+  "tag": "[E]",
+  "one_liner": "|iL| seg1end=0.316A seg2start=0.000A JUMP=0.316A stitched_maxerr=0.316A final agrees (-0.499 vs -0.497) b/c tau=1us decays it; rc=0 warns=0 runtime=PASS(clean)",
+  "verdict": "BROKEN-CONTINUITY",
+  "detail": {
+   "jump_A": 0.3159501642499,
+   "maxerr_A": 0.31595293456314505,
+   "rc": 0,
+   "warns": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean",
+   "note": "final-value agreement MASKS the break (error decays with L/R); only a stitch-continuity gate on device currents catches it."
+  },
+  "seg2_netlist": [
+   "Advers L s2",
+   "V1 in 0 DC 5",
+   "R1 in nl 10",
+   "L1 nl 0 10e-6",
+   ".ic v(nl)=1.84024837",
+   ".tran 5n 5u 0 20n uic",
+   ".end"
+  ],
+  "wall_s": 0.5
+ },
+ {
+  "id": "A1f-C-control",
+  "tag": "[E]",
+  "one_liner": "C-only: stitched maxerr=8.9e-05V continuity_jump=9.2e-05 -> .ic+uic SAFE for C [E]",
+  "verdict": "not-broken",
+  "detail": {
+   "maxerr": 8.913919094988287e-05,
+   "jump": 9.200999999992021e-05
+  },
+  "wall_s": 0.6
+ },
+ {
+  "id": "A2a-TIME-probe",
+  "tag": "[E]",
+  "verdict": "TIME-RESETS[E]",
+  "one_liner": "fresh .tran 0..5u ends with TIME=5e-06 -> TIME restarts at 0 every segment [E]",
+  "detail": {
+   "final_TIME": 5e-06
+  },
+  "wall_s": 0.6
+ },
+ {
+  "id": "A2b-TIME-misfire",
+  "tag": "[E]",
+  "one_liner": "blip@abs8us: ref_peak=5 naive-seg2_peak=0 event time error=INFINITE (never fires in 5us window) rc=0 warns=0 runtime=PASS(clean)",
+  "verdict": "BROKEN-SILENT-MISS",
+  "detail": {
+   "ref_peak": 5.0,
+   "seg2_peak": 0.0,
+   "rc": 0,
+   "warns": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean"
+  },
+  "seg2_netlist": [
+   "Advers Tm s2-NAIVE",
+   "B1 ev 0 V=5*(u(TIME-8e-6)-u(TIME-8.1e-6))",
+   "R1 ev 0 1k",
+   ".ic v(ev)=0.0",
+   ".tran 2n 5u 0 10n uic",
+   ".end"
+  ],
+  "wall_s": 0.7
+ },
+ {
+  "id": "A3-straddle",
+  "tag": "[E]",
+  "one_liner": "hump peak@5.0u straddles split@5.03u, seg1 tmax=600n: ref_peak=5.00 stitched_peak=1.73 peak_error=65% stitch_maxerr=0.08 seg2_runtime=PASS(clean) seg1_runtime=QUESTIONABLE(EVENT-COVERAGE: dt_max=6e-07 > required=1e-08)",
+  "verdict": "BROKEN-MIS-CAPTURE",
+  "detail": {
+   "ref_peak": 4.99971576,
+   "seg1_peak": 1.72745753,
+   "stitched_peak": 1.72745753,
+   "stitch_maxerr": 0.07538265256238759,
+   "seg2_runtime": "PASS",
+   "seg2_reasons": "clean",
+   "seg1_runtime": "QUESTIONABLE",
+   "seg1_reasons": "EVENT-COVERAGE: dt_max=6e-07 > required=1e-08",
+   "note": "seg1 alone DOES draw EVENT-COVERAGE (dt_max 600n >> 10n required) -> mis-capture is caught ONLY if every segment is gated, not just refined ones."
+  },
+  "wall_s": 0.9
+ },
+ {
+  "id": "A4-threshold-window",
+  "tag": "[E]",
+  "one_liner": "t_true=1.1931us t_coarse=1.2623us err=69ns. hw=10ns window vs 20ns blip -> peak 0 (MISS); hw=err+50ns -> peak 5 (HIT). Required margin = err + w/2 + tmax_fine = 69+10+2ns. narrow-win runtime=PASS(clean)",
+  "verdict": "BROKEN-SILENT-MISS",
+  "detail": {
+   "t_true": 1.1931471805599452e-06,
+   "t_coarse": 1.2623424586635381e-06,
+   "timing_err_s": 6.91952781035929e-08,
+   "blip_width_s": 2e-08,
+   "narrow_hw": 1e-08,
+   "narrow_window": [
+    1.2523424586635382e-06,
+    1.272342458663538e-06
+   ],
+   "narrow_peak": 0.0,
+   "wide_hw": 1.191952781035929e-07,
+   "wide_peak": 5.0,
+   "required_margin_s": 8.11952781035929e-08,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean"
+  },
+  "wall_s": 1.0
+ },
+ {
+  "id": "A6a-multi-C-split-in-tail",
+  "tag": "[E]",
+  "one_liner": "split@8.15u raw_maxerr=0.191 interior_maxerr=0.056 peak2 ref=2.348 seg=2.331 jump=0.00015",
+  "verdict": "not-broken",
+  "detail": {
+   "maxerr_raw": 0.1908709512191884,
+   "maxerr_interior": 0.05554795345599506,
+   "peak_ref": 2.34787353,
+   "peak_seg": 2.33105253,
+   "jump": 0.0001496599999999404,
+   "note": "C-state transfers; residual raw maxerr sits in LTE edge-spike zones. Overlapping windows safe here; split-in-settle-tail safe for C (contrast diode A6b)."
+  },
+  "wall_s": 1.2
+ },
+ {
+  "id": "A9-Tline-inflight",
+  "tag": "[E]",
+  "one_liner": "split@5.5u with 100ns pulse in flight (TD=1u): ref arrival peak=5 seg2 peak=0 rc=0 warns=0 runtime=PASS(clean)",
+  "verdict": "BROKEN-INFLIGHT-LOST",
+  "detail": {
+   "ref_peak": 5.0,
+   "seg2_peak": 0.0,
+   "rc": 0,
+   "runtime_verdict": "PASS",
+   "runtime_reasons": "clean",
+   "note": "in-flight wave is distributed state; .ic (node voltages only) cannot restore it. Stimulus re-shift also impossible (PULSE delay would go negative)."
+  },
+  "wall_s": 1.3
+ },
+ {
+  "id": "A5-silent-plausible-synthesis",
+  "tag": "[E]",
+  "verdict": "CONFIRMED-MOST-DANGEROUS-CLASS",
+  "one_liner": "6 of 8 broken cases are runtime-PASS-silent (rc=0, zero warns, no EVENT flag): A2b peak 5->0; A1c 43.5mV tail; A1e 0.316A jump; A9 5V arrival lost; A1b impulse 1->0; A4 peak 5->0. A6b 9mV borderline. A3 seg2 PASS, break visible only via stitch comparison (seg1 flagged IFF gated).",
+  "detail": {
+   "silent_pass_cases": [
+    "A2b",
+    "A1c",
+    "A1e",
+    "A9",
+    "A1b",
+    "A4"
+   ],
+   "borderline": [
+    "A6b-9mV"
+   ],
+   "needs_stitch_compare": [
+    "A3"
+   ]
+  }
+ },
+ {
+  "id": "A7-A8-detection-and-gating-synthesis",
+  "tag": "[E]/[I]/[U]",
+  "verdict": "RULE-AND-TABLE-IN-MD",
+  "one_liner": "Min detection rule (6 gates) + per-model/state-class allowlist in agent_adversarial.md sections 7-8.",
+  "detail": {}
+ }
+]

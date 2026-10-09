@@ -1,0 +1,22 @@
+{
+ "avr": {
+  "f_cpu": 16000000,
+  "n_instr": 60000,
+  "wallMs": 5.255305,
+  "totalCycles": 90807,
+  "simTime": 0.0056754375,
+  "instrPerSec": 11417035
+ },
+ "n_events": 294,
+ "tsim": 0.0056754375,
+ "npts": 1512,
+ "vsrc_calls": 4888,
+ "max_edge_err_ns": 0.0,
+ "adc_reads": 1174,
+ "faults": 0,
+ "t_avr_ms": 40.659360000063316,
+ "t_glue_ms": 0.014010000086273067,
+ "t_spice_ms": 11.109139999462059,
+ "t_analysis_ms": 1.5663480007788166,
+ "sim_speed": 0.10638348622117573
+}

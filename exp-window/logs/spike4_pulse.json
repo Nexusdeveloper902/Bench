@@ -1,0 +1,294 @@
+{
+ "T0": 0.00019869176531592204,
+ "f0": 5032.921210448703,
+ "cases": [
+  {
+   "w_frac": 100,
+   "efrac_nominal": 0.1,
+   "H": 0.12582303026121755,
+   "w": 1.9869176531592206e-06,
+   "ref_tmax_N": 500.0,
+   "ref_conv": [
+    {
+     "pair": [
+      2000.0,
+      1000.0
+     ],
+     "d_postpeak": 1.8104531163400596e-06
+    },
+    {
+     "pair": [
+      1000.0,
+      500.0
+     ],
+     "d_postpeak": 6.91335689587867e-06
+    }
+   ],
+   "inj_frac_measured": -0.09741289727946502,
+   "ref_post_peak": 4.75022489,
+   "ref_post_period": 0.00019869438014083083,
+   "coarse": [
+    {
+     "N": 20,
+     "npts": 111,
+     "postpeak_err": 0.0494504334930551,
+     "post_phase_accum_deg": 13.78074753472076,
+     "final_err": 0.09537770000000023,
+     "Epost_err": 0.107457488912083,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 50,
+     "npts": 261,
+     "postpeak_err": 0.052088632797341085,
+     "post_phase_accum_deg": 2.3189019695127655,
+     "final_err": 0.2454403599999999,
+     "Epost_err": 0.10785190192440368,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 100,
+     "npts": 511,
+     "postpeak_err": 6.314016850678542e-05,
+     "post_phase_accum_deg": 0.48344128270750736,
+     "final_err": 0.0002526800000000051,
+     "Epost_err": 0.00015849819848131965,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    }
+   ],
+   "tau_min_win": null,
+   "tau_l_win": null
+  },
+  {
+   "w_frac": 100,
+   "efrac_nominal": 1.0,
+   "H": 1.2582303026121755,
+   "w": 1.9869176531592206e-06,
+   "ref_tmax_N": 500.0,
+   "ref_conv": [
+    {
+     "pair": [
+      2000.0,
+      1000.0
+     ],
+     "d_postpeak": 9.790863246306837e-05
+    },
+    {
+     "pair": [
+      1000.0,
+      500.0
+     ],
+     "d_postpeak": 0.00022004825645718413
+    }
+   ],
+   "inj_frac_measured": -0.7492175736836112,
+   "ref_post_peak": 2.50390532,
+   "ref_post_period": 0.00019869437973751538,
+   "coarse": [
+    {
+     "N": 20,
+     "npts": 111,
+     "postpeak_err": 0.9909401246849063,
+     "post_phase_accum_deg": 15.784871245674895,
+     "final_err": 2.34336028,
+     "Epost_err": 2.9858329029891566,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 50,
+     "npts": 261,
+     "postpeak_err": 0.9959451222380886,
+     "post_phase_accum_deg": 4.323025657201324,
+     "final_err": 2.49342294,
+     "Epost_err": 2.987252428684377,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 100,
+     "npts": 511,
+     "postpeak_err": 0.002367429771665703,
+     "post_phase_accum_deg": -0.4926043468019487,
+     "final_err": 0.005266050000000355,
+     "Epost_err": 0.004874501276263028,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    }
+   ],
+   "tau_min_win": null,
+   "tau_l_win": null
+  },
+  {
+   "w_frac": 10,
+   "efrac_nominal": 0.1,
+   "H": 0.012582303026121757,
+   "w": 1.9869176531592203e-05,
+   "ref_tmax_N": 100.00000000000001,
+   "ref_conv": [
+    {
+     "pair": [
+      500.0,
+      200.00000000000003
+     ],
+     "d_postpeak": 0.00013752811989764665
+    },
+    {
+     "pair": [
+      200.00000000000003,
+      100.00000000000001
+     ],
+     "d_postpeak": 0.00019712022041042413
+    }
+   ],
+   "inj_frac_measured": -0.0903146631064277,
+   "ref_post_peak": 4.76876496,
+   "ref_post_period": 0.00019875713328928204,
+   "coarse": [
+    {
+     "N": 20,
+     "npts": 111,
+     "postpeak_err": -0.0035035717088477292,
+     "post_phase_accum_deg": 13.155744801178473,
+     "final_err": -0.12468475000000012,
+     "Epost_err": 0.0012139397658442904,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 50,
+     "npts": 261,
+     "postpeak_err": 0.0002772017516249541,
+     "post_phase_accum_deg": 1.633983448330863,
+     "final_err": 0.00041823000000018595,
+     "Epost_err": 0.0006658421456493784,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 100,
+     "npts": 511,
+     "postpeak_err": 0.0,
+     "post_phase_accum_deg": 0.0,
+     "final_err": 0.0,
+     "Epost_err": 0.0,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    }
+   ],
+   "tau_min_win": null,
+   "tau_l_win": null
+  },
+  {
+   "w_frac": 10,
+   "efrac_nominal": 1.0,
+   "H": 0.12582303026121758,
+   "w": 1.9869176531592203e-05,
+   "ref_tmax_N": 100.00000000000001,
+   "ref_conv": [
+    {
+     "pair": [
+      500.0,
+      200.00000000000003
+     ],
+     "d_postpeak": 0.0039480829836738025
+    },
+    {
+     "pair": [
+      200.00000000000003,
+      100.00000000000001
+     ],
+     "d_postpeak": 0.0054258779936469685
+    }
+   ],
+   "inj_frac_measured": -0.6857969251604606,
+   "ref_post_peak": 2.80157608,
+   "ref_post_period": 0.0001987570938582243,
+   "coarse": [
+    {
+     "N": 20,
+     "npts": 111,
+     "postpeak_err": 0.010624412527108705,
+     "post_phase_accum_deg": 13.786268842867882,
+     "final_err": 0.13994877000000017,
+     "Epost_err": 0.020679215895591983,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 50,
+     "npts": 261,
+     "postpeak_err": 0.00902945673351127,
+     "post_phase_accum_deg": 1.1938929444441277,
+     "final_err": 0.04046232000000005,
+     "Epost_err": 0.01738239356094408,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    },
+    {
+     "N": 100,
+     "npts": 511,
+     "postpeak_err": 0.0,
+     "post_phase_accum_deg": 0.0,
+     "final_err": 0.0,
+     "Epost_err": 0.0,
+     "seg": {
+      "verdict": "REFUSE",
+      "reasons": [
+       "G6: refusing .ic on driven node n1 (B1)"
+      ]
+     }
+    }
+   ],
+   "tau_min_win": null,
+   "tau_l_win": null
+  }
+ ]
+}

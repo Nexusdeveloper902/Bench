@@ -1,0 +1,39 @@
+{
+ "t_true_us": 693.9600000000103,
+ "t_analytic_us": 693.1471805599454,
+ "wall_gt_ms": 5.411462999290961,
+ "polls": [
+  {
+   "t_poll_us": 5.0,
+   "n_reads": 140,
+   "detect_delay_us": 1.0399999999912215
+  },
+  {
+   "t_poll_us": 10.0,
+   "n_reads": 71,
+   "detect_delay_us": 6.0399999999909095
+  },
+  {
+   "t_poll_us": 25.0,
+   "n_reads": 29,
+   "detect_delay_us": 6.0399999999895
+  },
+  {
+   "t_poll_us": 50.0,
+   "n_reads": 15,
+   "detect_delay_us": 6.039999999989933
+  },
+  {
+   "t_poll_us": 100.0,
+   "n_reads": 8,
+   "detect_delay_us": 6.039999999989825
+  },
+  {
+   "t_poll_us": 200.0,
+   "n_reads": 5,
+   "detect_delay_us": 106.03999999998976
+  }
+ ],
+ "chunked_Vfinal": 4.323323690222959,
+ "gt_Vfinal": 4.323323695003172
+}

@@ -1,0 +1,78 @@
+{
+ "progWords": 10,
+ "progHex": [
+  "9a25",
+  "9a2d",
+  "d003",
+  "982d",
+  "d001",
+  "cffb",
+  "e684",
+  "958a"
+ ],
+ "N": 200000,
+ "wallMs": 7.090321000000003,
+ "instrPerSec": 28207468,
+ "cyclesPerSec": 42690169,
+ "totalCycles": 302687,
+ "simTimeUs": 18917.9375,
+ "gpioEvents": 979,
+ "firstEvents": [
+  {
+   "cycles": 0,
+   "t_us": 0,
+   "val": 0
+  },
+  {
+   "cycles": 2,
+   "t_us": 0.125,
+   "val": 1
+  },
+  {
+   "cycles": 311,
+   "t_us": 19.4375,
+   "val": 0
+  },
+  {
+   "cycles": 621,
+   "t_us": 38.8125,
+   "val": 1
+  },
+  {
+   "cycles": 930,
+   "t_us": 58.125,
+   "val": 0
+  },
+  {
+   "cycles": 1240,
+   "t_us": 77.5,
+   "val": 1
+  },
+  {
+   "cycles": 1549,
+   "t_us": 96.8125,
+   "val": 0
+  },
+  {
+   "cycles": 1859,
+   "t_us": 116.1875,
+   "val": 1
+  },
+  {
+   "cycles": 2168,
+   "t_us": 135.5,
+   "val": 0
+  },
+  {
+   "cycles": 2478,
+   "t_us": 154.875,
+   "val": 1
+  }
+ ],
+ "lastEvent": {
+  "cycles": 302383,
+  "t_us": 18898.9375,
+  "val": 0
+ },
+ "togglePeriodCycles": 311
+}

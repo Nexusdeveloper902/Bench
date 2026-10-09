@@ -1,0 +1,13 @@
+`include "disciplines.vams"
+module va_diode(a, k);
+  inout a, k;
+  electrical a, k;
+  parameter real IS = 1e-14 from (0:inf);
+  parameter real N = 1.5 from (0.1:10);
+  real Vd, Id;
+  analog begin
+    Vd = V(a, k);
+    Id = IS * (limexp(Vd / (N * $vt)) - 1.0);
+    I(a, k) <+ Id;
+  end
+endmodule

@@ -1,0 +1,347 @@
+[
+ {
+  "id": "P1-lin-1uA",
+  "vals": [
+   1e-06,
+   1e-06,
+   1e-06
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=1e-06 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P1-lin-1mA",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P1-lin-1A",
+  "vals": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=1.0 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P1-lin-10A",
+  "vals": [
+   10.0,
+   10.0,
+   10.0
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=10.0 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P2-reversed",
+  "vals": [
+   -0.001,
+   -0.001,
+   -0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=-0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P3-gmin-1e-12",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P3-gmin-1e-9",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P3-gmin-1e-6",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P3-gmin-1e-3",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P4-nosteps",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P5-noopiter-path",
+  "vals": [
+   0.107,
+   0.107,
+   0.107
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.107 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P6-rshunt-2",
+  "vals": [
+   0.002,
+   0.002,
+   0.002
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.002 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P6-rshunt-10",
+  "vals": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.01 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P6-rshunt-1k",
+  "vals": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=1.0 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P7-two-opens-o1",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P7-two-opens-o2",
+  "vals": [
+   0.003,
+   0.003,
+   0.003
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.003 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P7-pair-n1",
+  "vals": [
+   -0.001,
+   -0.001,
+   -0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=-0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P7-pair-n2",
+  "vals": [
+   0.001,
+   0.001,
+   0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P8-vopen",
+  "vals": [
+   null,
+   null,
+   null
+  ],
+  "deterministic_3x": false,
+  "loud": true,
+  "rc": 1,
+  "warns_n": 7,
+  "fatals": [
+   "timestep too small",
+   "singular matrix"
+  ],
+  "summary": "v=None det3x=False loud=True rc=1"
+ },
+ {
+  "id": "P8-IR-float",
+  "vals": [
+   1000000000.0,
+   1000000000.0,
+   1000000000.0
+  ],
+  "deterministic_3x": true,
+  "loud": true,
+  "rc": 0,
+  "warns_n": 5,
+  "fatals": [
+   "singular matrix"
+  ],
+  "summary": "v=1000000000.0 det3x=True loud=True rc=0"
+ },
+ {
+  "id": "P8-I-plus-C",
+  "vals": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "deterministic_3x": true,
+  "loud": true,
+  "rc": 0,
+  "warns_n": 5,
+  "fatals": [
+   "singular matrix"
+  ],
+  "summary": "v=0.01 det3x=True loud=True rc=0"
+ },
+ {
+  "id": "P8-R-only",
+  "vals": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "deterministic_3x": true,
+  "loud": true,
+  "rc": 0,
+  "warns_n": 5,
+  "fatals": [
+   "singular matrix"
+  ],
+  "summary": "v=0.0 det3x=True loud=True rc=0"
+ },
+ {
+  "id": "P9-bi-open",
+  "vals": [
+   -0.001,
+   -0.001,
+   -0.001
+  ],
+  "deterministic_3x": true,
+  "loud": false,
+  "rc": 0,
+  "warns_n": 0,
+  "fatals": [],
+  "summary": "v=-0.001 det3x=True loud=False rc=0"
+ },
+ {
+  "id": "P10-tran-ramp",
+  "first": 0.002,
+  "last": 1.012,
+  "npts": 1011,
+  "loud": false,
+  "summary": "tran first=0.002 last=1.012 (diverges, not 1mV)"
+ },
+ {
+  "id": "P11-embedded",
+  "stdout": "EMB: 0.001",
+  "rc": 0,
+  "summary": "embedded rc=0 out=0.001 (prior spike: bit-identical 1mV; see note)"
+ }
+]

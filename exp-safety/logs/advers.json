@@ -1,0 +1,432 @@
+[
+ {
+  "id": "A01-vloop-via-L",
+  "errors": [
+   "V-LOOP"
+  ],
+  "warns": [],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [
+   "singular matrix"
+  ],
+  "note": "errors=['V-LOOP'] warns=[] loud=True rc=0"
+ },
+ {
+  "id": "A02-vloop-via-0R",
+  "errors": [
+   "V-LOOP"
+  ],
+  "warns": [
+   "ZERO-R"
+  ],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=['V-LOOP'] warns=['ZERO-R'] loud=True rc=0"
+ },
+ {
+  "id": "A03-vloop-via-E",
+  "errors": [
+   "V-LOOP"
+  ],
+  "warns": [],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [
+   "timestep too small",
+   "singular matrix"
+  ],
+  "note": "errors=['V-LOOP'] warns=[] loud=True rc=1"
+ },
+ {
+  "id": "A04-vloop-via-Bv",
+  "errors": [
+   "V-LOOP"
+  ],
+  "warns": [],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [
+   "timestep too small",
+   "singular matrix"
+  ],
+  "note": "errors=['V-LOOP'] warns=[] loud=True rc=1"
+ },
+ {
+  "id": "A05-v-plus-R-valid",
+  "errors": [],
+  "warns": [],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=[] loud=False rc=0"
+ },
+ {
+  "id": "A06-g-open",
+  "errors": [
+   "ISRC-OPEN",
+   "NO-DC-PATH"
+  ],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=['ISRC-OPEN', 'NO-DC-PATH'] warns=['DANGLING'] loud=False rc=0"
+ },
+ {
+  "id": "A07-f-open",
+  "errors": [
+   "ISRC-OPEN",
+   "NO-DC-PATH"
+  ],
+  "warns": [
+   "DANGLING",
+   "DANGLING"
+  ],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [
+   "timestep too small",
+   "singular matrix"
+  ],
+  "note": "errors=['ISRC-OPEN', 'NO-DC-PATH'] warns=['DANGLING', 'DANGLING'] loud=True rc=1"
+ },
+ {
+  "id": "A08-h-unloaded",
+  "errors": [],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=['DANGLING'] loud=False rc=0"
+ },
+ {
+  "id": "A09-e-unloaded",
+  "errors": [],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=['DANGLING'] loud=False rc=0"
+ },
+ {
+  "id": "A10-diode-float",
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-GROUND"
+  ],
+  "warns": [
+   "DANGLING",
+   "DANGLING"
+  ],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [
+   "singular matrix"
+  ],
+  "note": "errors=['NO-DC-PATH', 'NO-DC-PATH', 'NO-GROUND'] warns=['DANGLING', 'DANGLING'] loud=True rc=0"
+ },
+ {
+  "id": "A11-bv-cap-float",
+  "errors": [
+   "NO-DC-PATH"
+  ],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [
+   "singular matrix"
+  ],
+  "note": "errors=['NO-DC-PATH'] warns=['DANGLING'] loud=True rc=0"
+ },
+ {
+  "id": "A12-parallel-sameV",
+  "errors": [
+   "V-LOOP"
+  ],
+  "warns": [],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [
+   "timestep too small",
+   "singular matrix"
+  ],
+  "note": "errors=['V-LOOP'] warns=[] loud=True rc=1"
+ },
+ {
+  "id": "A13-zeroR-series",
+  "errors": [],
+  "warns": [
+   "ZERO-R"
+  ],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=['ZERO-R'] loud=True rc=0"
+ },
+ {
+  "id": "A14-dup-names",
+  "errors": [
+   "DUP-NAME"
+  ],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [],
+  "note": "errors=['DUP-NAME'] warns=['DANGLING'] loud=True rc=1"
+ },
+ {
+  "id": "A15-unknown-kind",
+  "errors": [],
+  "warns": [
+   "EXOTIC-DEVICE"
+  ],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [],
+  "note": "errors=[] warns=['EXOTIC-DEVICE'] loud=True rc=1"
+ },
+ {
+  "id": "A16-malformed-R",
+  "errors": [
+   "MALFORMED"
+  ],
+  "warns": [
+   "DANGLING"
+  ],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=['MALFORMED'] warns=['DANGLING'] loud=True rc=0"
+ },
+ {
+  "id": "A17-unseeded-latch",
+  "errors": [],
+  "warns": [
+   "B-CYCLE"
+  ],
+  "ngspice_loud": true,
+  "rc": 1,
+  "fatals": [
+   "timestep too small",
+   "DC solution failed"
+  ],
+  "note": "errors=[] warns=['B-CYCLE'] loud=True rc=1"
+ },
+ {
+  "id": "A18-seeded-latch",
+  "errors": [],
+  "warns": [
+   "B-CYCLE"
+  ],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=['B-CYCLE'] loud=False rc=0"
+ },
+ {
+  "id": "A19-opaque-X-valid",
+  "errors": [],
+  "warns": [
+   "DANGLING",
+   "OPAQUE-X"
+  ],
+  "ngspice_loud": false,
+  "rc": 0,
+  "fatals": [],
+  "note": "errors=[] warns=['DANGLING', 'OPAQUE-X'] loud=False rc=0"
+ },
+ {
+  "id": "A20-C-plus-Isrc",
+  "errors": [
+   "NO-DC-PATH"
+  ],
+  "warns": [],
+  "ngspice_loud": true,
+  "rc": 0,
+  "fatals": [
+   "singular matrix"
+  ],
+  "note": "errors=['NO-DC-PATH'] warns=[] loud=True rc=0"
+ },
+ {
+  "id": "A21-bounded-sine-noflag",
+  "required": 2.0000000000000002e-07,
+  "verdict": "PASS",
+  "reasons": [],
+  "note": "req=2.0000000000000002e-07 verdict=PASS reasons=[]"
+ },
+ {
+  "id": "F029",
+  "net": [
+   "t-fuzz",
+   "R0 n3 n1 1000000.0",
+   "R1 n1 n2 1000000.0",
+   "R2 n2 n1 1000000000000.0",
+   ".op",
+   ".control",
+   "run",
+   "print v(n1) v(n2) v(n3)",
+   ".endc",
+   ".end"
+  ],
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-GROUND"
+  ],
+  "loud": false,
+  "ref": {
+   "n2": 0.0,
+   "n3": 0.0,
+   "n1": 0.0
+  },
+  "got": {
+   "n1": 0.0,
+   "n2": 0.0,
+   "n3": 0.0
+  },
+  "note": "correct-reject (malformed; numeric coincidence) errors=['NO-DC-PATH', 'NO-DC-PATH', 'NO-DC-PATH', 'NO-GROUND']"
+ },
+ {
+  "id": "F106",
+  "net": [
+   "t-fuzz",
+   "R0 n2 n1 1000000000.0",
+   ".op",
+   ".control",
+   "run",
+   "print v(n1) v(n2)",
+   ".endc",
+   ".end"
+  ],
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-GROUND"
+  ],
+  "loud": false,
+  "ref": {
+   "n2": 0.0,
+   "n1": 0.0
+  },
+  "got": {
+   "n1": 0.0,
+   "n2": 0.0
+  },
+  "note": "correct-reject (malformed; numeric coincidence) errors=['NO-DC-PATH', 'NO-DC-PATH', 'NO-GROUND']"
+ },
+ {
+  "id": "F173",
+  "net": [
+   "t-fuzz",
+   "R0 n3 n2 1000000000.0",
+   "R1 n2 n1 1000000.0",
+   "R2 n1 n2 1000000000000.0",
+   ".op",
+   ".control",
+   "run",
+   "print v(n1) v(n2) v(n3)",
+   ".endc",
+   ".end"
+  ],
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-DC-PATH",
+   "NO-GROUND"
+  ],
+  "loud": false,
+  "ref": {
+   "n2": 0.0,
+   "n3": 0.0,
+   "n1": 0.0
+  },
+  "got": {
+   "n1": 0.0,
+   "n2": 0.0,
+   "n3": 0.0
+  },
+  "note": "correct-reject (malformed; numeric coincidence) errors=['NO-DC-PATH', 'NO-DC-PATH', 'NO-DC-PATH', 'NO-GROUND']"
+ },
+ {
+  "id": "F195",
+  "net": [
+   "t-fuzz",
+   "I0 n1 0 DC 1e-06",
+   "C1 0 n1 1u",
+   "R2 n1 n2 1000000000.0",
+   ".op",
+   ".control",
+   "run",
+   "print v(n1) v(n2)",
+   ".endc",
+   ".end"
+  ],
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH"
+  ],
+  "loud": false,
+  "ref": {
+   "n2": -4.835703278458516e+18,
+   "n1": -4.835703278458516e+18
+  },
+  "got": {
+   "n1": -4.8357e+18,
+   "n2": -4.8357e+18
+  },
+  "note": "correct-reject (malformed; numeric coincidence) errors=['NO-DC-PATH', 'NO-DC-PATH']"
+ },
+ {
+  "id": "F237",
+  "net": [
+   "t-fuzz",
+   "C0 n1 0 1u",
+   "R1 n1 n2 1000000000.0",
+   "C2 n1 0 1u",
+   ".op",
+   ".control",
+   "run",
+   "print v(n1) v(n2)",
+   ".endc",
+   ".end"
+  ],
+  "errors": [
+   "NO-DC-PATH",
+   "NO-DC-PATH"
+  ],
+  "loud": false,
+  "ref": {
+   "n2": 0.0,
+   "n1": 0.0
+  },
+  "got": {
+   "n1": 0.0,
+   "n2": 0.0
+  },
+  "note": "correct-reject (malformed; numeric coincidence) errors=['NO-DC-PATH', 'NO-DC-PATH']"
+ },
+ {
+  "id": "FUZZ-TALLY",
+  "note": "{'agree-ok': 143, 'ngspice-loud': 157, 'FP-suspect': 0, 'SILENT-WRONG': 0, 'CHECK': 0}",
+  "agree-ok": 143,
+  "ngspice-loud": 157,
+  "FP-suspect": 0,
+  "SILENT-WRONG": 0,
+  "CHECK": 0
+ }
+]

@@ -1,0 +1,76 @@
+{
+ "P1_direct": {
+  "1.0": {
+   "rc": [
+    0,
+    0
+   ],
+   "t_circ_ms": 0.2648800000315532,
+   "t_run_ms": 2.893036000386928,
+   "Vf": 0.6928875985993175,
+   "I": -0.004307112401400683,
+   "errs": []
+  },
+  "1.5": {
+   "rc": [
+    0,
+    0
+   ],
+   "t_circ_ms": 0.10741999994934304,
+   "t_run_ms": 2.8122369994889596,
+   "Vf": 1.036109596519845,
+   "I": -0.003963890403480155,
+   "errs": []
+  },
+  "2.0": {
+   "rc": [
+    0,
+    0
+   ],
+   "t_circ_ms": 0.08014000013645273,
+   "t_run_ms": 2.8018060002068523,
+   "Vf": 1.376830156383879,
+   "I": -0.0036231698436161213,
+   "errs": []
+  }
+ },
+ "P2_behavioral": {
+  "t_circ_ms": 0.08970999988378026,
+  "t_run_ms": 3.10874699971464,
+  "Vf": 1.035517831945853,
+  "I": -0.003964482168054147,
+  "errs": []
+ },
+ "P3_subckt_parse": {
+  "t_circ_ms": 0.10288999965268886,
+  "t_run_ms": 2.811175999340776
+ },
+ "P3_subckt": {
+  "t_circ_ms": 0.09962000058294507,
+  "t_run_ms": 2.9015669997534133,
+  "Vf": 1.0361095965111282
+ },
+ "Eloop": {
+  "alter_ms_per_iter": 2.8452026000195474,
+  "circ_reload_ms_per_iter": 3.4837495999454404
+ },
+ "P4_osdi": {
+  "openvaf_on_path": false,
+  "osdi_files_shipped": [
+   "analog.cm",
+   "digital.cm",
+   "ivlng.so",
+   "tlines.cm",
+   "xtraevt.cm",
+   "spice2poly.cm",
+   "xtradev.cm",
+   "ivlng.vpi",
+   "table.cm"
+  ],
+  "osdi_missing_file_log": [
+   "stderr Error opening osdi lib \"/nonexistent.osdi\": No such file or directory!",
+   "stderr Error: Library /nonexistent.osdi couldn't be loaded!"
+  ],
+  "github_reachable": false
+ }
+}

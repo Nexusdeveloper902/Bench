@@ -1,0 +1,265 @@
+{
+ "probes": {
+  "t1_ref": {
+   "ok": true,
+   "rc": 0,
+   "wall": 0.031506520999755594,
+   "nrows": 1011,
+   "log": "\nNote: No compatibility mode selected!\n\n\nCircuit: rc charge\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\nOperating point simulation skipped by 'uic',\n  now using transient initial conditions.\n\nNo. of Data Rows : 1011\nNote: Simulation executed from .control section \n",
+   "vfinal": 3.16060294,
+   "vmid500u": 1.9673467604
+  },
+  "t1_rc_lower": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 7.666666701489078e-08,
+    "rms": 5.411560368008135e-08,
+    "final_ref": 3.16060294,
+    "final_seg": 3.1606029,
+    "final_abs": 3.999999975690116e-08,
+    "max_rel": 2.425697516274878e-08,
+    "seg_first": 1.96737709
+   },
+   "nrows": 511,
+   "wall": 0.01890584000011586
+  },
+  "t1_rc_upper": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 7.666666701489078e-08,
+    "rms": 5.411560368008135e-08,
+    "final_ref": 3.16060294,
+    "final_seg": 3.1606029,
+    "final_abs": 3.999999975690116e-08,
+    "max_rel": 2.425697516274878e-08
+   },
+   "nrows": 511
+  },
+  "t1_rc_wrong": {
+   "asked": 2.9673467604,
+   "seg_first": 2.96736709,
+   "starts_at_wrong": true,
+   "starts_at_true": false
+  },
+  "t1_il1": {
+   "ok": false,
+   "rc": 1,
+   "syntax_error": true,
+   "log_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: rl\n\nError on line 5 or its substitute:\n  .ic i(l1)=0.01\n Error: .ic syntax error.\n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+  },
+  "t1_IL1": {
+   "ok": false,
+   "rc": 1,
+   "syntax_error": true,
+   "log_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: rl\n\nError on line 5 or its substitute:\n  .ic i(l1)=0.01\n Error: .ic syntax error.\n    Simulation interrupted due to error!\n\nError: incomplete or empty netlist\n       or no \".plot\", \".print\", or \".fourier\" lines in batch mode;\nno simulations run!\n"
+  },
+  "t1_rl_ref": {
+   "imid500u": 0.049663115936,
+   "vnode500u": 0.033688407840000004,
+   "ifinal": 0.0499977302
+  },
+  "t1_rl_nodeic": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 0.049188663738777824,
+    "rms": 0.015616633278998369,
+    "final_ref": 0.0499977302,
+    "final_seg": 0.0496631165,
+    "final_abs": 0.0003346136999999999,
+    "max_rel": 0.983817936174587
+   },
+   "seg_first_i": 4.99950005e-06
+  },
+  "t1_rl_lineic": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 7.555555556204574e-10,
+    "rms": 2.2352137453350076e-10,
+    "final_ref": 0.0499977302,
+    "final_seg": 0.0499977302,
+    "final_abs": 0.0,
+    "max_rel": 1.511179712755155e-08
+   },
+   "seg_first_i": 0.0496631497
+  },
+  "t2_nouic": {
+   "seg_first": 1.96734676,
+   "asked_ic": 1.9673467604,
+   "dc_op_value": 5.0,
+   "cmp": {
+    "n": 501,
+    "max_abs": 3.9480000024738615e-07,
+    "rms": 3.103183501846392e-07,
+    "final_ref": 3.16060294,
+    "final_seg": 3.16060291,
+    "final_abs": 2.999999981767587e-08,
+    "max_rel": 1.2491287508812674e-07
+   },
+   "log_tail": "SPARSE 1.3 as Direct Linear Solver\n\nInitial Transient Solution\n--------------------------\n\nNode                                   Voltage\n----                                   -------\ndrv                                          5\ncap                                    1.96735\nv1#branch                         -0.000303265\n\n\nNo. of Data Rows : 508\nNote: Simulation executed from .control section \n"
+  },
+  "t2_uic_first": {
+   "seg_first": 1.96737709
+  },
+  "t3a_diode_TT": {
+   "split": 3.5e-07,
+   "vd_mid": 0.7289588020000001,
+   "v_max_abs": 1.150425553637901,
+   "v_final_abs": 0.05430804699999997,
+   "i_max_abs": 0.049912305245,
+   "i_scale": 0.0072859160700000005,
+   "i_final_abs": 0.0005430804699999999,
+   "nrows_ref": 824,
+   "nrows_seg": 471
+  },
+  "t3b_ddt": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 3.0128411111109017,
+    "rms": 0.18100873595827596,
+    "final_ref": 1840.83241,
+    "final_seg": 1840.83245,
+    "final_abs": 4.0000000126383384e-05,
+    "max_rel": 0.0009929306337344052
+   },
+   "seg_first": 0.0,
+   "ref_at_split": 3037.2060076000002,
+   "boundary_err": 3037.2060076000002
+  },
+  "t3c_idt": {
+   "ok": false,
+   "rc": 1,
+   "log_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: idt?\n\nError: no such function 'idt' at line 3\nfrom file\n  /tmp/opencode/ngb_t3c_idt.cir\n\nERROR: fatal error in ngspice, exit(1)\n"
+  },
+  "t3c_cbi": {
+   "cmp": {
+    "n": 501,
+    "max_abs": 7.86666665142377e-08,
+    "rms": 5.189986217796036e-08,
+    "final_ref": 1.83939706,
+    "final_seg": 1.8393971,
+    "final_abs": 3.9999999978945766e-08,
+    "max_rel": 4.27676374095312e-08
+   },
+   "m0": 0.5326532376399999
+  },
+  "t3d_coupled": {
+   "i1m": 0.034836740992,
+   "i2m": -0.015163259007999998,
+   "zero_restart_i1": {
+    "n": 901,
+    "max_abs": 0.00978964914444445,
+    "rms": 0.003269357965649352,
+    "final_ref": 0.0498315531,
+    "final_seg": 0.0497222777,
+    "final_abs": 0.0001092754000000043,
+    "max_rel": 0.1964548270209232
+   },
+   "zero_restart_i2": {
+    "n": 901,
+    "max_abs": 0.009789649144444447,
+    "rms": 0.0032693579653960106,
+    "final_ref": -0.000168446934,
+    "final_seg": -0.000277722332,
+    "final_abs": 0.00010927539800000002,
+    "max_rel": 0.6487231547176844
+   },
+   "rewrite_i1": {
+    "n": 901,
+    "max_abs": 9.844444447126843e-09,
+    "rms": 2.76547268352747e-09,
+    "final_ref": 0.0498315531,
+    "final_seg": 0.049831553,
+    "final_abs": 1.000000013351432e-10,
+    "max_rel": 1.9755443759441733e-07
+   },
+   "rewrite_i2": {
+    "n": 901,
+    "max_abs": 9.84444444539212e-09,
+    "rms": 2.7654730086255814e-09,
+    "final_ref": -0.000168446934,
+    "final_seg": -0.000168447026,
+    "final_abs": 9.20000000118569e-11,
+    "max_rel": 6.523542328053655e-07
+   }
+  },
+  "t3e_tline": {
+   "split": 3e-07,
+   "vt2_mid": 0.06249999999999669,
+   "cmp": {
+    "n": 707,
+    "max_abs": 2.5,
+    "rms": 2.30171973097148,
+    "final_ref": 0.0,
+    "final_seg": 0.0,
+    "final_abs": 0.0,
+    "max_rel": 1.0
+   },
+   "ref_tail_max": 2.5
+  },
+  "t4_ref": {
+   "nrows": 60011,
+   "wall": 1.4948246589992777,
+   "peak": 5.0,
+   "rise25": 0.0005000046000000001,
+   "fall25": 0.0005001046
+  },
+  "t4_plain_restart": {
+   "nrows": 20011,
+   "seg_max": 0.0,
+   "seg_rise25_local": null,
+   "ref_global_rise": 0.0005000046000000001
+  },
+  "t4_rewritten": {
+   "peak": 5.0,
+   "rise25_local": 0.0001000046,
+   "fall25_local": 0.0001001046
+  },
+  "t5_single": {
+   "nrows": 134,
+   "wall": 0.009302062000642763,
+   "peak": 5.0,
+   "peak_t": 0.0005,
+   "rise25": 0.00049995,
+   "fall25": 0.00050015,
+   "tran": ".tran 10u 1m uic"
+  },
+  "t5_multi": {
+   "nrows": 248,
+   "wall": 0.01235127600011765,
+   "peak1": 5.0,
+   "drive_final": 5.0,
+   "cap_final": 3.16087867,
+   "cap_analytic_2m": 4.323323583816936
+  },
+  "t6_strings": {
+   "hits": [],
+   "nhits": 0
+  },
+  "t6_savestate": {
+   "rc": 0,
+   "state_file_exists": false,
+   "log_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: rc charge\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\nOperating point simulation skipped by 'uic',\n  now using transient initial conditions.\n\nNo. of Data Rows : 111\nNote: Simulation executed from .control section \nsavestate: no such command available in ngspice\n"
+  },
+  "t6_loadstate": {
+   "rc": 0,
+   "log_tail": "\nNote: No compatibility mode selected!\n\n\nCircuit: rc charge\n\nDoing analysis at TEMP = 27.000000 and TNOM = 27.000000\n\nUsing SPARSE 1.3 as Direct Linear Solver\nOperating point simulation skipped by 'uic',\n  now using transient initial conditions.\n\nNo. of Data Rows : 111\nNote: Simulation executed from .control section \nloadstate: no such command available in ngspice\n"
+  },
+  "t2_wrong_nouic": {
+   "asked": 2.9673467604,
+   "seg_first": 2.96734676
+  },
+  "t2_rl_lineic_nouic": {
+   "asked_IC": 0.0496631497,
+   "seg_first_i": 0.05
+  },
+  "t3a_vsrc": {
+   "vsrc_320n": 0.0,
+   "vsrc_350n": 0.0
+  }
+ },
+ "meta": {
+  "version": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Cr",
+  "ngspice": "ngspice-47 batch (subprocess, -b), KLU/SPARSE build Aug 2026",
+  "method": "each probe: reference single-run vs 2nd-segment restart; wrdata 1 vec/file (col0=t); tail compare by interp; timeouts<=120s"
+ }
+}

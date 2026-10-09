@@ -1,0 +1,45 @@
+[
+ {
+  "id": "V1 ref full 600u fine",
+  "note": "peak=5.0",
+  "npts": 60011,
+  "wall_ms": 1500.5168290008442
+ },
+ {
+  "id": "V2 naive restart noshift",
+  "note": "peak=0.0 (expect 0)",
+  "npts": 20011,
+  "wall_ms": 496.32762799956254
+ },
+ {
+  "id": "V3 shifted restart",
+  "note": "peak=5.0 (expect 5)",
+  "npts": 20011,
+  "wall_ms": 507.3499849995642
+ },
+ {
+  "id": "V4 RC handoff",
+  "note": "ref=3.16060294 seg=3.16060294 err=0.000uV",
+  "npts": 1011,
+  "wall_ms": 36.84815999986313
+ },
+ {
+  "id": "V5 L handoff",
+  "note": "mid=49.6631mA bad_start=4.99950005e-06 good_start=0.0496631502",
+  "npts": 1011,
+  "wall_ms": 36.51459600041562
+ },
+ {
+  "id": "V6 PWL coarse blip",
+  "note": "peak=5.0 (expect 5)",
+  "npts": 134,
+  "wall_ms": 9.963903999960166,
+  "dt_max": 1.0000000000000135e-05
+ },
+ {
+  "id": "V7 bsource autoderive",
+  "note": "req=9.999999999940612e-09 widths=[9.999999999940612e-08] events=[0.005, 0.0050000999999999995] unknown=False",
+  "npts": null,
+  "wall_ms": 0
+ }
+]

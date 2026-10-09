@@ -1,0 +1,428 @@
+{
+ "valid": [
+  {
+   "id": "V01-rc",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V02-divider",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V03-diode",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V04-eamp",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V05-schmitt",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V06-lctank",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V07-ring",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V08-ladder",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V09-tanh",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V10-isrc-loaded",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V11-led",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V12-pwl-rc",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V13-bv-unloaded",
+   "errors": [],
+   "warns": [
+    "DANGLING"
+   ],
+   "fp": false
+  },
+  {
+   "id": "V14-series-v",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V15-weak-tie",
+   "errors": [],
+   "warns": [],
+   "fp": false
+  },
+  {
+   "id": "V16-vzero-r",
+   "errors": [],
+   "warns": [
+    "ZERO-R"
+   ],
+   "fp": false
+  }
+ ],
+ "malformed": [
+  {
+   "id": "M01-float-pair",
+   "errors": [
+    "NO-DC-PATH",
+    "NO-DC-PATH"
+   ],
+   "warns": [
+    "DANGLING",
+    "DANGLING",
+    "DANGLING"
+   ],
+   "expected": [
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M02-vloop",
+   "errors": [
+    "V-LOOP"
+   ],
+   "warns": [],
+   "expected": [
+    "V-LOOP"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 1,
+   "warns_n": 7,
+   "fatals": [
+    "timestep too small",
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M03-isrc-open",
+   "errors": [
+    "ISRC-OPEN",
+    "NO-DC-PATH"
+   ],
+   "warns": [
+    "DANGLING"
+   ],
+   "expected": [
+    "ISRC-OPEN",
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": false,
+   "ngspice_expect": "silent",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 0,
+   "fatals": []
+  },
+  {
+   "id": "M04-isrc-pair",
+   "errors": [
+    "ISRC-OPEN",
+    "ISRC-OPEN",
+    "NO-DC-PATH",
+    "NO-DC-PATH",
+    "NO-GROUND"
+   ],
+   "warns": [
+    "DANGLING",
+    "DANGLING"
+   ],
+   "expected": [
+    "ISRC-OPEN",
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": false,
+   "ngspice_expect": "silent",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 0,
+   "fatals": []
+  },
+  {
+   "id": "M05-bi-open",
+   "errors": [
+    "ISRC-OPEN",
+    "NO-DC-PATH"
+   ],
+   "warns": [
+    "DANGLING"
+   ],
+   "expected": [
+    "ISRC-OPEN",
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": false,
+   "ngspice_expect": "silent",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 0,
+   "fatals": []
+  },
+  {
+   "id": "M06-caploop",
+   "errors": [
+    "NO-DC-PATH"
+   ],
+   "warns": [],
+   "expected": [
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M07-selfref",
+   "errors": [
+    "B-SELFREF"
+   ],
+   "warns": [],
+   "expected": [
+    "B-SELFREF"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M08-shorted-v",
+   "errors": [
+    "NO-DC-PATH",
+    "NO-GROUND",
+    "SHORTED-VSRC"
+   ],
+   "warns": [],
+   "expected": [
+    "SHORTED-VSRC"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 1,
+   "warns_n": 1,
+   "fatals": []
+  },
+  {
+   "id": "M09-no-ground",
+   "errors": [
+    "NO-DC-PATH",
+    "NO-DC-PATH",
+    "NO-GROUND"
+   ],
+   "warns": [],
+   "expected": [
+    "NO-GROUND"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M10-b-typo",
+   "errors": [
+    "B-IMPLICIT-NODE"
+   ],
+   "warns": [],
+   "expected": [
+    "B-IMPLICIT-NODE"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 1,
+   "warns_n": 7,
+   "fatals": [
+    "timestep too small",
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M11-c-coupled",
+   "errors": [
+    "NO-DC-PATH",
+    "NO-DC-PATH"
+   ],
+   "warns": [
+    "DANGLING"
+   ],
+   "expected": [
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M12-neg-r",
+   "errors": [
+    "NEG-R"
+   ],
+   "warns": [],
+   "expected": [
+    "NEG-R"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M13-vloop3",
+   "errors": [
+    "V-LOOP"
+   ],
+   "warns": [],
+   "expected": [
+    "V-LOOP"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 1,
+   "warns_n": 7,
+   "fatals": [
+    "timestep too small",
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M14-ics-cutset",
+   "errors": [
+    "NO-DC-PATH",
+    "NO-DC-PATH"
+   ],
+   "warns": [],
+   "expected": [
+    "NO-DC-PATH"
+   ],
+   "level": "error",
+   "rejected": true,
+   "ngspice_loud": true,
+   "ngspice_expect": "loud",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 5,
+   "fatals": [
+    "singular matrix"
+   ]
+  },
+  {
+   "id": "M15-time-in-op",
+   "errors": [],
+   "warns": [
+    "B-TIME-IN-OP"
+   ],
+   "expected": [
+    "B-TIME-IN-OP"
+   ],
+   "level": "warn",
+   "rejected": true,
+   "ngspice_loud": false,
+   "ngspice_expect": "silent",
+   "ngspice_match": true,
+   "rc": 0,
+   "warns_n": 0,
+   "fatals": []
+  }
+ ]
+}
