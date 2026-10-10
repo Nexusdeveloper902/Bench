@@ -71,7 +71,8 @@ Values are stored as typed text (`"4.7k"`), never normalised, so files keep what
 | SW | state open/closed (open), ron Ω (0.01), roff Ω (1e9) | `RSW1 a b <ron or roff>` | `I(SW1)` = `@rsw1[i]` |
 
 Every two-terminal part also gets `V(Part)` = v(first terminal) - v(second terminal), computed in `sim._diff` by
-subtracting two core node series (no solving). Node voltages are `V(n1)`, ... Current sign: SPICE convention,
+subtracting two core node series (no solving). Multi-terminal parts (Q, J, M packages such as the 2N2222) get node
+voltages and their current only: there is no across `V(Part)` for them. Node voltages are `V(n1)`, ... Current sign: SPICE convention,
 positive flowing into the first terminal (`a`/`p`) and through the part (so a source delivering power has negative `I(V1)`).
 
 The Switch is a real resistor on purpose: the core validator does not count `S`/`W` devices as DC paths and would

@@ -29,12 +29,26 @@ voltage outputs, unknown nodes/params/senses. Lowered lines carry
 
 Pre-sim gates (error): NO-DC-PATH, ISRC-OPEN (D4 1-ohm silent class),
 V-LOOP, NO-GROUND, SHORTED-VSRC, NEG-R/CL, ZERO-CL, DUP-NAME, MALFORMED,
-B-SELFREF (V= only; Bi self-read is a legal conductance), B-IMPLICIT-NODE,
-B-DIVZERO. Warns (proceed with review): DANGLING, SHORTED-PASSIVE, ZERO-R,
-BAD-VALUE, B-DDT, B-TIME-IN-OP, B-CYCLE, OPAQUE-X, EXOTIC-DEVICE.
-DC model: R/L/V/E/Bv/H/D/Q/M/J conduct; C/I/G/Bi/F open; X optimistic +
+UNDEFINED-MODEL, B-SELFREF (V= only; Bi self-read is a legal conductance),
+B-IMPLICIT-NODE, B-DIVZERO. Warns (proceed with review): DANGLING,
+SHORTED-PASSIVE, ZERO-R, BAD-VALUE, B-DDT, B-TIME-IN-OP, B-CYCLE, OPAQUE-X,
+EXOTIC-DEVICE.
+DC model: R/L/V/E/Bv/H/D/Q/J conduct; M conducts drain, source and bulk, but
+its gate (the second node) has no DC edge; C/I/G/Bi/F open; X optimistic +
 warn. First line is the title and is skipped; `+` continuations joined;
 `.control` and `.subckt` bodies skipped.
+
+Multi-terminal arity (MALFORMED, error): Q takes 3 nodes + model, or 4 when a
+substrate node precedes the model (`Q1 c b e s model`); J takes 3 + model; M
+takes 4 + model. A model name in a node position is MALFORMED too. A MALFORMED
+device carries no nodes, so it adds no DANGLING noise.
+An unwired or capacitor-only MOSFET gate is NO-DC-PATH (the gate has no DC
+edge); a BJT base or JFET gate is not, since ngspice conducts through its
+junctions.
+
+UNDEFINED-MODEL (error): a D, Q, J or M device whose model name has no `.model`
+card in the deck (ngspice aborts the run). Skipped for the whole deck when any
+line is `.include`, `.inc` or `.lib`; X is not checked.
 
 ## What is NOT in v1
 

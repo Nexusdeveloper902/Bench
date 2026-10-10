@@ -58,7 +58,7 @@ box = [0, 0, 60, 30]                # [x, y, w, h] in part-local units; required
 show_current = true                 # needs sim.electrical.current below
 
 [sim.electrical]
-device = "D"                        # SPICE letter: one of R C L D V I
+device = "D"                        # SPICE letter: one of R C L D V I Q J M (see "Multi-terminal parts")
 line = "{dev} {a} {k} d1n4148"      # {dev} is the instance name; {a} and {k} are pin ids
 models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]   # model names are global to the netlist (see rules below)
 current = "@{dev_lc}[id]"           # the vector shown when show_current is on
@@ -137,9 +137,9 @@ An electrical part is data only; `app/electrical.py` checks it (`DEF-SIM`) and r
 
 | key | rule |
 |---|---|
-| `device` | one SPICE letter of `R C L D V I`. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
+| `device` | one SPICE letter of `R C L D V I Q J M`. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
 | `line` | a string, or `{select = "<choice param>", <every choice> = "..."}`. It must start with `{dev} ` and be one line. |
-| node fields | the part has exactly two pins, and the two fields after `{dev}` are exactly the two pin placeholders (`{a} {b}`), once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
+| node fields | the part has the pin count its letter needs (two, except Q, J and M: see below), and the fields after `{dev}` are exactly those pin placeholders, once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
 | placeholders | plain identifiers only: `{dev}`, `{dev_lc}`, pin ids, and params that apply to that branch (a plain line: params without `when`). Numbers arrive as `repr(float)`, choices as text. |
 | `models` | `.model <name> <TYPE>(...)` lines. Placeholders: `{dev}`, `{dev_lc}`, params without `when`. |
 | `current` | `@{dev_lc}[id]` style or `i({dev_lc})`: the vector shown by `show_current` and `indicator`. |
@@ -150,6 +150,34 @@ definitions that use the same fixed name (for example `dled`) must carry the sam
 is rejected at catalog load (`DEF-SIM`), and a name whose body differs between instances stops the run
 ("model 'x' gets different parameters in different ... parts"). A model that depends on parameters, or that you
 do not want to share, needs `{dev_lc}` in its name (`dmod_{dev_lc}`).
+
+## Multi-terminal parts (Q, J, M)
+
+Transistors have three or four terminals. The letters and pin counts the validator accepts (`DEF-SIM`, `app/electrical.py`):
+
+| letter | pins | node fields, SPICE order | current |
+|---|---|---|---|
+| R C L D V I | 2 | `{a} {b}` | `@{dev_lc}[id]` style or `i({dev_lc})` |
+| Q | 3 or 4 | `{c} {b} {e}` (+ `{s}` substrate) | exactly `@{dev_lc}[ic]` |
+| J | 3 | `{d} {g} {s}` | exactly `@{dev_lc}[id]` |
+| M | 4 | `{d} {g} {s} {b}` | exactly `@{dev_lc}[id]` |
+
+The shipped 2N2222 (`app/library/electrical/q_2n2222/component.toml`), the NPN transistor, is the example:
+
+```toml
+[sim.electrical]
+device = "Q"                        # 3 pins; a 4th pin would be the substrate
+line = "{dev} {c} {b} {e} q2n2222"  # node fields are exactly the pins, once each, in SPICE order
+models = [".model q2n2222 NPN(Is=14.34f Xti=3 ...)"]   # abbreviated; the shipped card is complete
+current = "@{dev_lc}[ic]"           # the collector current, attributed to the first node field's pin (c)
+```
+
+Rules that apply only to these parts:
+
+- The node fields fix the SPICE order. The validator checks that they are the pins, once each; it does not check the order, so get the order right in the template.
+- The current is attributed to the pin in the first node field (collector for Q, drain for J and M). Q, J and M accept only the exact current forms above.
+- Only two-terminal parts get `V(Part)`. A transistor shows its node voltages and its current, and no across voltage.
+- The MOSFET gate (the second node field of M) has no DC path. A gate that is unwired, or driven only through a capacitor or a current source, is `NO-DC-PATH` and blocks the run. Drive it through a resistor or a voltage source. A BJT base or JFET gate is not checked this way: ngspice solves it through its junctions, and an unwired pin gets a `DANGLING` warning.
 
 ## Presentation
 

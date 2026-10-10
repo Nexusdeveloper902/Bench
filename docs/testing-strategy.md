@@ -20,6 +20,8 @@ Run: `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` (core: `cd bench
 | `test_review_physics.py` | two Grounds = one node (divider 5 V); hard-coded divider values incl. 1meg/1k; capacitor IC 5 V and inductor IC 10 mA save -> load -> simulate vs `5e^{-t/RC}`, `I0 e^{-tR/L}`; diode vs Shockley using the values *typed* (incl. Rs = 20 ohm); PULSE with tr != tf, SIN offset vs amplitude, DC current source into R |
 | `test_robustness.py` | 26 malformed files -> one `ModelError`; deep nesting, duplicate keys; safe part names on load and rename; run-size limit (points and samples) |
 | `test_gui_review.py` | pending inspector edit committed by F5; Stop time/Time step edit marks result stale; Open failed dialog; SI run fields; inspector field sizes at 1300x850; time-axis tick text and cursor readout; a real ngspice "Timestep too small" failure -> state failed + details |
+| `test_bjt_2n2222.py` | Q_2N2222 through Document -> netlist -> ngspice: golden netlist (pin order, model, save), common-emitter operating point vs KVL and the emitted card, collector-current attribution, saturation and cutoff, persistence and placeholder load, unwired base and wrong wiring diagnosed, GUI place-wire-run |
+| `test_multiterminal_generalization.py` | test-local PNP, 4-pin MOSFET and JFET definitions (nothing shipped): PNP high-side KVL, 4-pin saturation, JFET default, unwired MOSFET gate -> NO-DC-PATH, one model name with different parameters -> error |
 
 GUI Reset -> rerun is covered by `test_gui_workflow.py::test_run_reset_rerun_is_deterministic`.
 
