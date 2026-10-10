@@ -2,6 +2,8 @@
 components.build_netlist). Built only through the Document API so old and new code build the same circuits."""
 import json
 from pathlib import Path
+from app import electrical
+from app.catalog import CATALOG
 from app.model import Document
 
 FIXTURE = Path(__file__).with_name("fixtures") / "netlist_golden.json"
@@ -36,8 +38,13 @@ def cases():
 
 
 def snapshot():
-    return {n: json.loads(json.dumps(d.netlist())) for n, d in cases().items()}
+    """The oracle's shape: electrical.build_netlist output (no 'excluded' key), as test_template_netlist_matches_golden compares it."""
+    return {n: json.loads(json.dumps(electrical.build_netlist(d.parts, d.nets(), CATALOG))) for n, d in cases().items()}
 
 
 if __name__ == "__main__":
+    import sys
+    if "--bless" not in sys.argv:   # regenerating is a deliberate act: only for an intended netlist change
+        sys.exit(f"refusing to overwrite {FIXTURE} without --bless (python3 -m app.tests.golden_netlists --bless)")
     FIXTURE.write_text(json.dumps(snapshot(), indent=1, sort_keys=True) + "\n")
+    print(f"wrote {FIXTURE}")

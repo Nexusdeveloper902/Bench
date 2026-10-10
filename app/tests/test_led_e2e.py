@@ -12,8 +12,8 @@ def qapp():
 
 
 @pytest.fixture
-def win(qapp):
-    w = MainWindow(); w.show(); w.canvas.setFocus(); return w
+def win(shown_window):
+    return shown_window
 
 
 def click(w, pt):

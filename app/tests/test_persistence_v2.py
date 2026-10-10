@@ -97,6 +97,16 @@ def test_missing_definition_kept_verbatim(tmp_path):
     assert rec["components"]["U2"] == FUTURE["components"]["U2"] and ["U2.COM", "U2.NO"] in rec["connections"]
 
 
+def test_placeholder_non_string_params_resave_identical(tmp_path):
+    """T7: a placeholder's params are kept as the file wrote them (numbers, lists, nested objects), not coerced to text."""
+    t = json.loads(json.dumps(FUTURE))
+    t["components"]["U2"]["params"] = {"gain": 5, "taps": [1, {"z": None}]}
+    d = Document.load(dump(tmp_path / "f.json", t))
+    assert d.parts["U2"]["params"] == {"gain": 5, "taps": [1, {"z": None}]}
+    d.save(tmp_path / "g.json")
+    assert json.loads((tmp_path / "g.json").read_text())["components"]["U2"] == t["components"]["U2"]
+
+
 def test_placeholder_geometry_and_pins(tmp_path):
     d = Document.load(dump(tmp_path / "f.json", FUTURE))
     box, pos = catalog.geometry(d.parts["U2"])

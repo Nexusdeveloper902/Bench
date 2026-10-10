@@ -8,11 +8,12 @@ from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QLineEdit, QComb
 from app.model import Document, value_at
 from app.components import format_si
 from app.tests.test_gui_workflow import qapp, show, win, select, field, type_into, click, pick  # noqa: F401
+from conftest import wait_for
 
 
 def typing(w, text):
     """Click into the Resistance field and type without Enter (what a user does before pressing F5)."""
-    QTest.qWait(20); ed = field(w, "Resistance")
+    ed = field(w, "Resistance"); assert wait_for(ed.isVisible)          # the inspector has been laid out
     QTest.mouseClick(ed, Qt.LeftButton); ed.selectAll(); QTest.keyClicks(ed, text)
     assert w.focusWidget() is ed
     return ed
@@ -80,15 +81,17 @@ def test_run_fields_show_si_and_examples_roundtrip(win):
 def test_inspector_fields_readable_at_1300x850(win):
     """B7: a PULSE source's 7 fields must each be a usable size and the Play row must not overlap the plot."""
     w = win; w.resize(1300, 850)
-    w._reset(Document.blink_example()); select(w, "V1"); QTest.qWait(50)
+    w._reset(Document.blink_example()); select(w, "V1")
+    assert wait_for(lambda: all(e.isVisible() for e in w.inspector.edits.values()))
     eds = list(w.inspector.edits.values())
     assert len([e for e in eds if isinstance(e, QLineEdit)]) == 7
     for e in [e for e in eds if not isinstance(e, QLabel)]:
         assert e.width() >= 100 and e.height() >= 20, (type(e).__name__, e.size())
     assert w.minimumSizeHint().height() <= 850
-    w.a_run.trigger(); QTest.qWait(50)                             # the plot page is only shown with results
+    w.a_run.trigger()
+    assert wait_for(w.plotw.isVisible)                             # the plot page is only shown with results
     pb, pw = w.play_btn.mapTo(w, w.play_btn.rect().topLeft()), w.plotw.mapTo(w, w.plotw.rect().topLeft())
-    assert pw.y() >= pb.y() + w.play_btn.height() or pw.y() + w.plotw.height() <= pb.y(), (pw, w.plotw.size(), pb)
+    assert pb.y() + w.play_btn.height() <= pw.y(), (pw, w.plotw.size(), pb)   # design order (results-states.png): Play row above the plot
 
 
 def test_no_duplicate_rotate_delete_in_inspector(win):

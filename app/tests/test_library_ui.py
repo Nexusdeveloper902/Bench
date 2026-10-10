@@ -19,8 +19,8 @@ def qapp():
 
 
 @pytest.fixture
-def win(qapp):
-    w = MainWindow(); w.show(); w.canvas.setFocus(); return w
+def win(shown_window):
+    return shown_window
 
 
 def type_search(w, text):
@@ -95,7 +95,11 @@ def test_card_content_and_readiness_badges(win):
     assert cards["R"].badge.text() == "Simulated" and cards["R"].name.text() == "Resistor"
     esp = cards["ESP32_DEVKITC"]
     assert esp.badge.text() == "Interface only" and esp.badge.toolTip() == "Not simulated"
-    assert esp.desc.text().startswith("Espressif") and [c.full for c in esp.chips] == list(CATALOG.defs["ESP32_DEVKITC"].tags[:2])
+    assert esp.desc.text().startswith("Espressif")
+    tags = list(CATALOG.defs["ESP32_DEVKITC"].tags[:2])
+    assert [c.full for c in esp.chips] == tags
+    for c, t in zip(esp.chips, tags):      # the visible text: the whole tag, or elided with the whole tag in the tooltip
+        assert c.text() == t or (c.text().endswith("…") and c.toolTip() == t), (c.text(), c.toolTip())
 
 
 def test_card_click_then_canvas_click_places_part(win):
@@ -188,9 +192,11 @@ def test_inspector_from_schema_mode_switch(win):
     win.library.card("V").click(); canvas_click(win, (65, 105))
     ins = win.inspector
     assert list(ins.edits) == ["mode", "dc"]
-    win.doc.parts["V1"]["params"]["mode"] = "PULSE"; win.select("V1")
+    win.select("V1")
+    ins.edits["mode"].setCurrentText("PULSE"); QApplication.processEvents()   # through the UI, like a user
+    assert win.doc.parts["V1"]["params"]["mode"] == "PULSE"
     assert len(ins.edits) == 8 and sum(not isinstance(e, QComboBox) for e in ins.edits.values()) == 7
-    combo = ins.edits["mode"]
+    combo = ins.edits["mode"]                                                 # re-rendered by the change
     combo.setCurrentText("SIN"); QApplication.processEvents()          # a choice change re-renders the `when` fields
     assert win.doc.parts["V1"]["params"]["mode"] == "SIN" and list(win.inspector.edits) == ["mode", "vo", "va", "freq"]
     win.inspector.edits["mode"].setCurrentText("DC"); QApplication.processEvents()
@@ -254,6 +260,22 @@ def test_wire_and_nothing_selected_views(win):
     assert win.probe.currentText() == f"V({node})"
     ins.buttons["delete"].click()
     assert ("R1.b", "D1.a") not in win.doc.wires and ins.view == "none"
+
+
+def test_definition_text_is_shown_as_plain_text(extra_root, qapp):
+    """F10: markup in a package's name, description or pin name is shown as text, never rendered (no <img>, no <b>)."""
+    def mutate(d):
+        d["name"] = "<b>Bold</b><img src=x>Rich"
+        d["description"] = "<i>Italic</i> <img src=x>"
+        d["pins"][0]["name"] = "<b>Pin</b>"
+    write_def(extra_root, "MARKUP", mutate, designator="M")
+    w = MainWindow(); w.show()
+    card = w.library.card("MARKUP")
+    assert card.name.text() == "<b>Bold</b><img src=x>Rich" and card.name.textFormat() == Qt.PlainText
+    w.library.show_details("MARKUP")
+    shown = [l for l in w.library.detail_page.widget().findChildren(QLabel) if "<" in l.text()]
+    assert {"<b>Bold</b><img src=x>Rich", "<i>Italic</i> <img src=x>", "<b>Pin</b>"} <= {l.text() for l in shown}
+    assert all(l.textFormat() == Qt.PlainText for l in shown)
 
 
 def test_missing_icon_fallback(extra_root, qapp):

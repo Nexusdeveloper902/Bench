@@ -7,6 +7,7 @@ from PySide6.QtGui import QDropEvent, QMouseEvent, QWheelEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QGraphicsSimpleTextItem, QGraphicsPathItem
 
+from app import theme
 from app.canvas import PIN_HIT, ZOOM_MAX, ZOOM_MIN
 from app.catalog import CATALOG
 from app.library import MIME
@@ -106,6 +107,30 @@ def test_zoom_range_keys_wheel_and_anchor(win):
     assert abs(after.x() - before.x()) < 1.5 and abs(after.y() - before.y()) < 1.5
 
 
+def test_wire_hit_tolerance_is_screen_pixels_at_25_and_400_percent(win):
+    """T10: the wire hit radius is 5 screen pixels whatever the zoom (a mutant that drops the /zoom term fails both)."""
+    w = win; c = w.canvas
+    a, b = place(w, "R", 60, 60), place(w, "R", 900, 60)
+    w.doc.connect(f"{a}.b", f"{b}.a"); w.refresh()                             # wire along y = 75, x 120..900
+    mid = QPointF(510, 75)
+    c.set_zoom(0.25); c.centerOn(mid)
+    click(w, mid, off=QPoint(0, 4))                                            # 4 px away: selected
+    assert w.sel_wire == (f"{a}.b", f"{b}.a")
+    w.sel = w.sel_wire = None; w.refresh()
+    c.set_zoom(4.0); c.centerOn(mid)
+    click(w, mid, off=QPoint(0, 10))                                           # 10 px away: nothing selected
+    assert w.sel_wire is None and w.sel is None
+    click(w, mid, off=QPoint(0, 2))                                            # 2 px away: selected
+    assert w.sel_wire == (f"{a}.b", f"{b}.a")
+
+
+def test_fit_never_zooms_past_100_percent_for_one_small_part(win):
+    w = win; c = w.canvas
+    place(w, "R", 60, 60)
+    c.set_zoom(3.0); c.zoom_ctl.fit.click()
+    assert c.zoom == 1.0 and c.zoom_ctl.pct.text() == "100%"
+
+
 def test_fit_shows_all_parts(win):
     w = win; c = w.canvas
     a, b = place(w, "R", 60, 60), place(w, "LED", 1200, 700)
@@ -193,7 +218,10 @@ def test_part_toolbar_follows_selection_and_esc_order(win):
 def test_empty_hint_and_zoom_control_overlay(win):
     w = win; c = w.canvas
     assert c.hint.isVisible() and c.zoom_ctl.isVisible() and c.zoom_ctl.pct.text() == "100%"
-    assert w.results.parentWidget().height() == 248 and c.width() >= 670 and c.height() >= 470   # the design's space
+    dock = w.results.parentWidget()
+    assert dock.height() == theme.DOCK_H                                        # the results dock's design height
+    assert c.height() > theme.DOCK_H and c.width() > theme.PROBLEMS_W           # the canvas is the main area
+    assert c.mapTo(w, QPoint(0, c.height())).y() <= dock.mapTo(w, QPoint(0, 0)).y()   # and sits above the dock
     assert c.zoom_ctl.geometry().left() == 12 and c.zoom_ctl.geometry().bottom() == c.viewport().height() - 12 - 1
     assert w.canvas.hint.testAttribute(Qt.WA_TransparentForMouseEvents)        # clicks pass through to the canvas
     place(w, "R", 100, 100)
@@ -256,6 +284,22 @@ def placeholder_doc(wired=True):
     d["layout"]["X1"] = {"x": 300, "y": 300, "rotation": 0}
     if wired: d["connections"] += [["X1.COM", "R1.b"], ["X1.NO", "D1.a"]]
     return Document.from_dict(d)
+
+
+def test_generic_body_still_draws_value_and_current_labels(extra_root, win):
+    """F5: a part drawn as the generic body (no symbol) shows its declared value and show_current readout after a run,
+    and its name only once (the body prints it)."""
+    from conftest import write_def
+    write_def(extra_root, "GENR", mutate=lambda d: (d["presentation"].update(value="R", show_current=True),
+                                                    d["sim"]["electrical"].update(current="@{dev_lc}[i]")))
+    w = win
+    g = w.doc.add_part("GENR", 300, 60); v, gnd = place(w, "V", 60, 60), place(w, "GND", 60, 200)   # no library card yet
+    for a, b in ((f"{v}.p", f"{g}.a"), (f"{g}.b", f"{gnd}.g"), (f"{v}.n", f"{gnd}.g")): w.doc.connect(a, b)
+    w.refresh(); w.run()
+    assert w.result is not None and w.result.ok, w.result and w.result.message
+    texts = [i.text() for i in w.canvas.sc.items() if isinstance(i, QGraphicsSimpleTextItem)]
+    assert texts.count(g) == 1 and "100 Ω" in texts
+    assert any(t.endswith(" mA") or t.endswith(" A") for t in texts), texts
 
 
 def test_placeholder_drawn_and_movable(win):

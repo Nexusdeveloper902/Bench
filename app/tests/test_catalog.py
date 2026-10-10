@@ -1,6 +1,6 @@
 """Catalog core: discovery, search, definition validation, electrical binding (golden netlists), SVG symbols.
 The global CATALOG is rebuilt by the `extra_root` fixture; tests never mutate CATALOG.defs directly."""
-import json
+import json, os
 import pytest
 from conftest import write_def, minimal_def
 from PySide6.QtCore import QPointF
@@ -59,6 +59,36 @@ def test_env_roots_discovered(extra_root, monkeypatch):
     monkeypatch.setenv("SIM_COMPONENT_PATH", str(extra_root))
     assert catalog.default_roots() == [BUILTIN_ROOT, extra_root]
     assert "FROM_ENV" in catalog.reload().defs                              # fixture teardown restores the defaults
+
+
+def test_same_root_listed_twice_or_nested_is_not_a_duplicate(extra_root, monkeypatch):
+    """F4: SIM_COMPONENT_PATH=X with `python3 -m app.catalog X` (both documented) must not report every part as its own duplicate."""
+    import subprocess, sys
+    write_def(extra_root, "FROM_ENV", reload=False)
+    (extra_root / "nested").mkdir()
+    write_def(extra_root / "nested", "NESTED_PART", reload=False)
+    monkeypatch.setenv("SIM_COMPONENT_PATH", f"{extra_root}{os.pathsep}{extra_root / '.'}{os.pathsep}{extra_root / 'nested'}")
+    c = catalog.reload()
+    assert not [p for p in c.problems if p["code"] == "DEF-DUP-ID"]
+    assert {"FROM_ENV", "NESTED_PART"} <= set(c.defs)
+    cli = subprocess.run([sys.executable, "-m", "app.catalog", str(extra_root)], capture_output=True, text=True,
+                         cwd=str(BUILTIN_ROOT.parents[1]), env={**os.environ, "SIM_COMPONENT_PATH": str(extra_root)})
+    assert cli.returncode == 0, cli.stdout
+    assert "0 errors" in cli.stdout.splitlines()[-1]
+
+
+def test_symlinked_package_directory_is_warned_not_silently_skipped(extra_root, tmp_path_factory):
+    """F13: a package reached through a symlinked directory is not loaded (no loops either), and says so."""
+    outside = tmp_path_factory.mktemp("outside")
+    write_def(outside, "SYMPART", reload=False)
+    (extra_root / "sympart").symlink_to(outside / "sympart", target_is_directory=True)
+    (extra_root / "loop").symlink_to(extra_root, target_is_directory=True)                 # a cycle must not hang
+    c = catalog.reload([BUILTIN_ROOT, extra_root])
+    assert "SYMPART" not in c.defs and KINDS <= set(c.defs)
+    warn = [p for p in c.problems if p["code"] == "DEF-LINK"]
+    assert sorted(p["file"] for p in warn) == sorted([str(extra_root / "sympart"), str(extra_root / "loop")])
+    assert all(p["severity"] == "warning" for p in warn)
+    assert "copy the directory" in warn[0]["message"]
 
 
 def test_search_name_alias_keyword_and_ranking(extra_root):
@@ -182,6 +212,8 @@ def _pin_in_tail(d): d["sim"]["electrical"]["line"] = "{dev} {a} {b} {R} {a}"
 def _three_pins(d): d["pins"].append({"id": "w", "at": [30, 0]}); d["sim"]["electrical"]["line"] = "{dev} {a} {b} {R} {w}"
 def _iface_no_pins(d): interface_only(d); d["pins"] = []                           # V3: `interface` needs pins
 def _ground_two_pins(d): d["sim"]["electrical"] = {"ground": True}
+def _huge_box(d): d["presentation"]["box"] = [0, 0, 1e12, 1e12]                 # F9: overflows canvas hit-testing
+def _huge_pin(d): d["pins"][0]["at"] = [1e12, 15]
 
 INVALID = [
     (_no_id, "DEF-FIELD", "id"), ("[ broken", "DEF-PARSE", ""), (_pres_pins, "DEF-FIELD", "presentation.pins"),
@@ -198,6 +230,7 @@ INVALID = [
     (_tap, "DEF-SIM", "sim.electrical.line"), (_pin_after_comment, "DEF-SIM", "sim.electrical.line"), (_pin_in_tail, "DEF-SIM", "sim.electrical.line"),
     (_three_pins, "DEF-SIM", "sim.electrical.line"), (_iface_no_pins, "DEF-CAPABILITY", "capabilities"),
     (_bad_current, "DEF-SIM", "sim.electrical.current"), (_ground_two_pins, "DEF-SIM", "sim.electrical.ground"),
+    (_huge_box, "DEF-FIELD", "presentation.box"), (_huge_pin, "DEF-PIN", "pins[0].at"),
 ]
 
 
@@ -209,7 +242,7 @@ def test_invalid_definitions(extra_root, mutate, code, fld):
         write_def(extra_root, "BAD", mutate=mutate)
     hit = problems(code, fld)
     assert hit and all(p["severity"] == "error" for p in hit), CATALOG.problems
-    assert hit[0]["file"].endswith("component.toml") and hit[0]["message"]
+    assert hit[0]["file"].endswith("component.toml") and hit[0]["id"] in ("BAD", None) and hit[0]["message"]
     assert "BAD" not in CATALOG.defs and KINDS <= set(CATALOG.defs)         # rejected, built-ins untouched
 
 
@@ -298,6 +331,16 @@ def test_emit_is_data_driven(extra_root):
     assert n == "U1" and nl["lines"] == ["RU1 n1 0 2200.0"]                 # letter decides the device: U1 -> RU1
     assert nl["models"] == [".model m_ru1 R(tc1=2200.0)"] and nl["saves"] == []     # no `current`: nothing observed
     assert [s["name"] for s in nl["signals"]] == ["V(n1)", "V(U1)"]
+
+
+def test_golden_oracle_regeneration_needs_explicit_bless():
+    """T17: `python3 -m app.tests.golden_netlists` refuses to overwrite the oracle unless given --bless."""
+    import subprocess, sys
+    before = golden_netlists.FIXTURE.read_bytes()
+    r = subprocess.run([sys.executable, "-m", "app.tests.golden_netlists"], capture_output=True, text=True,
+                       cwd=str(BUILTIN_ROOT.parents[1]))
+    assert r.returncode != 0 and "--bless" in r.stderr + r.stdout
+    assert golden_netlists.FIXTURE.read_bytes() == before
 
 
 def test_build_netlist_refuses_unmodeled_part(extra_root):

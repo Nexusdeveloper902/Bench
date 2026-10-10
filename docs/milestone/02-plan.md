@@ -547,7 +547,7 @@ Scenarios:
 
 - **Persistence stays v1 in T5.** The part dict carries `"version"` (definition version) in memory, but `to_dict` still writes v1 without it (T6 owns v2), so `test_v1_schema` and the roundtrip tests are unchanged.
 - **Message change:** `Catalog.get` raises `unknown component type X` (§3), so the file-load rejection text changed from `unknown part kind`. T6 turns that rejection into a placeholder.
-- **Golden oracle:** `app/tests/fixtures/netlist_golden.json` was captured from the pre-catalog `components.build_netlist` (before any code change) by `app/tests/golden_netlists.py` (11 circuits covering all 10 kinds, V DC/PULSE/SIN, SW open/closed, D with custom Is/N/Rs, C/L `ic`, shared LED model). `test_catalog.py::test_template_netlist_matches_golden` compares full dicts (lines, models, saves, observables, derived, signals). Regenerate only on a deliberate netlist change: `python3 -m app.tests.golden_netlists`.
+- **Golden oracle:** `app/tests/fixtures/netlist_golden.json` was captured from the pre-catalog `components.build_netlist` (before any code change) by `app/tests/golden_netlists.py` (11 circuits covering all 10 kinds, V DC/PULSE/SIN, SW open/closed, D with custom Is/N/Rs, C/L `ic`, shared LED model). `test_catalog.py::test_template_netlist_matches_golden` compares full dicts (lines, models, saves, observables, derived, signals). Regenerate only on a deliberate netlist change: `python3 -m app.tests.golden_netlists --bless` (T17: without `--bless` it refuses).
 - **Model API:** added `Document.definition(name)` and `Document.unmodeled()`; `netlist()` passes only modeled parts. Placeholder-aware `pins()`, `wired()`, `catalog.geometry/placeholder_geometry` are T6.
 - **Extra `electrical.check` rules:** pin ids of an electrical part must be plain identifiers (`3V3` cannot be a `{placeholder}`) and not `dev`/`dev_lc`; unknown keys in `[sim.electrical]` are DEF-SIM (not DEF-FIELD). Catalog adds: unknown capability strings and a `[sim.<d>]` section without its capability are DEF-CAPABILITY; a non-existent root directory is a DEF-PARSE warning.
 - **Symbols:** `part_transform` moved from `window.py` to `symbols.py` (window imports it). `symbols.py` has `renderer`, `add_symbol`, `add_generic_body` (minimal: rounded box, pin stubs and names, title; placeholder styling and badges are T9) but not `icon_pixmap` (T8). SVG strokes are a fixed 2 px, so a selected part is no longer drawn 2.5 px (colour and selection rectangle still mark it). Switch dots are hollow circles (fill none), previously filled-looking.
@@ -630,3 +630,52 @@ Each fix sits at the boundary that owns the rule and has a test that failed on t
 - **Docs (architecture review 1.2).** Added to `docs/adding-components.md`: the `[sim.electrical]` rules table, the
   global scope of model names, `pins = []` for pin-less parts, the unknown-key wording for `[sim.electrical]` (DEF-SIM),
   and "Simulated" instead of "Simulates".
+
+## 16. T13b notes (low-severity fixes and test tightening)
+
+Every code fix has a test that failed on the previous code (run first, then fixed). Test-only items were checked against
+the mutant they target where noted.
+
+- **F4 (root dedupe).** `catalog.reload` reads each resolved package file once, so a root listed twice or nested in
+  another is not a duplicate. Test: `test_same_root_listed_twice_or_nested_is_not_a_duplicate` (also runs the CLI).
+- **F5 (generic body labels).** `canvas._labels(named=...)`: a generic body still draws its value and current rows;
+  only the name (which the body prints) is dropped. Test: `test_generic_body_still_draws_value_and_current_labels`.
+- **F8 (device-name collisions).** `Document.validate` emits `DUP-DEVICE` (error) naming both parts when two modeled
+  parts map to one SPICE device name (`electrical.device_name`, lower-cased). Test:
+  `test_device_name_collision_reported_before_run`.
+- **F9 (geometry bounds).** `catalog.MAX_GEOM = 1e4`: `box` and pin `at` beyond ±10000 are `DEF-FIELD` / `DEF-PIN`.
+  Tests: two new `INVALID` cases (`_huge_box`, `_huge_pin`). `docs/adding-components.md` states the bound.
+- **F10 (plain text).** `widgets.label`, `library.Elided` and `NavItem` set `Qt.PlainText`. The one intentional rich
+  label (the Problems file head) is `RichText` with the path escaped. Test: `test_definition_text_is_shown_as_plain_text`.
+  Status bar and notice labels still use auto text (they are not definition text; left as is).
+- **F13 (symlinked packages).** Chosen: warn, do not follow. `reload` emits `DEF-LINK` (warning) for a symlinked
+  directory in a root, so loops cannot hang. Documented in `docs/adding-components.md` (codes table and "Search and
+  roots"). Test: `test_symlinked_package_directory_is_warned_not_silently_skipped` (includes a symlink cycle).
+- **T7.** `test_placeholder_non_string_params_resave_identical`.
+- **T10.** `test_wire_hit_tolerance_is_screen_pixels_at_25_and_400_percent`,
+  `test_fit_never_zooms_past_100_percent_for_one_small_part`. Both fail on the mutants Z3 (no `/zoom`) and Z5 (no
+  100 % cap) when applied temporarily.
+- **T11.** `test_each_core_error_type_is_failed_with_its_name_and_keeps_excluded`: seven cases, one per `SIM_ERRORS`
+  type, via an injected `Simulation` whose `run()` raises the typed error.
+- **T12.** M16 now ±2 µs (interpolated crossings), M17 rel 2e-3. Measured on the engine: M16 error under 0.1 µs,
+  M17 relative error about 3e-6. Both margins have large headroom, so the requested values were kept.
+- **T13.** Chip text is asserted (the whole tag, or elided with the whole tag as the tooltip). The PULSE mode is set
+  through `edits["mode"].setCurrentText("PULSE")`. The invalid-definition check now asserts the owning id.
+- **T14.** Dock height is `theme.DOCK_H`, and the canvas layout is asserted relationally (taller than the dock, wider
+  than the Problems column, above the dock).
+- **T16. Deviation from the brief.** The brief asks for "plot bottom <= Play row top". The design image
+  `docs/milestone/design/results-states.png` (and the list in `03-design.md`) shows the Play row above the plot, and
+  the app matches it. The test asserts the design order (Play row bottom <= plot top). The layout was not changed.
+  `docs/frontend.md` ("under the plot") is stale and still says the opposite.
+- **T17.** `golden_netlists` `__main__` needs `--bless`. Its `snapshot()` also now uses `electrical.build_netlist`
+  (as the golden test does). The old `Document.netlist()` added an `excluded` key, so a regenerated oracle would have
+  failed the golden test. The regenerated bytes now equal the committed file. Test:
+  `test_golden_oracle_regeneration_needs_explicit_bless`.
+- **F-1.** `conftest.shown_window` (hide, close, deleteLater). The five window fixtures that never closed their window
+  (`test_library_ui`, `test_canvas`, `test_led_e2e`, `test_led_glow`, `test_led_pixels`) use it.
+- **F-2.** `test_autoplay_after_run_only_when_enabled` drives `tick(LOOP_SECONDS / 100)` 100 times. It no longer waits on
+  the real timer.
+- **F-3.** PySide6 has no `QTest.qWaitFor`, so `conftest.wait_for(cond, timeout)` (pumps events) replaces the fixed
+  `qWait` barriers. The remaining `qWait` is inside `wait_for` itself.
+- Count: 416 before, 434 after (18 new cases). The full suite passed on two consecutive runs.
+

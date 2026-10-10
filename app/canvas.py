@@ -503,8 +503,7 @@ class Canvas(QGraphicsView):
             at = QPointF(r.left(), r.bottom() + 30) if c is None else QPointF(r.left(), r.top() - (8 if generic else 30))
             tip = d["placeholder"]["detail"] if c is None else (c.limitations[0] if c.limitations else "Not simulated")
             add_badge(sc, "placeholder" if c is None else c.readiness, at, tip)
-        if c is None or not generic:   # a generic body prints the part name inside; a symbol gets labels around it
-            self._labels(n, d, c, r, cur, sel)
+        self._labels(n, d, c, r, cur, sel, named=not generic)   # a generic body prints the name inside (F5: values stay)
         for ref in doc.pins(n):
             self._pin(ref, wired)
 
@@ -512,7 +511,7 @@ class Canvas(QGraphicsView):
     def _alpha(color, a):
         c = QColor(color); c.setAlpha(a); return c
 
-    def _labels(self, n, d, c, r, cur, sel):
+    def _labels(self, n, d, c, r, cur, sel, named=True):
         sc = self.sc
         name = sc.addSimpleText(n, _font(theme.SMALL_PX, QFont.DemiBold)); name.setBrush(QBrush(QColor(theme.SEL if sel else theme.INK)))
         rows = [summary(d["kind"], d["params"]) if c else ""]
@@ -521,6 +520,7 @@ class Canvas(QGraphicsView):
         for s in filter(None, rows):
             t = sc.addSimpleText(s, _font(theme.SMALL_PX)); t.setBrush(QBrush(QColor(theme.TEXT_2))); texts.append(t)
         nh = name.boundingRect().height()
+        if not named: sc.removeItem(name)   # only the value and current rows remain
         if r.height() > r.width():   # vertical part: labels to the right
             y = r.center().y() - nh
             name.setPos(r.right() + 8, y)

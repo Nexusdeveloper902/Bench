@@ -117,6 +117,7 @@ signals      [{"name": "V(C1)", "vector": "v(C1)", "quantity": "voltage", "unit"
 | UNCONNECTED-PIN | warning | a single unwired terminal (the core still solves it and reports DANGLING) |
 | BAD-PARAM | error | an applicable parameter fails `Param.parse` |
 | DUP-NAME-CASE | error | two part names equal ignoring case (`r2`, `R2`): SPICE names are case-insensitive |
+| DUP-DEVICE | error | two modeled parts whose SPICE device names collide, e.g. `SW1` (device `RSW1`) and a part named `RSW1` of device R |
 | NOT-SIMULATED | error / warning | part without `sim:electrical`: error if any pin is wired (Run refused), warning if unwired (excluded) |
 | MISSING-DEFINITION | error / warning | placeholder, type not in the catalog (same wired/unwired split) |
 | INCOMPATIBLE-DEFINITION | error / warning | placeholder, newer version or unknown param/pin (same split) |

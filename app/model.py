@@ -3,7 +3,7 @@ import copy, json, math, os, re
 
 from .catalog import CATALOG, PIN_RE, get
 from .components import ROTATIONS, ModelError, Param
-from .electrical import build_netlist
+from .electrical import build_netlist, device_name
 FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
               "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
@@ -221,6 +221,13 @@ class Document:
                 out.append(diag("DUP-NAME-CASE", "error",
                                 f"{o} and {n} differ only in case; SPICE names are case-insensitive.", n))
         unm = self.unmodeled()
+        dev_names = {}
+        for n in self.parts:    # F8: SW1 is SPICE device RSW1; a part named RSW1 would collide in the deck
+            if n in unm or self.definition(n).ground: continue
+            dev = device_name(self.definition(n).sim["electrical"], n)
+            if (o := dev_names.setdefault(dev.lower(), n)) != n:
+                out.append(diag("DUP-DEVICE", "error", f"{o} and {n} both become SPICE device '{dev}'; rename one part "
+                                "(the device letter is added to the name).", n))
         for n in unm:
             out.append(self._unmodeled_diag(n))
         for n, d in self.parts.items():   # F7: a type several packages define binds to the first one, never silently

@@ -111,8 +111,8 @@ A part without pins (a documentation-only "Reference only" part) must still writ
 ## Pins
 
 - `id`: letters, digits and `_` (`^[A-Za-z0-9_]+$`), unique within the part. Circuit files store pin ids, so do not rename one casually.
-- `name`: the label shown on the part. Defaults to the id and may repeat (the three ground pins of an ESP32 are all named `GND`).
-- `at = [x, y]`: two finite numbers in part-local units. Positions must be distinct.
+- `name`: the label shown on the part. Defaults to the id and may repeat (the three ground pins of an ESP32 are all named `GND`). Names, descriptions and limitations are shown as plain text: markup such as `<b>` or `<img>` is not rendered.
+- `at = [x, y]`: two numbers in part-local units, each within ±10000 (`DEF-PIN` beyond that). Positions must be distinct.
 - Convention, not enforced: pins on multiples of 20, and `box` width and height multiples of 40, keep pins on the 20 px grid in every rotation.
 - Electrical parts: pin ids must be plain identifiers that do not start with a digit and are not `dev` or `dev_lc`, because they are template placeholders.
 
@@ -153,7 +153,7 @@ do not want to share, needs `{dev_lc}` in its name (`dmod_{dev_lc}`).
 
 ## Presentation
 
-`[presentation]` is required. `box = [x0, y0, w, h]` sets the body (rotation is about its centre). The optional keys are:
+`[presentation]` is required. `box = [x0, y0, w, h]` sets the body (rotation is about its centre), each number within ±10000 (`DEF-FIELD` beyond that). The optional keys are:
 `symbol` (an SVG file, or `{select = "param", <choice> = "file.svg"}`), `icon` (SVG for the library list), `value`
 (the parameter shown on the canvas), `indicator = "glow"` and `show_current` (both need `sim.electrical.current`),
 and `animate_when = [["param", "choice"], ...]`.
@@ -209,6 +209,7 @@ definition. Warnings keep it with a fallback.
 | `DEF-CAPABILITY` | error | capabilities inconsistent with pins, `[sim.*]` sections or `limitations` |
 | `DEF-SIM` | error | an electrical section that the template check rejects, or a fixed model name already used with a different body by an earlier definition |
 | `DEF-ASSET` | warning | symbol, icon or doc file missing or not a usable SVG |
+| `DEF-LINK` | warning | a symbolic link to a directory inside a root: it is not followed, so the package behind it is not loaded |
 
 ## Search and roots
 
@@ -223,3 +224,5 @@ alphabetically.
 
 Extra roots come from the `SIM_COMPONENT_PATH` environment variable, a list separated by `os.pathsep`. Use it to keep
 personal parts outside the repository. Built-in parts load first, so a duplicate id in an extra root is rejected.
+A root listed twice, or nested in another root, is read once. A package directory that is a symbolic link is not
+followed (no loops are possible): it gets a `DEF-LINK` warning, so copy the directory into the root instead.

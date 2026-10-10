@@ -332,8 +332,8 @@ def test_m16_pulse_rise_and_fall_are_independent(win):
     s, step = w.result.get("V(V1)"), 10e-6
     rise = cross(s, 4.5) - cross(s, 0.5, rising=True)                   # 10 % to 90 % of 0..5 V
     fall = cross(s, 0.5, t0=0.6e-3, rising=False) - cross(s, 4.5, t0=0.6e-3, rising=False)
-    assert abs(rise - 0.8 * 100e-6) <= step                             # 80 us, +-1 step
-    assert abs(fall - 0.8 * 400e-6) <= step                             # 320 us, +-1 step
+    assert abs(rise - 0.8 * 100e-6) <= 2e-6                             # 80 us, +-2 us (interpolated crossings)
+    assert abs(fall - 0.8 * 400e-6) <= 2e-6                             # 320 us, +-2 us
 
 
 def test_m17_sine_amplitude_is_one_volt(win):
@@ -349,7 +349,7 @@ def test_m17_sine_amplitude_is_one_volt(win):
     press_run(w)
     assert w.result.ok, w.result.message
     v = [x for _, x in w.result.get("V(V1)")]
-    assert max(v) == pytest.approx(1.0, rel=0.02) and min(v) == pytest.approx(-1.0, rel=0.02)
+    assert max(v) == pytest.approx(1.0, rel=2e-3) and min(v) == pytest.approx(-1.0, rel=2e-3)
 
 
 def test_m18_inductor_initial_current_is_applied(win):

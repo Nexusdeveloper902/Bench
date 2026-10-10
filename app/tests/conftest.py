@@ -47,6 +47,26 @@ def write_def(root, id="TESTPART", mutate=None, reload=True, **top):
     return f
 
 
+def wait_for(cond, timeout=3000):
+    """QTest.qWaitFor (not in PySide6): pump events until cond() is true or timeout ms pass -> cond()'s final value."""
+    import time
+    from PySide6.QtTest import QTest
+    end = time.monotonic() + timeout / 1000
+    while not cond() and time.monotonic() < end: QTest.qWait(5)
+    return bool(cond())
+
+
+@pytest.fixture
+def shown_window():
+    """A shown MainWindow. Hidden, closed and deleted after the test: a window left alive keeps its shortcuts and timers."""
+    from PySide6.QtWidgets import QApplication
+    from app.window import MainWindow
+    QApplication.instance() or QApplication([])
+    w = MainWindow(); w.show(); w.canvas.setFocus()
+    yield w
+    w.hide(); w.close(); w.deleteLater()
+
+
 @pytest.fixture
 def extra_root(tmp_path):
     """tmp dir registered as a second component root; the global CATALOG is rebuilt from the defaults afterwards."""

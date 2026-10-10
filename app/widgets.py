@@ -65,6 +65,7 @@ def icon(name, color=theme.TEXT_2, px=20, disabled=theme.TEXT_DISABLED):
 
 def label(text="", name=None, wrap=False):
     w = QLabel(text)
+    w.setTextFormat(Qt.PlainText)     # package text (names, descriptions, pins) is never markup; RichText is opt-in
     if name: w.setObjectName(name)
     w.setWordWrap(wrap)
     return w

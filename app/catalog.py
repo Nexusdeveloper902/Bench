@@ -111,8 +111,15 @@ class Definition:
 
 
 # ---------------------------------------------------------------- loading
+MAX_GEOM = 1e4   # definition geometry (box, pin at), canvas units: beyond this the canvas overflows (F9)
+
+
 def _num(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _geom(v):
+    return _num(v) and abs(v) <= MAX_GEOM
 
 
 def _svg_problem(path):
@@ -205,8 +212,8 @@ def load_definition(path):
             bad("DEF-PIN", f"bad pin id {pid!r}; use letters, digits and _", f"{f}.id"); continue
         if any(p.id == pid for p in pins): bad("DEF-PIN", f"duplicate pin id '{pid}'; ids must be unique", f"{f}.id"); continue
         at = t.get("at")
-        if not (isinstance(at, list) and len(at) == 2 and all(_num(x) for x in at)):
-            bad("DEF-PIN", f"pin '{pid}': 'at' must be two finite numbers [x, y]", f"{f}.at"); continue
+        if not (isinstance(at, list) and len(at) == 2 and all(_geom(x) for x in at)):
+            bad("DEF-PIN", f"pin '{pid}': 'at' must be two numbers [x, y] within ±{MAX_GEOM:g}", f"{f}.at"); continue
         at = tuple(at)
         if at in seen_at: bad("DEF-PIN", f"pins '{seen_at[at]}' and '{pid}' are both at {list(at)}; move one", f"{f}.at"); continue
         seen_at[at] = pid
@@ -274,8 +281,8 @@ def load_definition(path):
 
     box = pres.get("box")
     if "box" not in pres: bad("DEF-FIELD", "missing required key 'box'; add [x0, y0, w, h]", "presentation.box")
-    elif not (isinstance(box, list) and len(box) == 4 and all(_num(x) for x in box) and box[2] > 0 and box[3] > 0):
-        bad("DEF-FIELD", "'box' must be four numbers [x0, y0, w, h] with w, h > 0", "presentation.box"); box = None
+    elif not (isinstance(box, list) and len(box) == 4 and all(_geom(x) for x in box) and box[2] > 0 and box[3] > 0):
+        bad("DEF-FIELD", f"'box' must be four numbers [x0, y0, w, h] within ±{MAX_GEOM:g} with w, h > 0", "presentation.box"); box = None
     sym, icon = pres.get("symbol"), None
     if isinstance(sym, dict):
         sel = sym.get("select")
@@ -380,12 +387,20 @@ def reload(roots=None):
     """Rebuild the process-wide CATALOG in place (every `from .catalog import CATALOG` stays valid)."""
     roots = [Path(r) for r in (default_roots() if roots is None else roots)]
     defs, problems, origin, fixed, shadowed = {}, [], {}, {}, {}   # fixed: placeholder-free model name -> (body, definition id)
+    loaded = set()          # resolved package files: a root listed twice, or nested in another, is read once
     for root in roots:
         if not root.is_dir():
             problems.append({"code": "DEF-PARSE", "severity": "warning", "file": str(root), "field": "", "id": None,
                              "message": "component root is not a directory; check SIM_COMPONENT_PATH"})
             continue
+        for link in root.rglob("*"):   # rglob does not descend into a symlinked directory (no loops): say so
+            if link.is_symlink() and link.is_dir():
+                problems.append({"code": "DEF-LINK", "severity": "warning", "file": str(link), "field": "", "id": None,
+                                 "message": "a symbolic link to a directory is not followed, so the package behind it is "
+                                            "not loaded; copy the directory into the root instead"})
         for f in sorted(root.rglob("component.toml")):
+            if (real := f.resolve()) in loaded: continue
+            loaded.add(real)
             d, diags = load_definition(f)
             problems += diags
             if d is None: continue

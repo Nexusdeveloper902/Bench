@@ -1,6 +1,7 @@
 """Component library panel: search, category navigation, 'Simulated only' toggle, cards, details view, catalog-problems
 banner. Everything comes from the catalog (`CATALOG.search` / `.categories` / `.problems`); no component is named here.
 Design: docs/milestone/03-design.md (library frames, rules R1/R3/R4)."""
+from html import escape
 from pathlib import Path
 
 from PySide6.QtCore import QMimeData, QPoint, QSize, Qt, Signal
@@ -19,6 +20,7 @@ class Elided(QLabel):
     tooltip when cut). `natural`: asks for its full text width (chips) but can shrink; else it takes what it is given."""
     def __init__(self, text, name=None, natural=False):
         super().__init__(); self.full, self.natural = text, natural
+        self.setTextFormat(Qt.PlainText)
         if name: self.setObjectName(name)
         self.setSizePolicy(QSizePolicy.Preferred if natural else QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.setMinimumWidth(28 if natural else 10)
@@ -105,6 +107,7 @@ class NavItem(QPushButton):
         self.setObjectName("nav"); self.setCursor(Qt.PointingHandCursor)
         row = QHBoxLayout(self); row.setContentsMargins(9, 0, 12, 0)
         self.name, self.count = QLabel(name), QLabel("0")
+        self.name.setTextFormat(Qt.PlainText)
         self.count.setObjectName("hint")
         for l in (self.name, self.count): l.setAttribute(Qt.WA_TransparentForMouseEvents)
         row.addWidget(self.name, 1); row.addWidget(self.count)
@@ -224,7 +227,8 @@ class LibraryPanel(QWidget):
                              f"{self.problem_count} definition warning{'s' * (self.problem_count != 1)}")
         self.banner.setProperty("kind", "err" if errs else "warn"); theme.repolish(self.banner)
         for p in probs:
-            head = W.label(f"<b>{self._rel(p['file'])}</b> · {p['code']}", "code")
+            head = W.label(f"<b>{escape(self._rel(p['file']))}</b> · {p['code']}", "code")
+            head.setTextFormat(Qt.RichText)
             head.setTextFormat(Qt.RichText)
             msg = W.label(f"{p['message']}" + (f" [{p['field']}]" if p["field"] else ""), wrap=True)
             msg.setTextFormat(Qt.PlainText)

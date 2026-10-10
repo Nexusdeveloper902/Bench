@@ -11,8 +11,8 @@ def qapp():
 
 
 @pytest.fixture
-def win(qapp):
-    w = MainWindow(); w.show(); return w
+def win(shown_window):
+    return shown_window
 
 
 def test_dc_led_glows_at_end_matches_mapping(win):

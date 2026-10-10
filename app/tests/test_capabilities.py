@@ -102,12 +102,50 @@ def test_case_only_duplicate_names_reported_before_run():
     assert run_document(d).ok
 
 
+def test_device_name_collision_reported_before_run(extra_root):
+    """F8: SW1 becomes SPICE device RSW1; a user part designated RSW is also RSW1. validate() names both parts."""
+    from conftest import write_def
+    write_def(extra_root, "SHUNT", designator="RSW")
+    d = Document()
+    d.add_part("V"); d.add_part("GND"); d.add_part("SW"); d.add_part("SHUNT")
+    assert list(d.parts) == ["V1", "GND1", "SW1", "RSW1"]
+    for a, b in (("V1.p", "SW1.a"), ("SW1.b", "RSW1.a"), ("RSW1.b", "GND1.g"), ("V1.n", "GND1.g")): d.connect(a, b)
+    errs = [x for x in d.validate() if x["code"] == "DUP-DEVICE"]
+    assert len(errs) == 1 and errs[0]["severity"] == "error"
+    assert errs[0]["message"] == "SW1 and RSW1 both become SPICE device 'RSW1'; rename one part (the device letter is added to the name)."
+    r = run_document(d)
+    assert r.status == "blocked" and "[DUP-DEVICE]" in r.message and "--- netlist" not in r.details
+
+
 def test_core_error_is_failed_not_blocked():
     d = Document()
     for k in ("V", "R", "C", "GND"): d.add_part(k)
     for a, b in (("V1.p", "R1.a"), ("R1.b", "C1.a"), ("V1.n", "GND1.g")): d.connect(a, b)   # C1.b floats
     r = run_document(d)
     assert r.status == "failed" and r.state == "failed" and "--- netlist" in r.details and r.excluded == []
+
+
+@pytest.mark.parametrize("name", ["InvalidCircuitError", "InvalidConfigError", "ConvergenceError", "SolverError",
+                                  "BackendError", "UnsupportedError", "UnavailableError"])
+def test_each_core_error_type_is_failed_with_its_name_and_keeps_excluded(extra_root, monkeypatch, name):
+    """T11/N5: every typed core error maps to 'failed', names its type, and the unsupported part stays excluded."""
+    import simcore
+    exc = getattr(simcore, name)("injected fault")
+    class Faulty:                                   # the core run raises the injected error; everything before it is real
+        def __init__(self, *a): pass
+        def build_circuit(self, *a): pass
+        def add_model(self, *a): pass
+        def add(self, *a): pass
+        def configure(self, **k): pass
+        def observe(self, *a): pass
+        def validate(self): return []
+        def run(self): raise exc
+    monkeypatch.setattr(sim.simcore, "Simulation", Faulty)
+    d = led_with_board(extra_root, wired=False)
+    r = run_document(d)
+    assert r.status == "failed" and r.state == "failed" and r.ok is False
+    assert name in r.message + r.details and "injected fault" in r.message + r.details
+    assert r.excluded == ["U1"] and "not simulated: U1" not in r.message
 
 
 def test_app_bug_propagates_not_labelled_sim_error(monkeypatch):
