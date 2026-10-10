@@ -4,7 +4,7 @@ import json, math
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QFormLayout, QLabel, QMessageBox, QPushButton, QLineEdit, QComboBox
+from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QLineEdit, QComboBox
 from app.model import Document, value_at
 from app.components import format_si
 from app.tests.test_gui_workflow import qapp, show, win, select, field, type_into, click, pick  # noqa: F401
@@ -81,8 +81,7 @@ def test_inspector_fields_readable_at_1300x850(win):
     """B7: a PULSE source's 7 fields must each be a usable size and the Play row must not overlap the plot."""
     w = win; w.resize(1300, 850)
     w._reset(Document.blink_example()); select(w, "V1"); QTest.qWait(50)
-    eds = [w.form.itemAt(i, QFormLayout.FieldRole).widget() for i in range(w.form.rowCount())
-           if w.form.itemAt(i, QFormLayout.FieldRole)]
+    eds = list(w.inspector.edits.values())
     assert len([e for e in eds if isinstance(e, QLineEdit)]) == 7
     for e in [e for e in eds if not isinstance(e, QLabel)]:
         assert e.width() >= 100 and e.height() >= 20, (type(e).__name__, e.size())

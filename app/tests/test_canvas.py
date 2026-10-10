@@ -35,7 +35,7 @@ def drag(w, a, b):
 
 
 def place(w, kind, x, y):
-    w.tool_btns[kind].click(); click(w, (x + 5, y + 5))   # snaps to grid
+    w.library.card(kind).click(); click(w, (x + 5, y + 5))   # snaps to grid
 
 
 def test_place_drag_wire_delete_undo(win):
@@ -93,17 +93,16 @@ def test_right_click_pin_disconnects_and_undo(win):
 
 
 def test_param_edit_undo_and_tstop_survives_selection(win):
-    from PySide6.QtWidgets import QFormLayout
     w = win; w.load_led_example()
     w.tstop.setText("2e-3"); w.tstop.textEdited.emit("2e-3")
     w.select("V1")
-    edit = w.form.itemAt(1, QFormLayout.FieldRole).widget()   # BAT dc
+    edit = w.inspector.field("Voltage")   # BAT dc
     edit.setText("9"); edit.editingFinished.emit()
     assert w.doc.parts["V1"]["params"]["dc"] == "9"
     w.select("R1")
     assert w.doc.tstop == "2e-3" and w.tstop.text() == "2e-3"
     w.undo(); assert w.doc.parts["V1"]["params"]["dc"] == "5"
-    w.select("D1"); assert w.form.rowCount() == 2   # name + "no parameters"
+    w.select("D1"); assert not w.inspector.edits   # LED: "No configurable parameters."
 
 
 def test_led_example_run_and_picker(win):

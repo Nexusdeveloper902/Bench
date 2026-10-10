@@ -4,8 +4,8 @@ labelled box. Qt only; all geometry comes from the catalog Definition."""
 from functools import cache
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QPointF, QRectF
-from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen, QTransform
+from PySide6.QtCore import QByteArray, QPointF, QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QPixmap, QTransform
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtSvgWidgets import QGraphicsSvgItem
 
@@ -69,3 +69,21 @@ def add_placeholder(scene, part, color):
     box, pos = geometry(part)
     return add_generic_body(scene, part_transform(part), box, [Pin(p, p, at) for p, at in pos.items()],
                             f"? {part['kind']}", color)
+
+
+def icon_pixmap(defn, px=40, color="#1F2933"):
+    """Library icon of a definition: its `icon` SVG, else its (first) rendered `symbol`, else None (the caller draws a
+    letter glyph). Fitted into px x px keeping the aspect ratio, rendered at 2x for crispness."""
+    sym = defn.symbol
+    f = defn.icon or (next((x for x in sym["files"].values() if x), None) if isinstance(sym, dict) else sym)
+    r = renderer(str(f), color) if f else None
+    if r is None:
+        return None
+    vb, k = r.viewBoxF(), 2
+    s = min(px / vb.width(), px / vb.height())
+    w, h = vb.width() * s, vb.height() * s
+    pm = QPixmap(px * k, px * k); pm.fill(Qt.transparent); pm.setDevicePixelRatio(k)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing)
+    r.render(p, QRectF((px - w) / 2, (px - h) / 2, w, h))
+    p.end()
+    return pm

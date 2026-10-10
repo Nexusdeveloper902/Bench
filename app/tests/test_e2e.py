@@ -215,8 +215,7 @@ def test_gui_edit_through_param_panel(qapp):
     """Select a part, type in the real QLineEdit, finish editing, rerun."""
     w = build_window(qapp, tstop="1e-2")
     w.select("R1")
-    from PySide6.QtWidgets import QFormLayout
-    edit = next(w.form.itemAt(i, QFormLayout.FieldRole).widget() for i in range(1, w.form.rowCount()))
+    edit = next(iter(w.inspector.edits.values()))
     edit.setText("2000"); edit.editingFinished.emit()
     w.run()
     assert w.status.text().startswith("SUCCESS")

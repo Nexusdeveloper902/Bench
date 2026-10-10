@@ -310,3 +310,24 @@ Missing items found and filled: (a) results while Running (no frame); (b) result
 3. **Electrical count.** Illustrative only (10). T7 decides it.
 4. **Results and details are drawn.** The plan inventory has no Results or details components, so these panels are drawn shapes (the new frame clones the `results-states` panels). T9 builds them from the token table.
 5. **Penpot file name** is still "New File 3" (section 1).
+
+## 10. T8 deviations (library panel, inspector, theme)
+
+Screenshot: `docs/milestone/impl/t8-workspace.png` (LED example, R1 selected, offscreen, 1280 x 800). Library and inspector follow the frames; the top bar, canvas and results are untouched (T9). Differences, with reasons:
+
+1. **Top bar and results dock are not restyled.** The toolbars keep their text actions, the results panel its old controls. T8 only re-arranged them: the old right column (inspector + results) became [library 280 | canvas over a results + Problems dock | inspector 320], because the plot cannot live in a 320 px inspector. Results (T9) will be rebuilt to the 248 px dock design. Rotate and Delete moved from the removed Parts toolbar to the File toolbar.
+2. **Cards are 246 px wide, not 256.** Qt's vertical scrollbar (10 px, always reserved when the list scrolls) takes the difference inside the 280 px panel. The card list scrolls; the category list does not (7 rows fit).
+3. **Elided text.** The card description and tag chips are elided with an ellipsis (full text in the tooltip) when the card is narrow; the design assumes short texts. Chips shrink to a 28 px minimum.
+4. **Icons.** Card tiles show the part's `symbol.svg` (T5 files, stroke 2) fitted to 40 px, not the 1.5 px Penpot glyphs. Parts without an `icon` or `symbol` show their designator letters on a dashed tile (`MissingIcon`).
+5. **Search icon** is a painted magnifier (QAction icon in the field). The "x" clear button is Qt's own `setClearButtonEnabled`.
+6. **Details view** is a stacked page of the panel, not a separate frame. "Place" arms placement and returns to the list; pin lists fold behind "Show all N pins" after 5 rows (library details and inspector).
+7. **Catalog banner** counts distinct files with errors ("N definitions could not be loaded"); warnings only (DEF-ASSET) switch it to an amber "N definition warnings". It lists every problem (file relative to its root, code, message and field), plus "Copy all diagnostics".
+8. **Unit cell, field focus.** The unit suffix is a label inside a bordered box with a tinted cell; the focus ring is the box border (a `focus` property), because Qt has no `:focus-within`. Invalid fields use the same box (`invalid` property, 2 px #D02020, #FFF0F0) and the ModelError text from `components.py`, so the wording differs from the sample ("... is not a number (e.g. 1k, 10u, ...)").
+9. **Valid-value echo.** While typing a valid value the field shows "= 4.7 kΩ" under it (the old inspector did this; kept as the SI feedback). Committing an invalid value on Enter still stores the text as typed and flags it in Problems (existing behaviour, tested since T6); nothing is stored while typing.
+10. **Card focus** uses Tab focus only (a blue border), so clicking does not leave a stuck border. Shift+Enter on a focused card opens details; Enter or Space arms; right-click opens details directly (no context menu).
+11. **Drag from a card** carries `application/x-sim-component` = id; the canvas drop is T9.
+12. **Docs links** show the host (URLs) or file name, because `docs` holds only strings, not titles. Security: only http(s) URLs and files of type .pdf .html .htm .md .txt .png .svg that resolve (symlinks followed) inside the package directory get a link; `catalog.py` rejects other local docs entries (DEF-FIELD).
+13. **Shared widgets** live in `app/widgets.py` (not in the plan's module list): badge, toggle, tile, banner, table, doc links.
+14. **Fonts.** The app font is Noto Sans at 13 px, set on the Fusion style with an explicit palette; Noto Sans Mono for ids. Not embedded: a machine without them falls back to Qt's default.
+15. **Wire tile glyph** is an em dash on the generic tile (Penpot draws a wire shape).
+16. **Loading skeleton** is not implemented: the catalog loads synchronously.

@@ -8,9 +8,9 @@ import traceback
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QKeySequence, QAction, QFont, QRadialGradient, \
     QPolygonF
-from PySide6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGraphicsScene, QGraphicsView,
-                               QPushButton, QLabel, QLineEdit, QFormLayout, QComboBox, QFileDialog, QToolBar,
-                               QSplitter, QSlider, QScrollArea, QListWidget, QListWidgetItem, QPlainTextEdit, QMessageBox)
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGraphicsScene,
+                               QGraphicsView, QPushButton, QLabel, QLineEdit, QComboBox, QFileDialog, QToolBar,
+                               QSplitter, QSlider, QListWidget, QListWidgetItem, QPlainTextEdit, QMessageBox)
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
@@ -20,6 +20,9 @@ from .components import format_si
 from .symbols import add_placeholder, add_symbol, part_transform
 from .sim import run_document, RunResult
 from .history import History
+from .inspector import Inspector
+from .library import LibraryPanel
+from . import theme
 
 GRID = 20
 SLIDER_MAX = 10000
@@ -207,6 +210,7 @@ class Canvas(QGraphicsView):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        theme.apply(QApplication.instance())
         self.doc, self.result, self.sel, self.sel_wire = Document(), None, None, None
         self.ran_key = None     # circuit signature of the last run; a mismatch means the result is stale
         self.tool, self.pending_pin = None, None
@@ -237,9 +241,9 @@ class MainWindow(QMainWindow):
             fm.addSeparator() if a is None else fm.addAction(a)
         for a in (self.a_undo, self.a_redo, self.a_rotate, self.a_delete): em.addAction(a)
         for a in (self.a_run, self.a_rerun, self.a_reset): sm.addAction(a)
-        # toolbars: file/edit | simulation controls, then the parts palette
+        # toolbars: file/edit | simulation controls (the parts palette is the library panel)
         tb = QToolBar("File"); self.addToolBar(tb)
-        for a in (self.a_new, self.a_open, self.a_save, self.a_undo, self.a_redo): tb.addAction(a)
+        for a in (self.a_new, self.a_open, self.a_save, self.a_undo, self.a_redo, self.a_rotate, self.a_delete): tb.addAction(a)
         st = QToolBar("Simulation"); self.addToolBar(st)
         self.analysis = QLabel(" Analysis: <b>Transient</b> ")   # the only analysis the core supports
         self.analysis.setToolTip("Analysis type. The simulation core supports transient analysis only.")
@@ -253,24 +257,17 @@ class MainWindow(QMainWindow):
         st.addSeparator()
         for a in (self.a_run, self.a_rerun, self.a_reset): st.addAction(a)
         self.state_lbl = QLabel(); self.state_lbl.setMinimumWidth(110); st.addWidget(self.state_lbl)
-        self.addToolBarBreak()
-        pb = QToolBar("Parts"); self.addToolBar(pb)
-        pb.addWidget(QLabel("Place: "))
-        self.tool_btns = {}
-        for k, c in CATALOG.defs.items():
-            b = QPushButton(c.name); b.setCheckable(True)
-            b.clicked.connect(lambda _=False, k=k: self.set_tool(None if self.tool == k else k))
-            pb.addWidget(b); self.tool_btns[k] = b
-        pb.addSeparator(); pb.addAction(self.a_rotate); pb.addAction(self.a_delete)
-        # inspector
-        self.form = QFormLayout()
-        self.param_msg = QLabel(""); self.param_msg.setWordWrap(True)
-        self.problems = QListWidget(); self.problems.setMaximumHeight(90)
+        # library (left) and inspector (right) panels
+        self.library, self.inspector = LibraryPanel(), Inspector()
+        self.library.place_requested.connect(lambda k: self.set_tool(None if self.tool == k else k))
+        self.inspector.param_edited.connect(self.edit_param)
+        self.inspector.plot_requested.connect(self.probe_pin)
+        self.inspector.delete_requested.connect(self.delete_selected)
+        self.problems = QListWidget()
         self.problems.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.select(it.data(Qt.UserRole)))
-        top = QWidget(); tl = QVBoxLayout(top); tl.setContentsMargins(0, 0, 0, 0)
-        tl.addWidget(QLabel("<b>Inspector</b>")); tl.addLayout(self.form); tl.addWidget(self.param_msg)
         self.problems_lbl = QLabel("<b>Problems</b>")
-        tl.addWidget(self.problems_lbl); tl.addWidget(self.problems); tl.addStretch(1)
+        pw = QWidget(); pl = QVBoxLayout(pw); pl.setContentsMargins(8, 8, 8, 8)
+        pl.addWidget(self.problems_lbl); pl.addWidget(self.problems, 1)
         # waveform viewer
         self.probe, self.stats = QComboBox(), QLabel("")
         self.probe.setToolTip("Signal to plot. Tip: click a wire on the canvas to plot its node voltage.")
@@ -300,18 +297,18 @@ class MainWindow(QMainWindow):
         pr = QHBoxLayout(); pr.addWidget(self.play_btn); pr.addWidget(self.slider, 1); rl.addLayout(pr)
         rl.addWidget(self.readout); rl.addWidget(self.stats); rl.addWidget(self.err); rl.addWidget(self.findings)
         dl = QHBoxLayout(); dl.addWidget(self.details_btn); dl.addStretch(1); rl.addLayout(dl); rl.addWidget(self.details)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(top); scroll.setFrameShape(QScrollArea.NoFrame)
-        scroll.setMinimumHeight(140)   # long forms (PULSE: 7 fields) scroll instead of squeezing the fields
-        right = QSplitter(Qt.Vertical); right.addWidget(scroll); right.addWidget(bot); right.setStretchFactor(1, 1)
-        right.setMinimumWidth(420); right.setSizes([250, 600])
-        left = QWidget(); ll = QVBoxLayout(left)
-        self.hint = QLabel(HINT); self.hint.setWordWrap(True)
-        ll.addWidget(self.hint); ll.addWidget(self.canvas, 1)
-        sp = QSplitter(); sp.addWidget(left); sp.addWidget(right); sp.setStretchFactor(0, 1)
+        dock = QSplitter(); dock.addWidget(bot); dock.addWidget(pw); dock.setStretchFactor(0, 1); dock.setSizes([620, 240])
+        mid = QWidget(); ml = QVBoxLayout(mid); ml.setContentsMargins(0, 0, 0, 0); ml.setSpacing(0)
+        self.hint = QLabel(HINT); self.hint.setWordWrap(True); self.hint.setContentsMargins(8, 4, 8, 4)
+        ml.addWidget(self.hint); ml.addWidget(self.canvas, 1)
+        centre = QSplitter(Qt.Vertical); centre.addWidget(mid); centre.addWidget(dock)
+        centre.setStretchFactor(0, 1); centre.setSizes([450, 330]); centre.setChildrenCollapsible(False)
+        sp = QSplitter(); sp.addWidget(self.library); sp.addWidget(centre); sp.addWidget(self.inspector)
+        sp.setStretchFactor(1, 1); sp.setChildrenCollapsible(False)
+        sp.setSizes([theme.LIBRARY_W, 1280 - theme.LIBRARY_W - theme.INSPECTOR_W, theme.INSPECTOR_W])
         self.setCentralWidget(sp)
         self.status = QLabel("Ready.")
         self.statusBar().addWidget(self.status, 1)
-        self.setStyleSheet("QLineEdit { border: 1px solid #666; border-radius: 3px; padding: 2px 4px; }")
         self.resize(1280, 800)
         self._show_result()
         self.refresh()
@@ -331,8 +328,8 @@ class MainWindow(QMainWindow):
 
     def set_tool(self, k):
         self.tool = k
-        for kk, b in self.tool_btns.items(): b.setChecked(kk == k)
-        if k: self.set_status(f"Click the canvas to place a {CATALOG.get(k).name}")
+        self.library.set_armed(k)
+        if k: self.set_status(f"Placing {CATALOG.get(k).name}: click the canvas. Esc cancels.")
 
     def select(self, name):
         self.sel, self.sel_wire = name, None; self.refresh()
@@ -476,17 +473,6 @@ class MainWindow(QMainWindow):
             with self.hist.change(self.doc): self.doc.set_param(n, k, v)
             self._check_stale(); self._problems(); self.draw(); self._title()
             self.a_undo.setEnabled(self.hist.can_undo()); self.a_redo.setEnabled(self.hist.can_redo())
-
-    def _live(self, ed, n, k, text):
-        """As-you-type check of one inspector field (no document change until editing finishes)."""
-        try:
-            v = self.doc.check_param(n, k, text)
-        except ModelError as e:
-            mark(ed, str(e)); self.param_msg.setText(str(e)); self.param_msg.setStyleSheet("color: #b00020"); return
-        mark(ed, None)
-        self.param_msg.setText(f"{self.doc.definition(n).param(k).label} = "
-                               f"{format_si(v, self.doc.definition(n).param(k).unit, 6)}")
-        self.param_msg.setStyleSheet("color: #555")
 
     # --- run controls ---
     def set_state(self, s):
@@ -754,47 +740,8 @@ class MainWindow(QMainWindow):
         has = self.sel in doc.parts
         self.a_delete.setEnabled(has or self.sel_wire in doc.wires); self.a_rotate.setEnabled(has)
         self.a_undo.setEnabled(self.hist.can_undo()); self.a_redo.setEnabled(self.hist.can_redo())
-        self.param_msg.setText("")
-        while self.form.rowCount(): self.form.removeRow(0)
-        if has:
-            self._params()
-        elif self.sel_wire in doc.wires:
-            self.form.addRow(QLabel(f"<b>Wire</b> {self.sel_wire[0]} - {self.sel_wire[1]}"))
-        else:
-            self.form.addRow(QLabel("Select a part to edit its values."))
+        self.inspector.show_selection(doc, self.sel, self.sel_wire, ("Transient", self._si(doc.tstop), self._si(doc.tstep)))
         self._problems()
-
-    def _params(self):
-        """Inspector rows from catalog Param metadata: label, unit, choice -> combo box, number -> SI text field."""
-        n = self.sel
-        d = self.doc.parts[n]
-        c, p = self.doc.definition(n), d["params"]
-        if c is None:
-            self.form.addRow(QLabel(f"<b>{n}</b> ({d['kind']} v{d['version']})"))
-            self.form.addRow(QLabel(f"No usable definition: {d['placeholder']['detail']}.\n"
-                                    "Kept unchanged; parameters are read-only."))
-            return
-        self.form.addRow(QLabel(f"<b>{n}</b> ({c.name})"))
-        keys = c.fields(p)
-        if not keys:
-            self.form.addRow(QLabel("no parameters")); return
-        errs = []
-        for k in keys:
-            m = c.param(k)
-            if m.kind == "choice":
-                w = QComboBox(); w.setMinimumSize(110, 26); w.addItems(m.choices); w.setCurrentText(p[k])
-                w.currentTextChanged.connect(lambda v, n=n, k=k: (self.edit_param(n, k, v), QTimer.singleShot(0, self.refresh)))
-            else:
-                w = QLineEdit(p[k]); w.setPlaceholderText("e.g. 1k, 10u, 4.7n"); w.setMinimumSize(110, 26)
-                w.editingFinished.connect(lambda n=n, k=k, w=w: self.edit_param(n, k, w.text()))
-                w.textEdited.connect(lambda text, n=n, k=k, w=w: self._live(w, n, k, text))
-                try:
-                    self.doc.check_param(n, k)
-                except ModelError as e:
-                    mark(w, str(e)); errs.append(str(e))
-            self.form.addRow(f"{m.label} ({m.unit})" if m.unit else m.label, w)
-        if errs:
-            self.param_msg.setText("\n".join(errs)); self.param_msg.setStyleSheet("color: #b00020")
 
 
 def mark(ed, err):

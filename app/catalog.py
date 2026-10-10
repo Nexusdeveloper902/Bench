@@ -20,6 +20,7 @@ DOMAINS = ("electrical", "digital", "mcu", "audio", "rf", "optical", "mechanical
 CAPABILITIES = ("interface",)                    # plus "sim:<d>" for d in SIM_DOMAINS
 SIM_DOMAINS = {"electrical": electrical.check}   # the one place a simulation domain plugs in its validator
 UNITS = ("", "Ω", "F", "H", "V", "A", "s", "Hz")
+DOC_EXTENSIONS = (".pdf", ".html", ".htm", ".md", ".txt", ".png", ".svg")   # local docs files the app will open
 
 ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 PIN_RE = re.compile(r"[A-Za-z0-9_]+\Z")
@@ -284,7 +285,12 @@ def load_definition(path):
         sym = asset(sym, "presentation.symbol", True)
     if "icon" in pres: icon = asset(pres["icon"], "presentation.icon", True)
     for d in docs:
-        if not d.startswith(("http://", "https://")): asset(d, "docs", False)
+        if d.startswith(("http://", "https://")): continue
+        if Path(d).suffix.lower() not in DOC_EXTENSIONS:   # a click opens it with the desktop: never an executable type
+            bad("DEF-FIELD", f"docs file {d!r} has a type that is not allowed; use an http(s) URL or a file ending in "
+                             f"{', '.join(DOC_EXTENSIONS)}", "docs")
+        else:
+            asset(d, "docs", False)
     value = typed(pres, "value", str, "presentation.value", "a param key", default=None)
     if value is not None and value not in pk: bad("DEF-FIELD", f"value names unknown param {value!r}", "presentation.value"); value = None
     ind = typed(pres, "indicator", str, "presentation.indicator", "\"glow\"", default=None)

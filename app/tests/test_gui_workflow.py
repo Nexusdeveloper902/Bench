@@ -5,7 +5,7 @@ import math
 import pytest
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout, QFileDialog, QMessageBox, QLineEdit, QComboBox
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QLineEdit, QComboBox
 from app.window import MainWindow, pin_pos, wire_pts, part_rect
 
 VF, R, C = 5.0, 1e3, 10e-6
@@ -41,7 +41,7 @@ def click(w, pt, button=Qt.LeftButton):
 
 
 def place(w, kind, x, y):
-    w.tool_btns[kind].click(); click(w, (x + 5, y + 5))
+    w.library.card(kind).click(); click(w, (x + 5, y + 5))
     return next(reversed(w.doc.parts))
 
 
@@ -55,11 +55,10 @@ def wire(w, a, b):
 
 def field(w, label):
     """Inspector widget whose row label starts with `label` (e.g. 'Resistance')."""
-    for i in range(w.form.rowCount()):
-        lab = w.form.itemAt(i, QFormLayout.LabelRole)
-        if lab and lab.widget().text().startswith(label):
-            return w.form.itemAt(i, QFormLayout.FieldRole).widget()
-    raise AssertionError(f"no inspector field {label}")
+    try:
+        return w.inspector.field(label)
+    except StopIteration:
+        raise AssertionError(f"no inspector field {label}") from None
 
 
 def type_into(ed, text):
@@ -172,15 +171,15 @@ def test_undo_redo_rotate_and_param_edit(win):
 
 def test_inline_validation_and_units(win):
     w = win; place(w, "C", 100, 100); select(w, "C1")
-    ed = field(w, "Capacitance (F)")
+    ed = field(w, "Capacitance")
     ed.setFocus(); ed.selectAll(); QTest.keyClicks(ed, "4.7n")
-    assert "4.7 nF" in w.param_msg.text() and "d02020" not in ed.styleSheet()
+    assert "4.7 nF" in w.inspector.message("C") and not w.inspector.boxes["C"].property("invalid")
     ed.selectAll(); QTest.keyClicks(ed, "abc")
-    assert "not a number" in w.param_msg.text() and "d02020" in ed.styleSheet()
+    assert "not a number" in w.inspector.message("C") and w.inspector.boxes["C"].property("invalid")
     QTest.keyClick(ed, Qt.Key_Return)                                # stored as typed, flagged everywhere
     assert w.doc.parts["C1"]["params"]["C"] == "abc"
     assert any("BAD-PARAM" in w.problems.item(i).text() for i in range(w.problems.count()))
-    select(w, "C1"); assert "d02020" in field(w, "Capacitance").styleSheet()
+    select(w, "C1"); assert w.inspector.boxes["C"].property("invalid")
     type_into(w.tstop, "-1"); assert "d02020" in w.tstop.styleSheet()
 
 
