@@ -10,13 +10,13 @@
 ![Rust](https://img.shields.io/badge/engine-Rust%20%2B%20PyO3-CE412B?logo=rust&logoColor=white)
 ![Qt](https://img.shields.io/badge/UI-PySide6-41CD52?logo=qt&logoColor=white)
 
-[Quick start](#-quick-start) · [Features](#-features) · [Architecture](#-architecture) · [Adding components](#-adding-components) · [Docs](#-documentation)
+[Quick start](#quick-start) · [Features](#features) · [Architecture](#architecture) · [Adding components](#adding-components) · [Docs](#documentation)
 
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
 - **Schematic editor.** Drag parts from a searchable library, wire them, move, rotate, undo and redo. Zoom 25–400 %, pan with middle-drag or <kbd>Space</kbd>+drag.
 - **Real simulation.** Circuits run through [ngspice](https://ngspice.sourceforge.io/) 47 via `benchcore`, not a toy solver.
@@ -28,7 +28,7 @@
 > [!NOTE]
 > Bench is under active development. The `milestone/component-ecosystem` work added the catalog, seed packages and the workspace UI; see the [milestone report](docs/milestone/REPORT.md).
 
-## 🚀 Quick start
+## Quick start
 
 ### Prerequisites
 
@@ -59,7 +59,7 @@ Then try **File ▸ Load blinking LED example**, press **Run**, and drag the tim
 > [!TIP]
 > After changing any Rust under `benchcore/`, rebuild and reinstall the wheel before running the app tests.
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # App (headless Qt)
@@ -81,7 +81,7 @@ python3 -m app.catalog
 
 </details>
 
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -107,7 +107,7 @@ flowchart LR
 | [`docs/`](docs) | Frontend design, persistence, testing, milestone and review reports |
 | [`experiments/`](experiments) | Throwaway spikes, reference only |
 
-## 🧩 Adding components
+## Adding components
 
 A component is a directory with a `component.toml` and optional SVG assets:
 
@@ -140,7 +140,7 @@ python3 -m app.catalog ~/my-parts
 
 Full guide with worked examples: [`docs/adding-components.md`](docs/adding-components.md).
 
-## 📚 Documentation
+## Documentation
 
 | Topic | Where |
 |---|---|
@@ -150,7 +150,7 @@ Full guide with worked examples: [`docs/adding-components.md`](docs/adding-compo
 | Engine | [`benchcore/docs/`](benchcore/docs) (architecture, API, electrical, testing) |
 | Milestone report and reviews | [`docs/milestone/REPORT.md`](docs/milestone/REPORT.md), [`docs/review/`](docs/review) |
 
-## 🔬 Experiments
+## Experiments
 
 Each spike lives in its own folder under [`experiments/`](experiments) with its own `REPORT*.md` or `REPRO.md`.
 
@@ -163,6 +163,6 @@ Each spike lives in its own folder under [`experiments/`](experiments) with its 
 | `exp-safety/` | Simulation safety boundary |
 | `exp-window/` | Continuation-aware event windowing |
 
-## 📄 License
+## License
 
 [MIT](LICENSE)
