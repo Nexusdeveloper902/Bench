@@ -120,6 +120,9 @@ class NavItem(QPushButton):
         self.count.setStyleSheet(muted + (f"color: {theme.PRIMARY};" if selected else ""))
         theme.repolish(self)
 
+    def on_theme(self):   # the inline colours above were the old theme's
+        self.set_state(self.property("selected"), int(self.count.text()))
+
 
 class SearchField(QLineEdit):
     """Search box: Esc clears the text."""
@@ -150,7 +153,8 @@ class LibraryPanel(QWidget):
         self.banner = self._build_banner(); lay.addWidget(self.banner)
         self.search = SearchField(); self.search.setObjectName("search"); self.search.setPlaceholderText("Search components")
         self.search.setClearButtonEnabled(True); self.search.setFixedHeight(theme.CONTROL_H)
-        self.search.addAction(self._search_icon(), QLineEdit.LeadingPosition)
+        a = self.search.addAction(self._search_icon(), QLineEdit.LeadingPosition)
+        W.themed(a, lambda: a.setIcon(self._search_icon()))
         self.search.textChanged.connect(self.refilter)
         lay.addWidget(self.search)
         self.nav_box = QVBoxLayout(); self.nav_box.setSpacing(0); lay.addLayout(self.nav_box)

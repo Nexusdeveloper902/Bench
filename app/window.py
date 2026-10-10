@@ -23,11 +23,11 @@ from . import theme, widgets as W
 
 
 def logo_pixmap(px=28):
-    """The app logo: a primary-coloured rounded square with a white pulse."""
+    """The app logo: a primary-coloured rounded square with an on-primary pulse."""
     pm = QPixmap(px * 2, px * 2); pm.fill(Qt.transparent); pm.setDevicePixelRatio(2)
     p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing); p.setPen(Qt.NoPen); p.setBrush(QColor(theme.PRIMARY))
     p.drawRoundedRect(0, 0, px, px, theme.R_MD, theme.R_MD)
-    p.drawPixmap((px - 20) // 2, (px - 20) // 2, W.svg_pixmap("pulse", "#FFFFFF", 20)); p.end()
+    p.drawPixmap((px - 20) // 2, (px - 20) // 2, W.svg_pixmap("pulse", theme.ON_PRIMARY, 20)); p.end()
     return pm
 
 
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
             a = QAction(text, self); a.triggered.connect(lambda _=False: fn())
             if keys: a.setShortcuts([QKeySequence(k) for k in keys])
             if tip: a.setToolTip(tip)
-            if icon: a.setIcon(W.icon(icon, theme.TEXT_2, 18))
+            if icon: W.set_icon(a, icon, "TEXT_2", 18)
             self.addAction(a)   # shortcuts work with or without a visible menu
             return a
         self.a_new, self.a_open = act("New", self.new, "Ctrl+N", tip="New circuit (Ctrl+N)", icon="new"), \
@@ -70,6 +70,8 @@ class MainWindow(QMainWindow):
         self.a_zoom_in = act("Zoom in", lambda: self.canvas.zoom_by(1.25), "Ctrl+=", "Ctrl++")
         self.a_zoom_out = act("Zoom out", lambda: self.canvas.zoom_by(1 / 1.25), "Ctrl+-")
         self.a_fit = act("Fit all parts", self.canvas.fit, "Ctrl+0")
+        self.a_dark = act("Dark mode", lambda: self.set_dark(self.a_dark.isChecked()), tip="Switch between the light and dark theme")
+        W.set_icon(self.a_dark, "moon"); self.a_dark.setCheckable(True); self.a_dark.setChecked(theme.DARK_MODE)
         # library (left) and inspector (right) panels
         self.library, self.inspector = LibraryPanel(), Inspector()
         self.library.place_requested.connect(self._toggle_tool)
@@ -93,7 +95,7 @@ class MainWindow(QMainWindow):
         rule = QFrame(); rule.setObjectName("rule")
         centre = QWidget(); cl = QVBoxLayout(centre); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(0)
         # "opened with placeholders" banner (dialogs.png): in the layout above the canvas, so it never covers a part
-        self.open_banner, col = banner("warn", "alert", theme.WARN_FG); self.open_banner.hide()
+        self.open_banner, col = banner("warn", "alert", "WARN_FG"); self.open_banner.hide()
         self.open_msg = W.label("", wrap=True); self.open_show = W.link("Show in Problems", self._show_placeholder)
         self.open_dismiss = W.link("Dismiss", self.open_banner.hide)
         col.addWidget(self.open_msg)
@@ -119,14 +121,14 @@ class MainWindow(QMainWindow):
         bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
         bar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)   # narrow windows compact it (see resizeEvent)
         lay = QHBoxLayout(bar); lay.setContentsMargins(16, 0, 16, 0); lay.setSpacing(8)
-        app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Bench"); app.setIcon(QPixmap(logo_pixmap()))
+        app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Bench"); W.themed(app, lambda: app.setIcon(QPixmap(logo_pixmap())))
         app.setIconSize(QSize(28, 28)); app.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         app.setPopupMode(QToolButton.InstantPopup); app.setToolTip("Menu: file, edit, simulation, view")
         menu = QMenu(app)
         for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
                             ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
                             ("Simulation", (self.a_run, self.a_rerun, self.a_reset)),
-                            ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit))):
+                            ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit, None, self.a_dark))):
             sub = menu.addMenu(title)
             for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
         app.setMenu(menu); self.app_menu = menu
@@ -159,9 +161,12 @@ class MainWindow(QMainWindow):
             b.setObjectName("simbtn"); b.setProperty("primary", prim); b.setFixedSize(96, 32); b.setToolTip(a.toolTip())
             b.clicked.connect(lambda _=False, a=a: a.trigger())
             if prim:
-                i = W.icon("play", "#FFFFFF", 16, theme.TEXT_DISABLED); b.setIcon(i); b.setIconSize(QSize(16, 16))
+                W.set_icon(b, "play", "ON_PRIMARY", 16); b.setIconSize(QSize(16, 16))
             lay.addWidget(b)
         self.state_lbl = W.StateBadge(); lay.addWidget(self.state_lbl)
+        lay.addWidget(W.vline(24))
+        db = QToolButton(); db.setObjectName("iconbtn"); db.setDefaultAction(self.a_dark); db.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        db.setIconSize(QSize(18, 18)); db.setFixedSize(32, 32); lay.addWidget(db)   # visible toggle; also under menu > View
         return bar
 
     def _sync_controls(self):
@@ -447,7 +452,17 @@ class MainWindow(QMainWindow):
         return 0.0 if i is None else led_level(i)
 
     def set_status(self, msg, bad=False):
-        self.status.setText(msg); self.status.setStyleSheet(f"color: {theme.BAD}" if bad else "")
+        self.status.setText(msg); self.status.setProperty("bad", bad); theme.repolish(self.status)
+
+    def set_dark(self, dark):
+        """View > Dark mode: switch the theme live (no restart) and remember the choice."""
+        self.a_dark.setChecked(dark)
+        if dark == theme.DARK_MODE: return
+        theme.use(dark); theme.apply(QApplication.instance()); theme.save_dark(dark)
+        W.retheme(self)
+
+    def on_theme(self):   # after the children's hooks (W.retheme): redraw what reads theme colours while drawing
+        self._title(); self.refresh(); self.canvas.viewport().update()
 
     def load_demo(self):
         d = Document()

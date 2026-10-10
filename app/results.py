@@ -93,7 +93,7 @@ class ResultsPanel(QWidget):
         w = QWidget(); l = QVBoxLayout(w); l.setAlignment(Qt.AlignCenter)
         self.empty_title, self.empty_text = W.label("No results yet", "emptytitle"), W.label("", "hint", wrap=True)
         self.empty_title.setAlignment(Qt.AlignCenter); self.empty_text.setAlignment(Qt.AlignCenter)
-        self.stale_banner, col = banner("warn", "alert", theme.WARN_FG)
+        self.stale_banner, col = banner("warn", "alert", "WARN_FG")
         col.addWidget(W.label("Results out of date: re-run to refresh.", wrap=True))
         l.addWidget(self.stale_banner); l.addSpacing(6); l.addWidget(self.empty_title); l.addWidget(self.empty_text)
         self.pages.addWidget(w)
@@ -122,13 +122,13 @@ class ResultsPanel(QWidget):
         l.addWidget(self.plotw, 1)
         self.readout, self.stats = W.label("", "readout"), W.label("", "stats")
         l.addWidget(self.readout); l.addWidget(self.stats)
-        self.ok_banner, col = banner("ok", "check", theme.STATE_COMPLETED)
+        self.ok_banner, col = banner("ok", "check", "STATE_COMPLETED")
         self.msg = W.label("", wrap=True); col.addWidget(self.msg); l.addWidget(self.ok_banner)
         self.pages.addWidget(w)
 
     def _fail_page(self):
         w = QWidget(); l = QVBoxLayout(w); l.setContentsMargins(0, 4, 0, 0); l.setSpacing(8)
-        self.err_box, col = banner("err", "xcircle", theme.ERR_FG)
+        self.err_box, col = banner("err", "xcircle", "ERR_FG")
         self.err_title, self.err = W.label("", "bold"), W.label("", wrap=True)
         col.addWidget(self.err_title); col.addWidget(self.err)
         self.noplot = W.label("", "hint"); self.noplot.setAlignment(Qt.AlignCenter)
@@ -162,10 +162,10 @@ class ResultsPanel(QWidget):
         ok = bool(r and r.ok)
         if ok:
             self.msg.setText(r.message)
-            kind, ic = ("warn", ("alert", theme.WARN_FG)) if r.excluded else ("ok", ("check", theme.STATE_COMPLETED))
+            kind, ic = ("warn", ("alert", "WARN_FG")) if r.excluded else ("ok", ("check", "STATE_COMPLETED"))
             self.ok_banner.setProperty("kind", kind)
             for x in (self.ok_banner, self.msg): theme.repolish(x)
-            self.ok_banner.icon.setPixmap(W.svg_pixmap(*ic, 16))
+            i = self.ok_banner.icon; W.themed(i, lambda: i.setPixmap(W.svg_pixmap(ic[0], theme.color(ic[1]), 16)))
         self.probe.blockSignals(True); self.probe.clear()
         first = -1
         for kind, title in GROUPS:
@@ -210,7 +210,7 @@ class ResultsPanel(QWidget):
         r = self.result
         sig = r.signal(name) if r and r.ok else None
         self.cur_line = self.cur_dot = None
-        self.ax.set_facecolor("#FFFFFF")
+        self.fig.set_facecolor(theme.PANEL); self.ax.set_facecolor(theme.PANEL)
         for s in self.ax.spines.values(): s.set_color(theme.BORDER_STRONG); s.set_linewidth(0.8)
         self.ax.tick_params(colors=theme.TEXT_MUTED, labelsize=7, length=2, pad=2)
         if sig:
@@ -236,6 +236,9 @@ class ResultsPanel(QWidget):
             self.stats.setText("")
             self.ax.set_xticks([]); self.ax.set_yticks([])
         self.bg = None; self._readout(); self.plotw.draw_idle()
+
+    def on_theme(self):   # matplotlib does not follow the Qt palette: redraw in the new colours
+        self.plot(self.probe.currentText())
 
     def view_data(self):
         """(signal dict, [(t, v)]) currently plotted - straight from RunResult.series - or None."""
@@ -357,7 +360,7 @@ class ProblemsPanel(QWidget):
         self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff); self.list.setFocusPolicy(Qt.NoFocus)
         self.list.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.part_clicked.emit(it.data(Qt.UserRole)))
         self.empty = QWidget(); el = QVBoxLayout(self.empty); el.setAlignment(Qt.AlignCenter)
-        ck = W.icon_label("check", theme.STATE_COMPLETED); el.addWidget(ck, 0, Qt.AlignHCenter)
+        ck = W.icon_label("check", "STATE_COMPLETED"); el.addWidget(ck, 0, Qt.AlignHCenter)
         el.addWidget(W.label("No problems", "hint"), 0, Qt.AlignHCenter)
         self.stack = QStackedWidget(); self.stack.addWidget(self.list); self.stack.addWidget(self.empty)
         root.addWidget(self.stack, 1)

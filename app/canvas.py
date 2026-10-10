@@ -93,7 +93,7 @@ class ZoomControl(QFrame):
         lay = QHBoxLayout(self); lay.setContentsMargins(1, 1, 1, 1); lay.setSpacing(0)
 
         def btn(name, tip):
-            b = QToolButton(); b.setIcon(W.icon(name, theme.TEXT, 16)); b.setIconSize(QSize(16, 16))
+            b = W.set_icon(QToolButton(), name, "TEXT", 16); b.setIconSize(QSize(16, 16))
             b.setToolTip(tip); b.setFixedHeight(30); b.setCursor(Qt.PointingHandCursor); return b
         self.minus, self.plus, self.fit = btn("minus", "Zoom out  Ctrl -"), btn("plus", "Zoom in  Ctrl +"), \
             btn("fit", "Fit all parts  Ctrl 0")
@@ -112,9 +112,9 @@ class PartToolbar(QFrame):
         self.setObjectName("floating"); self.setFixedSize(76, 32)
         lay = QHBoxLayout(self); lay.setContentsMargins(1, 1, 1, 1); lay.setSpacing(0)
         self.rotate, self.delete = QToolButton(), QToolButton()
-        for b, name, col, tip in ((self.rotate, "rotate", theme.TEXT_2, "Rotate 90°  R"),
-                                  (self.delete, "trash", theme.BAD, "Delete  Del")):
-            b.setIcon(W.icon(name, col, 16)); b.setIconSize(QSize(16, 16)); b.setToolTip(tip)
+        for b, name, col, tip in ((self.rotate, "rotate", "TEXT_2", "Rotate 90°  R"),
+                                  (self.delete, "trash", "BAD", "Delete  Del")):
+            W.set_icon(b, name, col, 16); b.setIconSize(QSize(16, 16)); b.setToolTip(tip)
             b.setFixedHeight(30); b.setCursor(Qt.PointingHandCursor); lay.addWidget(b, 1)
         lay.insertWidget(1, W.vline(18))
 
@@ -469,7 +469,7 @@ class Canvas(QGraphicsView):
         if w.sel_wire in doc.wires:   # end handles of the selected wire, over the pins
             pts = wire_pts(doc, *w.sel_wire)
             for q in (pts[0], pts[-1]):
-                sc.addEllipse(q.x() - 5, q.y() - 5, 10, 10, QPen(QColor(theme.SEL), 2), QBrush(Qt.white))
+                sc.addEllipse(q.x() - 5, q.y() - 5, 10, 10, QPen(QColor(theme.SEL), 2), QBrush(QColor(theme.CANVAS_BG)))
         if w.pending_pin in {p for n in doc.parts for p in doc.pins(n)} and self.cursor is not None:
             a = pin_pos(doc, w.pending_pin)
             sc.addLine(a.x(), a.y(), self.cursor.x(), self.cursor.y(), QPen(QColor(theme.HOVER), 1.5, Qt.DashLine))
@@ -535,9 +535,9 @@ class Canvas(QGraphicsView):
         hov, pend = self.hover == ("pin", ref), ref == w.pending_pin
         if hov or pend:   # halo + blue ring
             sc.addEllipse(p.x() - 9, p.y() - 9, 18, 18, QPen(Qt.NoPen), QBrush(self._alpha(theme.HOVER, 50)))
-            pen, br = QPen(QColor(theme.HOVER), 2), QBrush(Qt.white)
+            pen, br = QPen(QColor(theme.HOVER), 2), QBrush(QColor(theme.CANVAS_BG))
         elif ref in wired: pen, br = QPen(QColor(theme.OK_PIN_RING), 1.5), QBrush(QColor(theme.OK_PIN))
-        else: pen, br = QPen(QColor(theme.OPEN_PIN), 1.5), QBrush(Qt.white)   # unconnected: hollow red
+        else: pen, br = QPen(QColor(theme.OPEN_PIN), 1.5), QBrush(QColor(theme.CANVAS_BG))   # unconnected: hollow red
         sc.addEllipse(p.x() - 4.5, p.y() - 4.5, 9, 9, pen, br)
         if wired.get(ref, 0) >= 2:   # junction: 3+ conductors meet at this pin
             sc.addEllipse(p.x() - 4, p.y() - 4, 8, 8, QPen(Qt.NoPen), QBrush(QColor(theme.WIRE)))

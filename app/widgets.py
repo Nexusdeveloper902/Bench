@@ -5,7 +5,7 @@ from html import escape
 
 from functools import cache
 
-from PySide6.QtCore import QByteArray, QRectF, QSize, Qt, QUrl
+from PySide6.QtCore import QByteArray, QObject, QRectF, QSize, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QAbstractButton, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
@@ -28,6 +28,7 @@ ICONS = {
     "trash": '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     "minus": '<line x1="5" y1="12" x2="19" y2="12"/>',
     "plus": '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    "moon": '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
     "fit": '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
     "check": '<polyline points="20 6 9 17 4 12"/>',
     "alert": '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
@@ -56,11 +57,30 @@ def svg_pixmap(name, color, px, stroke=1.5):
     return pm
 
 
-def icon(name, color=theme.TEXT_2, px=20, disabled=theme.TEXT_DISABLED):
-    """QIcon of ICONS[name]: `color` normally, `disabled` when the button is disabled."""
-    i = QIcon()
-    i.addPixmap(svg_pixmap(name, color, px), QIcon.Normal); i.addPixmap(svg_pixmap(name, disabled, px), QIcon.Disabled)
+def icon(name, color="TEXT_2", px=20, disabled="TEXT_DISABLED"):
+    """QIcon of ICONS[name]: `color` normally, `disabled` when the button is disabled (hex or theme token names)."""
+    i, c, d = QIcon(), theme.color(color), theme.color(disabled)
+    i.addPixmap(svg_pixmap(name, c, px), QIcon.Normal); i.addPixmap(svg_pixmap(name, d, px), QIcon.Disabled)
     return i
+
+
+def themed(obj, fn):
+    """Call fn() now and again on every theme switch (retheme): for colours baked into icons and pixmaps."""
+    obj.on_theme = fn; fn()
+    return obj
+
+
+def set_icon(target, name, color="TEXT_2", px=20, disabled="TEXT_DISABLED"):
+    """target.setIcon(icon(...)), redone on theme switches: pass theme token names, not hex, to follow the theme."""
+    return themed(target, lambda: target.setIcon(icon(name, color, px, disabled)))
+
+
+def retheme(root):
+    """After theme.use() + theme.apply(): run the on_theme hook of every object under `root` (root's last, so it may
+    rebuild children), then repaint. The stylesheet and the palette restyle the rest by themselves."""
+    for o in [*root.findChildren(QObject), root]:
+        if f := getattr(o, "on_theme", None): f()
+    root.update()
 
 
 def label(text="", name=None, wrap=False):
@@ -90,7 +110,7 @@ class Badge(QLabel):
     """Readiness badge: dot + text on a tinted rounded rectangle (20 px high). `key` is a theme.READINESS key."""
     def __init__(self, key, parent=None):
         super().__init__(parent)
-        text, self.fg, self.bg, tip = theme.READINESS[key]
+        text, _, _, tip = theme.READINESS[key]
         self.setText(text); self.setToolTip(tip); self.key = key
         f = QFont(theme.FONT); f.setPixelSize(theme.CAPTION_PX); f.setWeight(QFont.DemiBold); self.setFont(f)
         self.setFixedHeight(20)
@@ -100,10 +120,11 @@ class Badge(QLabel):
         return QSize(self.fontMetrics().horizontalAdvance(self.text()) + 26, 20)
 
     def paintEvent(self, _):
+        _, fg, bg, _ = theme.READINESS[self.key]
         p = QPainter(self); p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(Qt.NoPen); p.setBrush(QColor(self.bg)); p.drawRoundedRect(QRectF(self.rect()), theme.R_SM, theme.R_SM)
-        p.setBrush(QColor(self.fg)); p.drawEllipse(QRectF(7, 7, 6, 6))
-        p.setPen(QColor(self.fg)); p.setFont(self.font())
+        p.setPen(Qt.NoPen); p.setBrush(QColor(bg)); p.drawRoundedRect(QRectF(self.rect()), theme.R_SM, theme.R_SM)
+        p.setBrush(QColor(fg)); p.drawEllipse(QRectF(7, 7, 6, 6))
+        p.setPen(QColor(fg)); p.setFont(self.font())
         p.drawText(QRectF(18, 0, self.width() - 18, 20), Qt.AlignVCenter | Qt.AlignLeft, self.text())
 
 
@@ -148,7 +169,7 @@ def tile(defn=None, size=44, px=40, glyph="?"):
     pm = icon_pixmap(defn, px) if defn else None
     lab = QLabel(); lab.setAlignment(Qt.AlignCenter)
     if pm is not None:
-        lab.setPixmap(pm)
+        themed(lab, lambda: lab.setPixmap(icon_pixmap(defn, px)))
     else:
         lab.setObjectName("glyph")
         lab.setText(glyph if defn is None else (defn.designator or glyph)[:2])
@@ -259,8 +280,8 @@ class StateBadge(QWidget):
 
 
 def icon_label(name, color, px=16):
-    """QLabel showing ICONS[name] (message and problem rows)."""
-    l = QLabel(); l.setPixmap(svg_pixmap(name, color, px)); l.setFixedSize(px, px)
+    """QLabel showing ICONS[name] (message and problem rows); `color` as in icon()."""
+    l = QLabel(); themed(l, lambda: l.setPixmap(svg_pixmap(name, theme.color(color), px))); l.setFixedSize(px, px)
     l.setStyleSheet("background: transparent; border: 0"); return l
 
 

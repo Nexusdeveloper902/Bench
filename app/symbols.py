@@ -57,21 +57,28 @@ def add_generic_body(scene, transform, box, pins, title, color, name=None, fill=
     pen = QPen(col, 2, Qt.DashLine if dashed else Qt.SolidLine)
     items.append(scene.addPath(transform.map(body), pen, QBrush(QColor(fill or theme.PANEL_ALT))))
     c = transform.map(QPointF(x0 + w / 2, y0 + h / 2))
+    lo, hi = transform.map(QPointF(x0, 0)).x(), transform.map(QPointF(x0 + w, 0)).x()   # title lane: between the pin labels
+    lo, hi = min(lo, hi), max(lo, hi)
     for p in pins:
         q = transform.map(QPointF(*p.at))
         s = 1 if q.x() < c.x() else -1                       # label on the side facing the body centre
         t = scene.addSimpleText(p.name, _font(theme.SMALL_PX)); t.setBrush(QBrush(col))
         t.setPos(q.x() + 9 if s > 0 else q.x() - 9 - t.boundingRect().width(), q.y() - t.boundingRect().height() / 2)
         items.append(t)
-    lines = _wrap(title, theme.CAPTION_PX, w * 0.5) if h >= 100 else [title]   # a tall board wraps its name
+        if s > 0: lo = max(lo, q.x() + 9 + t.boundingRect().width() + 4)
+        else: hi = min(hi, q.x() - 9 - t.boundingRect().width() - 4)
+    lines = _wrap(title, theme.CAPTION_PX, max(hi - lo, 20))   # wrap inside the lane between the pin labels
     fm = QFontMetricsF(_font(theme.CAPTION_PX)); lh = fm.height()
-    top = c.y() - lh * len(lines) / 2 + (lh / 2 if name else 0)
+    if max(fm.horizontalAdvance(l) for l in lines) <= hi - lo:
+        cx, top = (lo + hi) / 2, c.y() - lh * len(lines) / 2 + (lh / 2 if name else 0)
+    else:                                                    # lane too narrow (small chip): print under the body instead
+        lines = [title]; cx, top = c.x(), transform.mapRect(QRectF(x0, y0, w, h)).bottom() + 4 + (lh if name else 0)
     for i, line in enumerate(lines):
         t = scene.addSimpleText(line, _font(theme.CAPTION_PX)); t.setBrush(QBrush(col))
-        t.setPos(c.x() - t.boundingRect().width() / 2, top + i * lh); items.append(t)
+        t.setPos(cx - t.boundingRect().width() / 2, top + i * lh); items.append(t)
     if name:
         n = scene.addSimpleText(name, _font(theme.SMALL_PX, QFont.DemiBold)); n.setBrush(QBrush(col))
-        n.setPos(c.x() - n.boundingRect().width() / 2, top - n.boundingRect().height()); items.append(n)
+        n.setPos(cx - n.boundingRect().width() / 2, top - n.boundingRect().height()); items.append(n)
     return items
 
 
@@ -119,7 +126,7 @@ class Badge(QGraphicsItem):
     theme.READINESS key; `at` is the pill's bottom-left corner in scene coordinates."""
     def __init__(self, key, at, tip):
         super().__init__()
-        self.text, self.fg, self.bg, _ = theme.READINESS[key]
+        self.text = theme.READINESS[key][0]
         self.font = _font(theme.CAPTION_PX, QFont.DemiBold)
         self.w = QFontMetricsF(self.font).horizontalAdvance(self.text) + 26
         self.setPos(at.x(), at.y() - 20); self.setToolTip(tip); self.key = key
@@ -128,10 +135,11 @@ class Badge(QGraphicsItem):
         return QRectF(0, 0, self.w, 20)
 
     def paint(self, p, *_):
+        _, fg, bg, _ = theme.READINESS[self.key]
         p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(Qt.NoPen); p.setBrush(QColor(self.bg)); p.drawRoundedRect(self.boundingRect(), theme.R_SM, theme.R_SM)
-        p.setBrush(QColor(self.fg)); p.drawEllipse(QRectF(7, 7, 6, 6))
-        p.setPen(QColor(self.fg)); p.setFont(self.font)
+        p.setPen(Qt.NoPen); p.setBrush(QColor(bg)); p.drawRoundedRect(self.boundingRect(), theme.R_SM, theme.R_SM)
+        p.setBrush(QColor(fg)); p.drawEllipse(QRectF(7, 7, 6, 6))
+        p.setPen(QColor(fg)); p.setFont(self.font)
         p.drawText(QRectF(18, 0, self.w - 18, 20), Qt.AlignVCenter | Qt.AlignLeft, self.text)
 
 
@@ -141,12 +149,12 @@ def add_badge(scene, key, at, tip):
     return b
 
 
-def icon_pixmap(defn, px=40, color="#1F2933"):
+def icon_pixmap(defn, px=40, color=None):
     """Library icon of a definition: its `icon` SVG, else its (first) rendered `symbol`, else None (the caller draws a
     letter glyph). Fitted into px x px keeping the aspect ratio, rendered at 2x for crispness."""
     sym = defn.symbol
     f = defn.icon or (next((x for x in sym["files"].values() if x), None) if isinstance(sym, dict) else sym)
-    r = renderer(str(f), color) if f else None
+    r = renderer(str(f), color or theme.TEXT) if f else None
     if r is None:
         return None
     vb, k = r.viewBoxF(), 2

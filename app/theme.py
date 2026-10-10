@@ -1,34 +1,55 @@
-"""Design tokens (docs/milestone/03-design.md §2) and the one application stylesheet. Flat light chrome: no shadows,
-gradients or blur. The app uses the Fusion style with an explicit palette so the look does not depend on the OS (D14)."""
+"""Design tokens (docs/milestone/03-design.md §2) and the one application stylesheet. Flat chrome, light or dark: no
+shadows, gradients or blur. The app uses the Fusion style with an explicit palette so the look does not depend on the OS (D14);
+only the first light / dark choice follows it (saved_dark)."""
 from string import Template
 
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 
-# ---- canvas identity (kept from the original app)
-CANVAS_BG, GRID, INK, WIRE, SEL, SEL_FILL = "#FFFFFF", "#E6E9EE", "#222222", "#1A5FB4", "#E07000", "#FFE6BE"
-HOVER, OK_PIN, OK_PIN_RING, OPEN_PIN, FINDING, BAD = "#2A7FFF", "#2FA82F", "#1B6E1B", "#D02020", "#E0A000", "#B00020"
-LED_OFF, LED_ON, LED_GLOW = "#5A5A5A", "#FF4620", "#FF8C3C"
-# ---- chrome
-APP_BG, PANEL, PANEL_ALT, BORDER, BORDER_STRONG, DIVIDER = "#F4F6F8", "#FFFFFF", "#F8F9FB", "#D9DEE5", "#B8C0CC", "#E8EBEF"
-TEXT, TEXT_2, TEXT_MUTED, TEXT_DISABLED, DISABLED_BG = "#1F2933", "#52606D", "#8A94A0", "#A8B0BA", "#EEF1F4"
-PRIMARY, PRIMARY_HOVER, PRIMARY_SOFT, ON_PRIMARY = "#1A5FB4", "#174F96", "#E7F0FB", "#FFFFFF"
-# ---- run state (blocked shares the failed colour, as in the design)
-STATE_IDLE, STATE_RUNNING, STATE_COMPLETED, STATE_FAILED, STATE_STALE = "#666666", "#1A5FB4", "#1B6E1B", "#B00020", "#A05000"
-# state key -> (badge text, colour, hollow dot)
-STATES = {"idle": ("Idle", STATE_IDLE, False), "running": ("Running", STATE_RUNNING, True),
-          "completed": ("Completed", STATE_COMPLETED, False), "failed": ("Failed", STATE_FAILED, False),
-          "blocked": ("Blocked", STATE_FAILED, False), "stale": ("Out of date", STATE_STALE, False)}
-OK_BG = "#E4F4E4"
-# ---- feedback
-INFO_FG, INFO_BG = "#0B5CAD", "#E3EEFA"
-WARN_FG, WARN_BG, WARN_BORDER = "#8A4B00", "#FFF1DC", "#E0A000"
-ERR_FG, ERR_BG, ERR_BORDER, INVALID_BG = "#B00020", "#FBE4E8", "#D02020", "#FFF0F0"
-
-# readiness key -> (label, foreground, background, tooltip). Keys: Definition.readiness, plus "placeholder".
-READINESS = {"simulated": ("Simulated", "#1B6E1B", "#E4F4E4", "Has a working simulation model"),
-             "interface": ("Interface only", "#0B5CAD", "#E3EEFA", "Not simulated"),
-             "placeable": ("Reference only", "#52606D", "#ECEFF3", "Documentation only: no pins, not simulated"),
-             "placeholder": ("Placeholder", "#6B3FA0", "#EFE8F8", "No usable definition: kept unchanged")}
+# ---- colours: one dict per theme. use() copies the current one into the module globals (CANVAS_BG, TEXT, ...), so
+# read them as `theme.X` when painting; never bind one at import time (`from .theme import X`, a default argument).
+LIGHT = dict(
+    # canvas identity (kept from the original app)
+    CANVAS_BG="#FFFFFF", GRID="#E6E9EE", INK="#222222", WIRE="#1A5FB4", SEL="#E07000", SEL_FILL="#FFE6BE",
+    HOVER="#2A7FFF", OK_PIN="#2FA82F", OK_PIN_RING="#1B6E1B", OPEN_PIN="#D02020", FINDING="#E0A000", BAD="#B00020",
+    LED_OFF="#5A5A5A", LED_ON="#FF4620", LED_GLOW="#FF8C3C",
+    # chrome
+    APP_BG="#F4F6F8", PANEL="#FFFFFF", PANEL_ALT="#F8F9FB", BORDER="#D9DEE5", BORDER_STRONG="#B8C0CC", DIVIDER="#E8EBEF",
+    TEXT="#1F2933", TEXT_2="#52606D", TEXT_MUTED="#8A94A0", TEXT_DISABLED="#A8B0BA", DISABLED_BG="#EEF1F4",
+    PRIMARY="#1A5FB4", PRIMARY_HOVER="#174F96", PRIMARY_SOFT="#E7F0FB", ON_PRIMARY="#FFFFFF", CODE_BG="#1F2933",
+    # run state (blocked shares the failed colour, as in the design)
+    STATE_IDLE="#666666", STATE_RUNNING="#1A5FB4", STATE_COMPLETED="#1B6E1B", STATE_FAILED="#B00020",
+    STATE_STALE="#A05000", OK_BG="#E4F4E4",
+    # feedback
+    INFO_FG="#0B5CAD", INFO_BG="#E3EEFA", WARN_FG="#8A4B00", WARN_BG="#FFF1DC", WARN_BORDER="#E0A000",
+    ERR_FG="#B00020", ERR_BG="#FBE4E8", ERR_BORDER="#D02020", INVALID_BG="#FFF0F0",
+    # readiness key -> (foreground, background)
+    READY={"simulated": ("#1B6E1B", "#E4F4E4"), "interface": ("#0B5CAD", "#E3EEFA"),
+           "placeable": ("#52606D", "#ECEFF3"), "placeholder": ("#6B3FA0", "#EFE8F8")})
+# Dark: same roles, lighter accents so text stays >= 4.5:1 on PANEL/APP_BG; ON_PRIMARY turns dark because PRIMARY,
+# ERR_FG and SEL (pill and tooltip backgrounds) are light here. Checked by app/tests/test_theme.py.
+DARK = dict(
+    CANVAS_BG="#181C22", GRID="#262C34", INK="#D7DCE2", WIRE="#5B9BF0", SEL="#FF9F43", SEL_FILL="#4A3216",
+    HOVER="#4EA1FF", OK_PIN="#3FB950", OK_PIN_RING="#56D364", OPEN_PIN="#FF6B6B", FINDING="#E3B341", BAD="#FF7B72",
+    LED_OFF="#8A8F96", LED_ON="#FF4620", LED_GLOW="#FF8C3C",
+    APP_BG="#15191E", PANEL="#1C2128", PANEL_ALT="#22272E", BORDER="#373E47", BORDER_STRONG="#545D68", DIVIDER="#2D333B",
+    TEXT="#E6EAF0", TEXT_2="#ADB5BF", TEXT_MUTED="#8B949E", TEXT_DISABLED="#5F6873", DISABLED_BG="#262C33",
+    PRIMARY="#6CA6F5", PRIMARY_HOVER="#8AB8F7", PRIMARY_SOFT="#1F3550", ON_PRIMARY="#0D1117", CODE_BG="#0D1117",
+    STATE_IDLE="#9AA4AF", STATE_RUNNING="#6CA6F5", STATE_COMPLETED="#56D364", STATE_FAILED="#FF7B72",
+    STATE_STALE="#E3A15A", OK_BG="#12261A",
+    INFO_FG="#79B8FF", INFO_BG="#132339", WARN_FG="#E3B341", WARN_BG="#2E2312", WARN_BORDER="#9E6A03",
+    ERR_FG="#FF7B72", ERR_BG="#3A1719", ERR_BORDER="#F85149", INVALID_BG="#2D1517",
+    READY={"simulated": ("#56D364", "#12261A"), "interface": ("#79B8FF", "#132339"),
+           "placeable": ("#ADB5BF", "#2D333B"), "placeholder": ("#C297FF", "#2A1F3D")})
+# state key -> (badge text, colour token, hollow dot); readiness key -> (label, tooltip). use() resolves the colours
+# into STATES (text, colour, hollow) and READINESS (label, foreground, background, tooltip).
+_STATES = {"idle": ("Idle", "STATE_IDLE", False), "running": ("Running", "STATE_RUNNING", True),
+           "completed": ("Completed", "STATE_COMPLETED", False), "failed": ("Failed", "STATE_FAILED", False),
+           "blocked": ("Blocked", "STATE_FAILED", False), "stale": ("Out of date", "STATE_STALE", False)}
+_READINESS = {"simulated": ("Simulated", "Has a working simulation model"), "interface": ("Interface only", "Not simulated"),
+              "placeable": ("Reference only", "Documentation only: no pins, not simulated"),
+              "placeholder": ("Placeholder", "No usable definition: kept unchanged")}   # keys: Definition.readiness + placeholder
+DARK_MODE = False
 
 # ---- type scale (px; Noto Sans). Weights are Qt values.
 FONT = "Noto Sans"
@@ -179,7 +200,8 @@ QLabel#emptytitle { font-weight: 600; }
 QLabel#timelbl, QLabel#readout { font-family: "$MONO"; font-size: ${SMALL_PX}px; }
 QLabel#stats { font-size: ${CAPTION_PX}px; color: $TEXT_2; }
 QLabel#finding { color: $WARN_FG; font-size: ${SMALL_PX}px; }
-QPlainTextEdit#devtext { background: $TEXT; color: #E4E7EB; border: 0; border-radius: ${R_MD}px; padding: 4px; }
+QLabel[bad="true"] { color: $BAD; }
+QPlainTextEdit#devtext { background: $CODE_BG; color: #E4E7EB; border: 0; border-radius: ${R_MD}px; padding: 4px; }
 QProgressBar { background: $DIVIDER; border: 0; border-radius: 2px; max-height: 4px; min-height: 4px; }
 QProgressBar::chunk { background: $PRIMARY; border-radius: 2px; }
 QListWidget#problemlist { border: 0; background: transparent; outline: 0; }
@@ -199,11 +221,38 @@ def tokens():
     return {k: v for k, v in globals().items() if k.isupper() and isinstance(v, (str, int))}
 
 
-QSS = _QSS.substitute(tokens())
+def color(c):
+    """A colour token name ('TEXT_2') -> its current hex; a hex colour is returned unchanged."""
+    return globals().get(c, c)
+
+
+def use(dark):
+    """Make the dark (True) or light theme current: rebinds the colour globals, STATES, READINESS and QSS.
+    apply() then pushes it to the QApplication; widgets.retheme() redraws what painted with the old colours."""
+    global STATES, READINESS, QSS, DARK_MODE
+    c = DARK if dark else LIGHT
+    globals().update(c)
+    STATES = {k: (t, c[col], hollow) for k, (t, col, hollow) in _STATES.items()}
+    READINESS = {k: (t, *c["READY"][k], tip) for k, (t, tip) in _READINESS.items()}
+    QSS = _QSS.substitute(tokens())
+    DARK_MODE = dark
+
+
+def saved_dark(app):
+    """The saved View > Dark mode choice, else the OS colour scheme."""
+    s = QSettings("Bench", "Bench")
+    return s.value("dark", type=bool) if s.contains("dark") else app.styleHints().colorScheme() == Qt.ColorScheme.Dark
+
+
+def save_dark(dark):
+    QSettings("Bench", "Bench").setValue("dark", dark)
+
+
+use(False)
 
 
 def palette():
-    p = QPalette()
+    p = QPalette(QColor(PANEL), QColor(APP_BG))   # derives the frame shades (light / mid / dark) from these two
     for role, c in ((QPalette.Window, APP_BG), (QPalette.WindowText, TEXT), (QPalette.Base, PANEL),
                     (QPalette.AlternateBase, PANEL_ALT), (QPalette.Text, TEXT), (QPalette.Button, PANEL),
                     (QPalette.ButtonText, TEXT), (QPalette.ToolTipBase, TEXT), (QPalette.ToolTipText, ON_PRIMARY),
@@ -216,13 +265,14 @@ def palette():
 
 
 def apply(app):
-    """Fusion style + explicit palette + the app stylesheet. Idempotent."""
-    if app.property("sim-theme"): return
+    """Fusion style + the current theme's palette + the app stylesheet. A no-op while the theme is unchanged."""
+    mode = "dark" if DARK_MODE else "light"
+    if app.property("sim-theme") == mode: return
     app.setStyle("Fusion")
     app.setPalette(palette())
     f = QFont(FONT); f.setPixelSize(BODY_PX); app.setFont(f)
     app.setStyleSheet(QSS)
-    app.setProperty("sim-theme", True)
+    app.setProperty("sim-theme", mode)
 
 
 def repolish(w):
