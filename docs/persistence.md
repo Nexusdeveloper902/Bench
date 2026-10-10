@@ -36,14 +36,23 @@ naming a part that does not exist, duplicate or self connections, a non-transien
 For each component, with `d` the catalog definition for `type` (exact id match; aliases are never resolved):
 
 1. No `d`: placeholder, reason `missing`.
-2. Saved `version` > `d.version`: placeholder, reason `incompatible`.
+2. Saved `version` != `d.version` (older or newer): placeholder, reason `incompatible`; the reason states the saved and
+   the current version. A version bump is a breaking change (D19), so an older file is never silently reinterpreted
+   (a part saved as 10 with a µF line must not become 10 F). There is no automatic upgrade.
 3. A param key not in `d`, or a connection to a pin not in `d`: placeholder, reason `incompatible`.
-4. Otherwise a normal part; missing params take defaults and the stored version becomes `d.version`.
+4. Otherwise a normal part (same version); params added later with a default take their defaults.
 
 A placeholder keeps `type`, `version` and `params` verbatim (no coercion) and its position and rotation. Its pins
 are the sorted pin names its connections use. It can be moved, rotated, deleted and wired to those pins, its params
-are read-only, and it survives undo/redo and save. Saving writes its record back unchanged (a load/save cycle of a
-file written by this app is byte-identical). It is never simulated: see below.
+are read-only, and it survives undo/redo and save. Its pin list is fixed when the file is opened: history snapshots
+carry it, so undoing an unrelated edit never drops a pin whose wire was deleted (the pin list is not written to the
+file). Saving writes its record back unchanged (a load/save cycle of a file written by this app is byte-identical). It is never simulated: see below.
+
+## Shadowed definitions
+
+If two packages define the same `id` (`DEF-DUP-ID`), the first root wins and the part binds to it. A saved part of that
+type gets a `SHADOWED-DEFINITION` warning in Problems naming the part, the id and every definition path, so a file is
+never silently re-bound to a different component.
 
 ## Simulation and unsupported parts
 
@@ -55,7 +64,9 @@ an error if any of its pins is wired (`NOT-SIMULATED`, `MISSING-DEFINITION`, `IN
 ## Compatibility rules
 
 - Within a version changes are additive only: new component types, new params with defaults, new optional keys.
-  Unknown extra keys in the file, in a component record or in a layout entry are ignored (and not preserved).
+  Unknown extra keys at the top level, in a component record or in a layout entry are kept and written back
+  unchanged on save (in v2 they are appended after the known keys), so a newer writer's additive keys survive an
+  older app. Unknown keys inside `simulation` and in v0 files are not kept.
 - Bump the file `version` for anything else; the reader keeps reading older versions.
 - Definition `version` (integer): bump when a pin or param is removed or renamed, or a param changes meaning. Adding a
   param with a default does not bump it (`docs/milestone/02-plan.md` D19).

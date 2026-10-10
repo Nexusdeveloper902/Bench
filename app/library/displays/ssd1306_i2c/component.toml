@@ -13,12 +13,12 @@ domain = "digital"
 capabilities = ["interface"]
 limitations = ["Not simulated: the controller and its I2C traffic are not modelled.",
                "Pin order varies by vendor: check the silkscreen on your module before wiring."]
-docs = ["https://shillehtek.com/blogs/shillehtek-product-manuals/0-96-i2c-white-oled-display-module-4-pin-ssd1306-manual",
-        "https://oe2.open-electronics.org/?p=48413"]
-# Order GND, VCC, SCL, SDA as printed on the Open-Electronics module. The Shillehtek manual lists VCC first.
+docs = ["https://shillehtek.com/blogs/shillehtek-product-manuals/0-96-i2c-white-oled-display-module-4-pin-ssd1306-manual"]
+# Order VCC, GND, SCL, SDA as in the Shillehtek manual (the Open-Electronics page cited earlier is gone: HTTP 404, and
+# it printed GND first, which is why other modules differ).
 pins = [
-  {id = "GND", at = [0, 20], description = "Ground"},
-  {id = "VCC", at = [0, 40], description = "Power, 3.3-5 V"},
+  {id = "VCC", at = [0, 20], description = "Power, 3.3-5 V"},
+  {id = "GND", at = [0, 40], description = "Ground"},
   {id = "SCL", at = [0, 60], description = "I2C clock"},
   {id = "SDA", at = [0, 80], description = "I2C data"},
 ]

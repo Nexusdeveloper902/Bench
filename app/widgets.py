@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QAbstractButton, QFrame, QGridLayout, QHBoxLayout
                                QVBoxLayout, QWidget)
 
 from . import theme
-from .catalog import DOC_EXTENSIONS
+from .catalog import DOC_EXTENSIONS, SCHEME_RE, WEB_URL
 from .symbols import icon_pixmap
 
 
@@ -197,7 +197,8 @@ class Table(QWidget):
 def doc_target(defn, d):
     """QUrl for a docs entry, or None when it must not be opened: only an http(s) URL, or a file of an allowed type
     whose real path (symlinks resolved) is inside the package directory."""
-    if d.startswith(("http://", "https://")): return QUrl(d)
+    if d.startswith(WEB_URL): return QUrl(d)
+    if SCHEME_RE.match(d): return None      # file:, javascript:, ftp: ... are never opened
     base = os.path.realpath(defn.path)
     f = os.path.realpath(os.path.join(base, d))
     ok = os.path.commonpath([base, f]) == base and os.path.splitext(f)[1].lower() in DOC_EXTENSIONS
@@ -206,7 +207,7 @@ def doc_target(defn, d):
 
 def doc_title(d):
     from urllib.parse import urlparse
-    return urlparse(d).netloc or os.path.basename(d) if d.startswith(("http://", "https://")) else os.path.basename(d)
+    return urlparse(d).netloc or os.path.basename(d) if d.startswith(WEB_URL) else os.path.basename(d)
 
 
 def docs_block(defn):

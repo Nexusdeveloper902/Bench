@@ -282,3 +282,38 @@ def test_doc_links_only_open_safe_targets(extra_root, qapp):
     blk = widgets.docs_block(d)
     assert [b.toolTip() for b in blk.findChildren(QPushButton)] == ["ok.md", "https://example.org/a"]
 
+
+
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "javascript:alert(1)", "ftp://host/a.pdf", "data:text/html,x"])
+def test_doc_links_reject_other_url_schemes(extra_root, qapp, url):
+    """D3/D5: only http(s) URLs (or package files) are docs; every other scheme is DEF-FIELD at load and never opens."""
+    write_def(extra_root, "SCHEME", docs=[url])
+    probs = [p for p in CATALOG.problems if p["field"] == "docs"]
+    assert probs and probs[0]["code"] == "DEF-FIELD" and "scheme" in probs[0]["message"] and "SCHEME" not in CATALOG.defs
+    assert widgets.doc_target(CATALOG.defs["R"], url) is None
+    assert widgets.doc_target(CATALOG.defs["R"], "https://example.org/a").toString() == "https://example.org/a"
+
+
+def test_new_category_appears_in_nav_without_code(extra_root, qapp):
+    """T4/C4: a package with a category outside TAXONOMY adds a nav row (after the TAXONOMY ones, alphabetical)."""
+    write_def(extra_root, "SERVO", category="Robotics", name="Servo")
+    write_def(extra_root, "ARM", category="Actuators", name="Arm")
+    w = MainWindow(); w.show(); lib = w.library
+    assert [n.name.text() for n in lib.navs.values()][-3:] == ["Power", "Actuators", "Robotics"]
+    assert lib.navs["Robotics"].count.text() == "1"
+    click_widget(lib.navs["Robotics"])
+    assert ids(w) == ["SERVO"] and lib.cards["SERVO"].badge.text() == "Simulated"
+    click_widget(lib.navs["Actuators"])
+    assert ids(w) == ["ARM"]
+
+
+def test_nav_counts_follow_toggle_and_query(win):
+    """T3: seeded counts are hard-coded (not the function the UI itself calls); the toggle and the query change them."""
+    lib = win.library
+    n = lambda k: lib.navs[k].count.text()
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("16", "10", "2", "1")
+    click_widget(lib.toggle)
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("11", "10", "0", "0")
+    click_widget(lib.toggle)
+    type_search(win, "esp")
+    assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")

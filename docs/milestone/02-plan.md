@@ -566,3 +566,67 @@ Scenarios:
 - **R6:** `sim.SIM_ERRORS` lists the 7 concrete `simcore` error classes (all subclass `SimError`); `_diff` runs after the `try`, so app bugs reach `window.run`'s "Internal error" path.
 - **Window (minimal):** geometry via `catalog.geometry/pin_offset` (`terminal_offset` kept as a wrapper), placeholders draw with `symbols.add_placeholder` (generic body, no dashed style/badge: T9), inspector shows the reason and read-only note, status bar warns after opening a file with placeholders (`1 part has no usable definition: U2 (FUTURE_RELAY v3)`). No panels.
 - **Docs:** new `docs/persistence.md`; the "Save format" section of `docs/frontend-components.md` now points to it and the validation table / `RunResult` text were updated.
+
+## 15. T13a notes (fixes for the T11/T12 findings that cross modules)
+
+Each fix sits at the boundary that owns the rule and has a test that failed on the previous code.
+
+- **F1 (model-name collisions).** Two boundaries. Catalog load (`catalog.reload`): a definition whose placeholder-free
+  model name is already used with a different body (names compared case-insensitively, bodies whitespace- and
+  case-normalised, `electrical.model_key`) is rejected with `DEF-SIM` on the later definition (the earlier one wins,
+  as for DEF-DUP-ID). Netlist build (`electrical.build_netlist`): the backstop for names the catalog cannot see (a fixed
+  name with a per-instance body): `ModelError("model 'x' is defined differently by A and B")` or "gets different
+  parameters in different A parts". Identical bodies are shared. `check` also rejects a `.model` with no name or type.
+- **F2 (template grammar).** In `electrical.check`: a device letter means exactly two pins; `line` starts with `{dev} `;
+  the two node fields are exactly the two pin placeholders, once each, and no pin placeholder appears after them; `;` and
+  `$` are rejected in lines. Order of the two nodes stays the author's choice (polarity). `*` is not rejected: it cannot
+  start a line (the prefix rule) and `{...}` expressions are not template syntax here.
+- **F3 (older saved version).** `Document._resolve`: `saved version != definition version` is an `incompatible`
+  placeholder (detail "saved with X version a; this catalog has version b"), per D19. There is no upgrade path and no
+  `compatible_from` key (not needed until a real bump exists). v0/v1 files count as version 1. Supersedes plan section 8
+  rule 4 ("stored version becomes d.version"). `docs/persistence.md` updated.
+- **F6 (unknown keys).** Kept at the top level (`Document.extra`), per component record and per layout entry (the
+  part's `extra = {"record", "layout"}`, present only when non-empty), deep-copied, appended after the known keys by
+  `to_dict`. Unknown keys inside `simulation` and in v0 files are not kept (not asked). Undo/redo use `to_dict`, so
+  they survive history too. Supersedes the T6 note "unknown extra keys in a record are dropped".
+- **F7 (shadowing).** `catalog.reload` records `CATALOG.shadowed = {id: [kept path, rejected path, ...]}`.
+  `Document.validate` emits a `SHADOWED-DEFINITION` warning per part of such a type (part, id, all paths), shown in
+  Problems; Run is not blocked. Chosen over a load-time-only message because `validate` is re-run live (the warning
+  disappears when the catalog is fixed) and Problems is the existing place for per-part diagnostics. Namespacing ids was
+  not attempted.
+- **F14 (placeholder pins).** The pin list is not written to the file (a placeholder record is saved back unchanged).
+  Instead the history snapshot carries it (`history._state` adds `_pins`, `_restore` passes it to
+  `Document.from_dict(d, pins)`, which unions it with the pins the connections use). First load still derives pins
+  from the connections, as before.
+- **D3/D5 + T9 (doc links).** `catalog.SCHEME_RE` and `WEB_URL`: a `docs` entry with any scheme other than `http://` or
+  `https://` is `DEF-FIELD` at load and `widgets.doc_target` returns None for it. A relative file named like `a:b.pdf`
+  is therefore refused too (accepted cost).
+- **T2/R1, V3.** Tests added; the code was already right (`placeable` readiness, `interface` on a pin-less part is
+  DEF-CAPABILITY). `conftest._toml` now writes `pins = []`.
+- **T4/C4/F11 (categories).** Policy: free text is allowed (adding a category needs no UI change). A case-insensitive,
+  whitespace-trimmed match of a TAXONOMY entry is normalised to it. An empty category is `DEF-FIELD`. Other categories
+  sort alphabetically (case-insensitive, was case-sensitive) after the TAXONOMY ones. The plural-form warning from F11 was
+  not added. `docs/adding-components.md` corrected.
+- **T5 (pinouts).** `test_seed_packages.py::test_pinout_matches_cited_source` holds tables transcribed from the cited
+  sources, not from the tomls: Espressif DevKitC V4 guide (J2/J3, 38 rows), Arduino A000066 full pinout PDF (32 pins),
+  DHT22 datasheet (VDD, DATA, NC, GND), Shillehtek SSD1306 manual, piezo (two terminals). ESP32, Uno and DHT22 matched.
+  **Seed correction: SSD1306_I2C** listed GND, VCC, SCL, SDA citing an Open-Electronics page that now returns HTTP 404;
+  the live cited manual says VCC, GND, SCL, SDA. The toml now follows the manual and the dead link was dropped (the
+  "pin order varies by vendor" limitation stays).
+- **T1/S1/S4 (search).** `test_search_prefix_alias_tags_and_subcategory`; no code change needed.
+- **T3/C1.** Nav counts under the toggle and query are pinned with hard-coded numbers (`test_nav_counts_follow_toggle_and_query`).
+- **UI.** The "opened with placeholders" banner is a warning `banner` laid out above the canvas (not floating), text
+  `N part(s) has/have no usable definition: ...`, links "Show in Problems" (selects the first placeholder) and
+  "Dismiss"; the status bar keeps the message; any new document clears it. The failed/blocked run is no longer shown in
+  the floating `notice` over the canvas (it covered the "Interface only" badge in t9-blocked.png); it lives in the
+  results area only, as in results-running-blocked.png, and in the status bar. The floating notice remains for an
+  invalid run field and for out-of-date results; both are short-lived and also shown elsewhere, but could still sit
+  over a badge near the canvas top-left (left for 13b if wanted).
+- **F12 (second domain).** No second domain was built. Decision: "simulated" currently means `sim:electrical`.
+  `docs/adding-components.md` ("Capabilities") states that registering a validator in `catalog.SIM_DOMAINS` is the single
+  registration point but only makes `sim:<domain>` a legal capability; a real domain must also extend
+  `Definition.simulated`/`readiness` and `Document.unmodeled` (and provide a runner). T15 is pinned by
+  `test_simulated_means_electrical_until_a_domain_extends_the_run`.
+- **Docs (architecture review 1.2).** Added to `docs/adding-components.md`: the `[sim.electrical]` rules table, the
+  global scope of model names, `pins = []` for pin-less parts, the unknown-key wording for `[sim.electrical]` (DEF-SIM),
+  and "Simulated" instead of "Simulates".

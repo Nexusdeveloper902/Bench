@@ -151,3 +151,68 @@ def test_placeholder_params_read_only_and_undo_redo_preserves_it(tmp_path):
     assert h.undo(d) and d.to_dict() == before
     assert h.redo(d) and d.parts["U2"]["rot"] == 180 and d.parts["U2"]["params"] == {"coil": "5"}
     assert d.parts["U2"]["params"] is not FUTURE["components"]["U2"]["params"]   # history never aliases raw input
+
+
+def test_older_saved_version_is_not_reinterpreted(extra_root, tmp_path):
+    """F3/D19: a version bump is a breaking change, so a file saved with an older version is a placeholder, not a
+    silent upgrade (10 uF would otherwise become 10 F)."""
+    micro = lambda d: d["sim"]["electrical"].update(line="{dev} {a} {b} {R}u")
+    write_def(extra_root, "CAPX", micro, version=1)
+    d = Document(); d.add_part("CAPX", R="10")
+    p = tmp_path / "c.json"; d.save(p)
+    write_def(extra_root, "CAPX", lambda x: x["sim"]["electrical"].update(line="{dev} {a} {b} {R}"), version=2)   # now farads
+    d2 = Document.load(p)
+    ph = d2.parts["U1"]["placeholder"]
+    assert ph["reason"] == "incompatible" and "version 1" in ph["detail"] and "version 2" in ph["detail"]
+    assert d2.definition("U1") is None and d2.unmodeled() == ["U1"]
+    assert d2.to_dict()["components"]["U1"] == {"type": "CAPX", "version": 1, "params": {"R": "10"}}   # kept as saved
+    assert "INCOMPATIBLE-DEFINITION" in [x["code"] for x in d2.validate()]
+
+
+def test_unknown_keys_survive_resave(tmp_path):
+    """F6: keys a newer writer added (top level, component record, layout entry; also on a placeholder) are written back."""
+    t = json.loads(json.dumps(FUTURE))
+    t["notes"] = {"author": "me", "tags": [1, {"z": None}]}
+    t["components"]["R1"]["tolerance"] = "5%"
+    t["components"]["U2"]["firmware"] = ["a", "b"]
+    t["layout"]["R1"]["locked"] = True
+    t["layout"]["U2"]["z"] = 3
+    d = Document.load(dump(tmp_path / "x.json", t))
+    assert d.to_dict() == t
+    h = History()
+    with h.change(d): d.remove_part("D1")
+    assert h.undo(d) and d.to_dict() == t                        # undo/redo go through the same dict
+    d.save(tmp_path / "y.json")
+    assert json.loads((tmp_path / "y.json").read_text()) == t
+    assert "tolerance" not in Document.led_example().to_dict()["components"]["R1"]
+
+
+def test_shadowed_definition_is_reported_not_silent(extra_root, tmp_path_factory):
+    """F7: a part whose type two packages define binds to the first one, and says so (part, id, both paths)."""
+    other = tmp_path_factory.mktemp("vendor")
+    a = write_def(extra_root, "MYPART", name="User's shunt", reload=False)
+    d = Document(); catalog.reload([catalog.BUILTIN_ROOT, extra_root]); d.add_part("MYPART"); d.add_part("GND")
+    d.connect("U1.a", "GND1.g")
+    assert not [x for x in d.validate() if x["code"] == "SHADOWED-DEFINITION"]
+    b = write_def(other, "MYPART", name="Vendor sensor", reload=False)
+    catalog.reload([catalog.BUILTIN_ROOT, extra_root, other])
+    (w,) = [x for x in dump_and_load(tmp_path_factory, d).validate() if x["code"] == "SHADOWED-DEFINITION"]
+    assert w["severity"] == "warning" and w["part"] == "U1" and "'MYPART'" in w["message"]
+    assert str(a) in w["message"] and str(b) in w["message"]
+
+
+def dump_and_load(tmp_path_factory, d):
+    p = tmp_path_factory.mktemp("saved") / "s.json"; d.save(p); return Document.load(p)
+
+
+def test_placeholder_pins_survive_undo_of_unrelated_action(tmp_path):
+    """F14: pins are not re-derived from the connections that happen to exist when history restores a snapshot."""
+    d = Document.load(dump(tmp_path / "f.json", FUTURE))
+    h = History()
+    with h.change(d): d.remove_wire(("U2.COM", "U2.NO"))
+    assert d.parts["U2"]["placeholder"]["pins"] == ["COM", "NO"]
+    with h.change(d): d.add_part("R")                                   # unrelated
+    assert h.undo(d) and d.parts["U2"]["placeholder"]["pins"] == ["COM", "NO"] and "R2" not in d.parts
+    assert h.redo(d) and d.parts["U2"]["placeholder"]["pins"] == ["COM", "NO"]
+    assert h.undo(d) and h.undo(d) and d.parts["U2"]["placeholder"]["pins"] == ["COM", "NO"]
+    assert d.to_dict() == json.loads(json.dumps(FUTURE)) and d.pins("U2") == ["U2.COM", "U2.NO"]

@@ -75,6 +75,73 @@ def test_search_name_alias_keyword_and_ranking(extra_root):
     assert [d.id for d in CATALOG.search("resistor")] == ["R", "RES_TOOL", "SW", "ZED"]   # SW: its description says so
 
 
+def test_search_prefix_alias_tags_and_subcategory(extra_root):
+    """D20 ranking tiers and every searched field, pinned with fixtures whose only match is the field under test."""
+    write_def(extra_root, "A_MARKWID", name="Mark widget", reload=False)               # name sorts first, matches mid-name
+    write_def(extra_root, "B_WIDMARK", name="Widget mark", reload=False)               # name PREFIX: must come first
+    write_def(extra_root, "C_YAK", name="Yak", aliases=["wid"], reload=False)         # exact alias: before the prefix tier
+    write_def(extra_root, "D_TAG", name="Plain", tags=["qwertytag"], subcategory="Qwertysub", reload=False)
+    catalog.reload([BUILTIN_ROOT, extra_root])
+    assert [d.id for d in CATALOG.search("wid")] == ["C_YAK", "B_WIDMARK", "A_MARKWID"]
+    assert [d.id for d in CATALOG.search("qwertytag")] == ["D_TAG"]                    # tags
+    assert [d.id for d in CATALOG.search("qwertysub")] == ["D_TAG"]                    # subcategory
+    assert [d.id for d in CATALOG.search("Semiconductors")] == ["D_1N4148", "D", "LED"]
+    assert [d.id for d in CATALOG.search("3.3-6 V")] == ["DHT22"]
+
+
+def test_placeable_part_is_reference_only(extra_root):
+    """No pins, no sim:* : readiness `placeable`. It is never simulated, never blocks, and is named when excluded."""
+    def note(d):
+        d["pins"], d["params"], d["capabilities"] = [], [], []; d["limitations"] = ["Documentation only."]; del d["sim"]
+    write_def(extra_root, "NOTE", note, name="Datasheet note")
+    n = CATALOG.get("NOTE")
+    assert CATALOG.problems == [] and n.readiness == "placeable" and not n.simulated and n.terminals == ()
+    from app.theme import READINESS
+    assert READINESS[n.readiness][0] == "Reference only"
+    d = Document.led_example(); u = d.add_part("NOTE")
+    assert d.unmodeled() == [u] and d.pins(u) == []
+    assert [(x["code"], x["severity"]) for x in d.validate()] == [("NOT-SIMULATED", "warning")]
+    r = run_document(d)
+    assert r.ok and r.excluded == [u] and f"not simulated: {u}" in r.message
+    alone = Document(); alone.add_part("NOTE")
+    r = run_document(alone)
+    assert not r.ok and "Nothing to simulate" in r.message
+
+
+def test_model_name_collision_between_definitions(extra_root):
+    """F1: a model name is global to the deck. Same name, different body is refused when the catalog loads; the same
+    body is shared; and build_netlist is the backstop for names the catalog cannot see (per-instance bodies)."""
+    mod = lambda body: (lambda d: d["sim"]["electrical"].update(device="D", line="{dev} {a} {b} dled", models=[f".model dled {body}"]))
+    write_def(extra_root, "LED_GREEN", mod("D(Is=1e-22 N=2.0 Rs=5)"), reload=False)
+    write_def(extra_root, "LED_COPY", mod("D(Is=1e-20 N=1.8 Rs=5)"), reload=False)      # builtin LED's body: shared, not a clash
+    catalog.reload([BUILTIN_ROOT, extra_root])
+    assert "LED_GREEN" not in CATALOG.defs and "LED_COPY" in CATALOG.defs
+    (p,) = problems("DEF-SIM", "sim.electrical.models")
+    assert p["id"] == "LED_GREEN" and "'dled'" in p["message"] and "LED" in p["message"]
+    write_def(extra_root, "SHARED", lambda d: d["sim"]["electrical"].update(
+        device="D", line="{dev} {a} {b} shr", models=[".model shr D(Is={R})"]))        # fixed name, per-instance body
+    doc = Document(); doc.add_part("SHARED", R="1e-12"); doc.add_part("SHARED", R="2e-12"); doc.add_part("GND")
+    doc.connect("U1.a", "GND1.g"); doc.connect("U2.a", "GND1.g")
+    with pytest.raises(ModelError, match="model 'shr' gets different parameters in different SHARED parts"):
+        doc.netlist()
+    doc.set_param("U2", "R", "1e-12")
+    assert len(doc.netlist()["models"]) == 1
+
+
+def test_category_policy_and_nav(extra_root):
+    """Free-text categories are allowed (no UI change); a case-insensitive TAXONOMY match is normalised; empty is an
+    error; new categories sort alphabetically after the TAXONOMY ones."""
+    write_def(extra_root, "ROBO", category="Robotics", reload=False)
+    write_def(extra_root, "ACT", category="actuators", reload=False)
+    write_def(extra_root, "SENS", category="sensors", reload=False)
+    write_def(extra_root, "EMPTYCAT", category="  ", reload=False)
+    catalog.reload([BUILTIN_ROOT, extra_root])
+    assert CATALOG.get("SENS").category == "Sensors" and "EMPTYCAT" not in CATALOG.defs
+    assert [p["field"] for p in problems("DEF-FIELD")] == ["category"]
+    assert CATALOG.categories() == ALL_CATEGORIES + ["actuators", "Robotics"]
+    assert [d.id for d in CATALOG.search(category="Robotics")] == ["ROBO"]
+
+
 def test_category_filter_and_simulated_only(extra_root):
     write_def(extra_root, "BOARD", mutate=interface_only, category="Microcontrollers", name="Dev board")
     assert CATALOG.get("BOARD").readiness == "interface" and not CATALOG.get("BOARD").simulated
@@ -107,6 +174,13 @@ def _model_not_model(d): d["sim"]["electrical"]["models"] = ["R1 a b 1"]
 def _multiline(d): d["sim"]["electrical"]["line"] = "{dev} {a} {b} {R}\nR2 a b 1"
 def _clash(d): d["params"][0]["key"] = "a"
 def _bad_current(d): d["sim"]["electrical"]["current"] = "v({dev_lc})"
+def _line_no_dev(d): d["sim"]["electrical"]["line"] = "{a} {b} {R}"
+def _literal_node(d): d["sim"]["electrical"]["line"] = "{dev} {a} 0 {b}"           # F2: b is not a node, 0 is undrawn ground
+def _tap(d): d["pins"] = d["pins"][:1]; d["sim"]["electrical"]["line"] = "{dev} {a} n1 {R}"   # F2 repro: 1 pin, literal n1
+def _pin_after_comment(d): d["sim"]["electrical"]["line"] = "{dev} {a} {R} ; {b}"   # F2: {b} "reaches SPICE" but is a comment
+def _pin_in_tail(d): d["sim"]["electrical"]["line"] = "{dev} {a} {b} {R} {a}"
+def _three_pins(d): d["pins"].append({"id": "w", "at": [30, 0]}); d["sim"]["electrical"]["line"] = "{dev} {a} {b} {R} {w}"
+def _iface_no_pins(d): interface_only(d); d["pins"] = []                           # V3: `interface` needs pins
 def _ground_two_pins(d): d["sim"]["electrical"] = {"ground": True}
 
 INVALID = [
@@ -120,6 +194,9 @@ INVALID = [
     (_no_iface, "DEF-CAPABILITY", "capabilities"), (_no_limits, "DEF-CAPABILITY", "limitations"),
     (_fmt2, "DEF-FIELD", "format"), (_model_not_model, "DEF-SIM", "sim.electrical.models[0]"),
     (_multiline, "DEF-SIM", "sim.electrical.line"), (_clash, "DEF-PARAM", "params[0].key"),
+    (_line_no_dev, "DEF-SIM", "sim.electrical.line"), (_literal_node, "DEF-SIM", "sim.electrical.line"),
+    (_tap, "DEF-SIM", "sim.electrical.line"), (_pin_after_comment, "DEF-SIM", "sim.electrical.line"), (_pin_in_tail, "DEF-SIM", "sim.electrical.line"),
+    (_three_pins, "DEF-SIM", "sim.electrical.line"), (_iface_no_pins, "DEF-CAPABILITY", "capabilities"),
     (_bad_current, "DEF-SIM", "sim.electrical.current"), (_ground_two_pins, "DEF-SIM", "sim.electrical.ground"),
 ]
 

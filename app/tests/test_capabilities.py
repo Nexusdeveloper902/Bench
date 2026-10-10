@@ -144,6 +144,23 @@ def test_window_success_names_excluded_part(win, extra_root):
     assert win.state == "completed" and win.status.text().startswith("SUCCESS") and "not simulated: U1" in win.status.text()
 
 
+def test_open_with_placeholders_shows_dismissible_banner(win, tmp_path):
+    """dialogs.png: a non-blocking banner above the canvas (never over a part), with Show in Problems and Dismiss."""
+    win.show(); assert not win.open_banner.isVisible()
+    win.open(str(dump(tmp_path / "f.json", FUTURE)))
+    b = win.open_banner
+    assert b.isVisible() and win.open_msg.text() == "1 part has no usable definition: U2 (FUTURE_RELAY v3)."
+    assert b.property("kind") == "warn" and b.parentWidget() is win.canvas.parentWidget()
+    assert b.geometry().bottom() < win.canvas.geometry().top()           # laid out above the canvas, not floating on it
+    assert win.canvas.isEnabled() and win.doc.placeholders() == ["U2"]       # non-blocking: still editable
+    win.open_show.click()
+    assert win.sel == "U2"
+    win.open_dismiss.click()
+    assert not b.isVisible() and "U2 (FUTURE_RELAY v3)" in win.status.text()  # the status bar keeps the message
+    win.open(str(dump(tmp_path / "f.json", FUTURE))); assert b.isVisible()
+    win.new(); assert not b.isVisible()                                      # a new document clears it
+
+
 def test_window_open_warns_about_placeholders(win, tmp_path):
     p = dump(tmp_path / "f.json", FUTURE)
     win.open(str(p))

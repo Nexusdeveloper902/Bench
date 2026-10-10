@@ -76,3 +76,47 @@ def test_doc_examples_validate(tmp_path):
         f.write_text(text, encoding="utf-8")
         d, diags = load_definition(f)
         assert d is not None and not [x for x in diags if x["severity"] == "error"], (i, diags)
+
+
+# Pinouts transcribed from the sources cited in each package's `docs`, NOT from component.toml (T5). Listed in the
+# order printed there; the test sorts the definition's pins by position (column, then row) and compares names.
+ESP32_J2 = ["3V3", "EN", "VP", "VN", "IO34", "IO35", "IO32", "IO33", "IO25", "IO26", "IO27", "IO14", "IO12", "GND",
+            "IO13", "D2", "D3", "CMD", "5V"]                       # Espressif DevKitC V4 guide, header block J2, rows 1-19
+ESP32_J3 = ["GND", "IO23", "IO22", "TX", "RX", "IO21", "GND", "IO19", "IO18", "IO5", "IO17", "IO16", "IO4", "IO0",
+            "IO2", "IO15", "D1", "D0", "CLK"]                      # same guide, header block J3, rows 1-19
+PINOUTS = {
+    "ESP32_DEVKITC": ESP32_J2 + ESP32_J3,
+    # Arduino A000066 full pinout: power header, analog header, digital headers (left column, then right column)
+    "ARDUINO_UNO_R3": ["NC", "IOREF", "RESET", "+3V3", "+5V", "GND", "GND", "VIN", "A0", "A1", "A2", "A3", "A4", "A5",
+                       "D19/SCL", "D18/SDA", "AREF", "GND", "D13", "D12", "D11", "D10", "D9", "D8",
+                       "D7", "D6", "D5", "D4", "D3", "D2", "D1/TX", "D0/RX"],
+    "DHT22": ["VDD", "DATA", "NC", "GND"],                         # datasheet: pins 1-4 left to right: VDD, DATA, NULL, GND
+    "SSD1306_I2C": ["VCC", "GND", "SCL", "SDA"],                   # Shillehtek manual pin table
+    "PIEZO_BUZZER": ["Pin 1", "Pin 2"],                            # two terminals, no polarity stated by the datasheet
+}
+
+
+@pytest.mark.parametrize("sid", sorted(PINOUTS))
+def test_pinout_matches_cited_source(sid):
+    d = CATALOG.get(sid)
+    ordered = sorted(d.pins, key=lambda p: p.at)                   # (x, y): left column top to bottom, then right
+    assert [p.name for p in ordered] == PINOUTS[sid]
+    assert len(set(d.terminals)) == len(d.pins) == len(PINOUTS[sid])
+
+
+def test_simulated_means_electrical_until_a_domain_extends_the_run(extra_root, monkeypatch):
+    """F12/T15, pins today's decision: registering a domain validator in SIM_DOMAINS makes `sim:digital` a valid
+    capability, but "simulated" (readiness, the Simulated-only filter, the run) still means sim:electrical. A real
+    second domain must also change Definition.simulated/readiness and Document.unmodeled (docs/adding-components.md)."""
+    from conftest import write_def
+    monkeypatch.setitem(SIM_DOMAINS, "digital", lambda *a: [])
+    def logic(d):
+        d["capabilities"] = ["interface", "sim:digital"]; del d["sim"]["electrical"]; d["sim"]["digital"] = {}
+    write_def(extra_root, "AND2", logic, domain="digital")
+    g = CATALOG.get("AND2")
+    assert CATALOG.problems == [] and "sim:digital" in g.capabilities
+    assert (g.simulated, g.readiness) == (False, "interface") and g not in CATALOG.search(simulated_only=True)
+    d = Document.led_example(); u = d.add_part("AND2")
+    assert d.unmodeled() == [u]
+    r = run_document(d)
+    assert r.ok and r.excluded == [u]

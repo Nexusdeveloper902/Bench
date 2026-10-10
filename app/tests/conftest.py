@@ -13,7 +13,7 @@ def _toml(d):
         if isinstance(v, dict): return "{" + ", ".join(f"{json.dumps(k)} = {j(x)}" for k, x in v.items()) + "}"
         if isinstance(v, list): return "[" + ", ".join(map(j, v)) + "]"
         return json.dumps(v, ensure_ascii=False)
-    out = [f"{k} = {j(v)}" for k, v in d.items() if k not in ("pins", "params", "presentation", "sim")]
+    out = [f"{k} = {j(v)}" for k, v in d.items() if k not in ("pins", "params", "presentation", "sim") or v == []]   # `pins = []` needs the key
     for k in ("pins", "params"):
         for t in d.get(k, ()):
             out += [f"[[{k}]]"] + [f"{a} = {j(b)}" for a, b in t.items()]

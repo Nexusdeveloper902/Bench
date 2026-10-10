@@ -76,20 +76,46 @@ def check(section, pins, params):
                 else: branches[c] = (line[c], {p.key for p in params if set(p.when) <= {(sel, c)}})
     elif line is not None:
         bad("must be a string or a table {select = <choice param>, <choice> = <line>}", "line")
+    if section.get("device") in tuple(DEVICE_LETTERS) and len(pids) != 2:
+        bad(f"a {section['device']} device has exactly two terminals; this part has {len(pids)} pins", "line")
     for lab, (tpl, ok) in branches.items():
         field = "line" if lab is None else f"line.{lab}"
-        used = template(tpl, field, {"dev", "dev_lc", *pids, *ok}, "{dev} ")
-        for p in pids:
-            if p not in used and isinstance(tpl, str):
-                bad(f"pin '{p}' is missing from the line; every pin must reach SPICE", field)
+        template(tpl, field, {"dev", "dev_lc", *pids, *ok}, "{dev} ")
+        if not isinstance(tpl, str) or not tpl.startswith("{dev} "): continue
+        if ";" in tpl or "$" in tpl: bad("must not contain ';' or '$' (SPICE comments would hide what follows)", field)
+        nodes, tail = tpl.split(None, 3)[1:3], (tpl.split(None, 3) + [""])[3]
+        try: tail_names = _names(tail)
+        except ValueError: continue    # already reported by template()
+        if sorted(nodes) != sorted(f"{{{p}}}" for p in pids) or tail_names & set(pids):
+            bad("the node fields must be exactly the pin placeholders, once each, right after {dev} "
+                f"(here: {' '.join('{' + p + '}' for p in pids)}); a literal node or a pin elsewhere would connect "
+                "to nets that are not drawn", field)
     models = section.get("models", [])
     if not isinstance(models, list): bad("must be a list of .model lines", "models")
     else:
         for i, m in enumerate(models):
             template(m, f"models[{i}]", {"dev", "dev_lc", *(p.key for p in params if not p.when)}, ".model ")
+            if isinstance(m, str) and m.startswith(".model ") and len(m.split()) < 3:
+                bad("needs a model name and a type: '.model <name> <TYPE>(...)'", f"models[{i}]")
     cur = section.get("current")
     if "current" in section and not (isinstance(cur, str) and CURRENT.match(cur)):
         bad("must look like '@{dev_lc}[i]' or 'i({dev_lc})'", "current")
+    return out
+
+
+def model_key(text):
+    """(lower-case name, normalised body) of a `.model <name> <body>` line. ngspice model names are global to the deck
+    and case-insensitive; two lines with one name and different bodies cannot both be in force."""
+    t = text.split()
+    return t[1].lower(), " ".join(t[2:]).lower()
+
+
+def fixed_models(section):
+    """{name: body} of the section's models whose name has no placeholder (one deck-wide model for every instance)."""
+    out = {}
+    for m in section.get("models", ()):
+        k, body = model_key(m)
+        if "{" not in k: out[k] = body
     return out
 
 
@@ -123,7 +149,7 @@ def build_netlist(parts, nets, defs):
     if not parts:
         raise ModelError("circuit is empty")
     lines, models, cur, derived, signals = [], [], [], {}, []
-    used = set()
+    used, owner = set(), {}      # owner: model name -> (body, kind of the first part that emitted it)
     for name, d in parts.items():
         c = defs.get(d["kind"])
         sec = c.sim.get("electrical") if c.simulated else None
@@ -137,7 +163,15 @@ def build_netlist(parts, nets, defs):
         dev = device_name(sec, name)
         ls, ms = emit(sec, name, nodes, c.values(d["params"], name))
         lines += ls
-        models += [m for m in ms if m not in models]
+        for m in ms:
+            key, body = model_key(m)
+            if key not in owner:
+                owner[key] = (body, d["kind"]); models.append(m)
+            elif owner[key][0] != body:
+                a, b = owner[key][1], d["kind"]
+                raise ModelError(f"model '{key}' is defined differently by {a} and {b}" if a != b else
+                                 f"model '{key}' gets different parameters in different {a} parts"
+                                 ", so it cannot be shared: put {dev_lc} in the model name" )
         if len(pins) == 2:
             derived[f"v({name})"] = tuple(nodes[t] for t in pins)
             signals.append({"name": f"V({name})", "vector": f"v({name})", "quantity": "voltage", "unit": "V",

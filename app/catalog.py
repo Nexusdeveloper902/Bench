@@ -22,6 +22,8 @@ SIM_DOMAINS = {"electrical": electrical.check}   # the one place a simulation do
 UNITS = ("", "Ω", "F", "H", "V", "A", "s", "Hz")
 DOC_EXTENSIONS = (".pdf", ".html", ".htm", ".md", ".txt", ".png", ".svg")   # local docs files the app will open
 
+WEB_URL = ("http://", "https://")                 # the only URL schemes a docs entry may use
+SCHEME_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*:")   # file:, javascript:, ftp: ... : never opened
 ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 PIN_RE = re.compile(r"[A-Za-z0-9_]+\Z")
 CHOICE_RE = re.compile(r"[A-Za-z0-9_.+\-]+\Z")
@@ -178,6 +180,9 @@ def load_definition(path):
     if version is not None and version < 1: bad("DEF-FIELD", "version must be >= 1; start at 1", "version")
     name = typed(raw, "name", str, "name", "the display name", True)
     category = typed(raw, "category", str, "category", "e.g. \"Electrical\"", True)
+    if category is not None:    # free text; a case-insensitive match of a TAXONOMY entry is that entry
+        category = next((t for t in TAXONOMY if t.lower() == category.strip().lower()), category.strip())
+        if not category: bad("DEF-FIELD", "category must not be empty; use a TAXONOMY name or a new category name", "category")
     domain = typed(raw, "domain", str, "domain", f"one of {', '.join(DOMAINS)}", True)
     if domain is not None and domain not in DOMAINS: bad("DEF-FIELD", f"unknown domain {domain!r}; use one of {', '.join(DOMAINS)}", "domain")
     description = typed(raw, "description", str, "description", "a string", default="")
@@ -285,7 +290,10 @@ def load_definition(path):
         sym = asset(sym, "presentation.symbol", True)
     if "icon" in pres: icon = asset(pres["icon"], "presentation.icon", True)
     for d in docs:
-        if d.startswith(("http://", "https://")): continue
+        if d.startswith(WEB_URL): continue
+        if SCHEME_RE.match(d):   # a click hands the target to the desktop: never file:, javascript:, ftp: ...
+            bad("DEF-FIELD", f"docs entry {d!r} uses a URL scheme that is not allowed; use an http(s) URL or a file "
+                             "inside the package", "docs"); continue
         if Path(d).suffix.lower() not in DOC_EXTENSIONS:   # a click opens it with the desktop: never an executable type
             bad("DEF-FIELD", f"docs file {d!r} has a type that is not allowed; use an http(s) URL or a file ending in "
                              f"{', '.join(DOC_EXTENSIONS)}", "docs")
@@ -337,6 +345,7 @@ def load_definition(path):
 class Catalog:
     def __init__(self):
         self.defs, self.problems, self.roots = {}, [], []
+        self.shadowed = {}      # id -> [kept path, rejected path, ...] for ids defined by several packages (DEF-DUP-ID)
 
     def get(self, id):
         try:
@@ -347,7 +356,7 @@ class Catalog:
     def categories(self):
         """Categories that have definitions: TAXONOMY order first, then the rest alphabetically."""
         have = {d.category for d in self.defs.values()}
-        return [c for c in TAXONOMY if c in have] + sorted(have - set(TAXONOMY))
+        return [c for c in TAXONOMY if c in have] + sorted(have - set(TAXONOMY), key=str.lower)
 
     def search(self, text="", category=None, simulated_only=False):
         """Case-insensitive AND over whitespace tokens, each a substring of the metadata. Ranking: exact name/id/alias,
@@ -370,7 +379,7 @@ def default_roots():
 def reload(roots=None):
     """Rebuild the process-wide CATALOG in place (every `from .catalog import CATALOG` stays valid)."""
     roots = [Path(r) for r in (default_roots() if roots is None else roots)]
-    defs, problems, origin = {}, [], {}
+    defs, problems, origin, fixed, shadowed = {}, [], {}, {}, {}   # fixed: placeholder-free model name -> (body, definition id)
     for root in roots:
         if not root.is_dir():
             problems.append({"code": "DEF-PARSE", "severity": "warning", "file": str(root), "field": "", "id": None,
@@ -384,9 +393,18 @@ def reload(roots=None):
                 problems.append({"code": "DEF-DUP-ID", "severity": "error", "file": str(f), "field": "id", "id": d.id,
                                  "message": f"id {d.id!r} is already defined by {origin[d.id]}; that one is kept, "
                                             "rename this id"})
+                shadowed.setdefault(d.id, [origin[d.id]]).append(f)
                 continue
+            mine = electrical.fixed_models(d.sim.get("electrical", {}))
+            if clash := next((k for k, body in mine.items() if fixed.get(k, (body,))[0] != body), None):
+                problems.append({"code": "DEF-SIM", "severity": "error", "file": str(f), "field": "sim.electrical.models",
+                                 "id": d.id, "message": f"model name '{clash}' is also used by {fixed[clash][1]} with "
+                                 "different parameters, and model names are global to the netlist; rename it or add "
+                                 "{dev_lc} to the name"})
+                continue
+            fixed.update({k: (body, d.id) for k, body in mine.items()})
             defs[d.id], origin[d.id] = d, f
-    CATALOG.defs, CATALOG.problems, CATALOG.roots = defs, problems, roots
+    CATALOG.defs, CATALOG.problems, CATALOG.roots, CATALOG.shadowed = defs, problems, roots, shadowed
     return CATALOG
 
 

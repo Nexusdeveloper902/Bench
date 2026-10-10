@@ -18,7 +18,7 @@ from .history import History
 from .canvas import Canvas, pin_pos, wire_pts, part_rect   # re-exported: tests and scripts import them from here
 from .inspector import Inspector
 from .library import LibraryPanel
-from .results import ProblemsPanel, ResultsPanel
+from .results import ProblemsPanel, ResultsPanel, banner
 from . import theme, widgets as W
 
 
@@ -92,7 +92,13 @@ class MainWindow(QMainWindow):
         dl.addWidget(self.results, 1); dl.addWidget(sep); dl.addWidget(self.problems_panel)
         rule = QFrame(); rule.setObjectName("rule")
         centre = QWidget(); cl = QVBoxLayout(centre); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(0)
-        cl.addWidget(self.canvas, 1); cl.addWidget(rule); cl.addWidget(dock)
+        # "opened with placeholders" banner (dialogs.png): in the layout above the canvas, so it never covers a part
+        self.open_banner, col = banner("warn", "alert", theme.WARN_FG); self.open_banner.hide()
+        self.open_msg = W.label("", wrap=True); self.open_show = W.link("Show in Problems", self._show_placeholder)
+        self.open_dismiss = W.link("Dismiss", self.open_banner.hide)
+        col.addWidget(self.open_msg)
+        for b in (self.open_show, self.open_dismiss): self.open_banner.layout().addWidget(b, 0, Qt.AlignTop)
+        cl.addWidget(self.open_banner); cl.addWidget(self.canvas, 1); cl.addWidget(rule); cl.addWidget(dock)
         sp = QSplitter(); sp.addWidget(self.library); sp.addWidget(centre); sp.addWidget(self.inspector)
         sp.setStretchFactor(1, 1); sp.setChildrenCollapsible(False)
         sp.setSizes([theme.LIBRARY_W, 1280 - theme.LIBRARY_W - theme.INSPECTOR_W, theme.INSPECTOR_W])
@@ -172,8 +178,9 @@ class MainWindow(QMainWindow):
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
         self.a_reset.setEnabled(self.result is not None or stale)
         msg = next(iter(self.invalid.values()), None)
-        notice = ("err", msg) if msg else ("err", f"{'Run blocked' if s == 'blocked' else 'Run failed'}: {self.result.message}") \
-            if s in ("failed", "blocked") and self.result else ("warn", "Results out of date. Re-run to refresh.") if stale else None
+        # A failed/blocked run is shown in the results area only (design: results-running-blocked): a banner floating over
+        # the canvas covered part badges (t9-blocked.png).
+        notice = ("err", msg) if msg else ("warn", "Results out of date. Re-run to refresh.") if stale else None
         if notice:
             self.notice.setProperty("kind", notice[0]); theme.repolish(self.notice)
             c = self.canvas.mapTo(self.centralWidget(), self.canvas.rect().topLeft()).x()   # keep it over the canvas
@@ -280,7 +287,7 @@ class MainWindow(QMainWindow):
     # --- documents / files ---
     def _reset(self, doc):
         self.doc, self.result, self.sel, self.sel_wire, self.stale = doc, None, None, None, False
-        self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict()
+        self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict(); self.open_banner.hide()
         self._show_result(); self.refresh()
 
     def dirty(self):
@@ -321,10 +328,15 @@ class MainWindow(QMainWindow):
         self._reset(doc)
         ph = doc.placeholders()
         if ph:
-            self.set_status(f"Opened {p}. {len(ph)} part{'s have' if len(ph) > 1 else ' has'} no usable definition: "
-                            + ", ".join(f"{n} ({doc.parts[n]['kind']} v{doc.parts[n]['version']})" for n in ph), True)
+            what = (f"{len(ph)} part{'s have' if len(ph) > 1 else ' has'} no usable definition: "
+                    + ", ".join(f"{n} ({doc.parts[n]['kind']} v{doc.parts[n]['version']})" for n in ph))
+            self.set_status(f"Opened {p}. {what}", True)
+            self.open_msg.setText(what + "."); self.open_banner.show()
         else:
             self.set_status(f"Opened {p}")
+
+    def _show_placeholder(self):
+        if ph := self.doc.placeholders(): self.select(ph[0])
 
     def save(self):
         return self._write(self.path) if self.path else self.save_as()

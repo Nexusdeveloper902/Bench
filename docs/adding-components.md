@@ -32,7 +32,7 @@ version = 1                         # see "Versions" below
 name = "1N4148 diode"
 description = "General-purpose silicon signal diode with a fixed SPICE model."
 designator = "D"                    # auto-name prefix: D1, D2 ...
-category = "Electrical"             # one of the TAXONOMY categories (Communication is left empty)
+category = "Electrical"             # free text; a TAXONOMY name is listed first (see "Search and roots")
 subcategory = "Semiconductors"
 aliases = ["1N4148", "signal diode"]        # search only, never used to resolve ids
 keywords = ["diode", "switching", "signal"]
@@ -60,7 +60,7 @@ show_current = true                 # needs sim.electrical.current below
 [sim.electrical]
 device = "D"                        # SPICE letter: one of R C L D V I
 line = "{dev} {a} {k} d1n4148"      # {dev} is the instance name; {a} and {k} are pin ids
-models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]
+models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]   # model names are global to the netlist (see rules below)
 current = "@{dev_lc}[id]"           # the vector shown when show_current is on
 ```
 
@@ -103,7 +103,10 @@ Every top-level key must come before the first `[table]` header. A key written a
 table, so `pins = [...]` placed there is rejected as `unknown key 'pins' in [presentation]`. Put `pins`, `params` and
 `sim` before `[presentation]`, or use `[[pins]]` and `[[params]]` headers, which are always top-level.
 
-Unknown keys anywhere are an error (`DEF-FIELD`), which catches typos.
+Unknown keys are an error (`DEF-FIELD`), which catches typos. Inside `[sim.electrical]` they are `DEF-SIM`.
+
+A part without pins (a documentation-only "Reference only" part) must still write `pins = []`: the key is required and
+`[[pins]]` tables cannot express an empty list. It then has no `interface` capability and needs a `limitations` entry.
 
 ## Pins
 
@@ -127,6 +130,26 @@ Each `[[params]]` table maps to one editable field.
 | `min`, `min_exclusive`, `max` | numeric bounds |
 | `when` | `{param = "choice"}`: the field applies only when those values match |
 | `help` | one-line tooltip |
+
+## `[sim.electrical]` rules
+
+An electrical part is data only; `app/electrical.py` checks it (`DEF-SIM`) and renders it to one SPICE line.
+
+| key | rule |
+|---|---|
+| `device` | one SPICE letter of `R C L D V I`. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
+| `line` | a string, or `{select = "<choice param>", <every choice> = "..."}`. It must start with `{dev} ` and be one line. |
+| node fields | the part has exactly two pins, and the two fields after `{dev}` are exactly the two pin placeholders (`{a} {b}`), once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
+| placeholders | plain identifiers only: `{dev}`, `{dev_lc}`, pin ids, and params that apply to that branch (a plain line: params without `when`). Numbers arrive as `repr(float)`, choices as text. |
+| `models` | `.model <name> <TYPE>(...)` lines. Placeholders: `{dev}`, `{dev_lc}`, params without `when`. |
+| `current` | `@{dev_lc}[id]` style or `i({dev_lc})`: the vector shown by `show_current` and `indicator`. |
+| `ground = true` | instead of `device`/`line`: a reference node; exactly one pin, no other key. |
+
+**Model names are global.** ngspice has one model namespace per deck, and a name matches case-insensitively. Two
+definitions that use the same fixed name (for example `dled`) must carry the same body: otherwise the later definition
+is rejected at catalog load (`DEF-SIM`), and a name whose body differs between instances stops the run
+("model 'x' gets different parameters in different ... parts"). A model that depends on parameters, or that you
+do not want to share, needs `{dev_lc}` in its name (`dmod_{dev_lc}`).
 
 ## Presentation
 
@@ -152,7 +175,14 @@ and `animate_when = [["param", "choice"], ...]`.
 | `sim:electrical` | a working electrical model through the engine | needs a `[sim.electrical]` section that passes validation |
 | `sim:<other>` | reserved | error unless `<other>` is a registered simulation domain; describe it under `limitations` |
 
-Readiness shown in the UI follows from the capabilities: `simulated` (Simulates), `interface` (Interface only) or
+`sim:electrical` is the only simulation domain today. "Simulated" (readiness, the Simulated-only filter, the run)
+means exactly `sim:electrical`: `Definition.simulated`, `Definition.readiness` and `Document.unmodeled` test for it.
+A second domain is registered in one place, `catalog.SIM_DOMAINS` (its validator), but that only makes `sim:<domain>`
+a legal capability: the part stays "Interface only" and is excluded from a run until the domain's runner exists and
+`simulated`, `readiness` and `unmodeled` are extended with it (`app/tests/test_seed_packages.py` pins this). Nothing
+else in the UI names a domain.
+
+Readiness shown in the UI follows from the capabilities: `simulated` (Simulated), `interface` (Interface only) or
 `placeable` (Reference only). An interface-only part states in `limitations` that it is not simulated, and it has no
 `[sim.*]` section and no fake behaviour. A wired part with no simulation blocks Run; an unwired one is excluded from
 the run and named in the result.
@@ -161,7 +191,8 @@ the run and named in the result.
 
 `version` is an integer, starting at 1 (D19). Bump it when you remove or rename a pin or a parameter, or change what a
 parameter means. Adding a parameter with a default does not need a bump. A circuit file stores the version each part was
-saved with. A file that holds a higher version than the catalog becomes a placeholder part, which is kept unchanged.
+saved with. A file whose version differs from the catalog's (higher or lower) becomes a placeholder part, which is kept
+unchanged: there is no automatic upgrade, so bump only for a breaking change.
 
 ## Diagnostics
 
@@ -171,19 +202,24 @@ definition. Warnings keep it with a fallback.
 | code | severity | cause |
 |---|---|---|
 | `DEF-PARSE` | error | unreadable file or invalid TOML (the message gives the line) |
-| `DEF-FIELD` | error | missing or wrong-typed key, unknown key, bad `id`, `format` not 1, unknown `domain`, path leaving the package |
+| `DEF-FIELD` | error | missing or wrong-typed key, unknown key, bad `id`, `format` not 1, unknown `domain`, empty `category`, a `docs` entry with a URL scheme other than http(s) (`file:`, `javascript:`, `ftp:` ...), path leaving the package |
 | `DEF-DUP-ID` | error | id already defined by another root; the first one wins |
 | `DEF-PIN` | error | bad or duplicate pin id, bad `at`, two pins at one position |
 | `DEF-PARAM` | error | bad unit, choice or bounds; default that does not parse; clashing key |
 | `DEF-CAPABILITY` | error | capabilities inconsistent with pins, `[sim.*]` sections or `limitations` |
-| `DEF-SIM` | error | an electrical section that the engine's template check rejects |
+| `DEF-SIM` | error | an electrical section that the template check rejects, or a fixed model name already used with a different body by an earlier definition |
 | `DEF-ASSET` | warning | symbol, icon or doc file missing or not a usable SVG |
 
 ## Search and roots
 
 Search matches id, name, aliases, keywords, tags, description, category and subcategory. It never resolves ids, so an
-alias cannot replace a missing id. Categories follow the order Electrical, Microcontrollers, Sensors, Displays,
-Communication, Audio, Power. Communication has no parts yet.
+alias cannot replace a missing id.
+
+Categories are free text: a package may name a new category and it appears in the library with no code change. A
+name that matches a TAXONOMY entry case-insensitively is normalised to it (`sensors` becomes `Sensors`); an empty one
+is `DEF-FIELD`. The list shows the TAXONOMY ones first, in the order Electrical, Microcontrollers, Sensors, Displays,
+Communication, Audio, Power (only those that have parts: Communication has none yet), then any other category
+alphabetically.
 
 Extra roots come from the `SIM_COMPONENT_PATH` environment variable, a list separated by `os.pathsep`. Use it to keep
 personal parts outside the repository. Built-in parts load first, so a duplicate id in an extra root is rejected.

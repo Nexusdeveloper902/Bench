@@ -322,7 +322,7 @@ def test_run_blocked_by_wired_unsupported_shows_failure_without_plot(win):
     assert w.err_title.text() == "Run blocked" and "U1" in w.err.text() and "U1" in w.result.message
     assert not w.plotw.isVisible() and not w.ax.lines and w.probe.count() == 0 and w.stats.text() == ""
     assert w.results.noplot.isVisible() and "did not start" in w.results.noplot.text()
-    assert w.notice.isVisible() and "U1" in w.notice.text()
+    assert not w.notice.isVisible()          # docked in the results area only: it must never float over part badges
     assert w.problems.count() >= 1 and any("NOT-SIMULATED" in w.problems.item(i).text() for i in range(w.problems.count()))
     w.canvas.part_menu(u1).actions()[2].trigger()                                        # fix it: Disconnect all
     assert w.state == "idle" and w.state_lbl.text() == "Out of date" and buttons(w) == (False, True, True)

@@ -54,11 +54,14 @@ class Document:
         self.parts = {}      # name -> {"kind","version","x","y","rot","params"}  (insertion order = creation order)
         #                      + "placeholder": {"reason": "missing"|"incompatible", "pins": [ids], "detail": str}
         #                        only for parts loaded without a usable definition (kind/version/params kept verbatim)
+        #                      + "extra": {"record": {...}, "layout": {...}}: unknown keys of the file's component
+        #                        record / layout entry, written back unchanged (only when there are any)
         self.wires = []      # [("R1.b", "C1.a"), ...]
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
         self.path = None     # file last saved to / loaded from (Save target; Save As = save(new_path))
         self._count = {}
+        self.extra = {}      # unknown top-level keys of a loaded file, written back unchanged (newer writers)
 
     # ---- editing ----
     def add_part(self, kind, x=0, y=0, rot=0, **params):
@@ -220,6 +223,11 @@ class Document:
         unm = self.unmodeled()
         for n in unm:
             out.append(self._unmodeled_diag(n))
+        for n, d in self.parts.items():   # F7: a type several packages define binds to the first one, never silently
+            if (paths := CATALOG.shadowed.get(d["kind"])) and "placeholder" not in d:
+                out.append(diag("SHADOWED-DEFINITION", "warning",
+                                f"{n}: component type '{d['kind']}' is defined by more than one package; using {paths[0]}, "
+                                f"ignoring {', '.join(map(str, paths[1:]))}. Check that it is the part you saved.", n))
         devices = [n for n, d in self.parts.items() if n not in unm and not self.definition(n).ground]
         if not devices:
             msg = "Nothing to simulate: place simulated components." if unm else "Circuit is empty: place some components."
@@ -283,21 +291,25 @@ class Document:
 
     # ---- persistence (format v2, see docs/persistence.md) ----
     def to_dict(self):
+        x = {n: p.get("extra", {}) for n, p in self.parts.items()}
         return {"format": FORMAT, "version": VERSION,
-                "components": {n: {"type": p["kind"], "version": p["version"], "params": copy.deepcopy(p["params"])}
-                               for n, p in self.parts.items()},
+                "components": {n: {"type": p["kind"], "version": p["version"], "params": copy.deepcopy(p["params"]),
+                                   **copy.deepcopy(x[n].get("record", {}))} for n, p in self.parts.items()},
                 "connections": [list(w) for w in self.wires],
                 "simulation": self.sim_config(),
-                "layout": {n: {"x": p["x"], "y": p["y"], "rotation": p["rot"]} for n, p in self.parts.items()}}
+                "layout": {n: {"x": p["x"], "y": p["y"], "rotation": p["rot"], **copy.deepcopy(x[n].get("layout", {}))}
+                           for n, p in self.parts.items()},
+                **copy.deepcopy(self.extra)}
 
     @classmethod
-    def from_dict(cls, d):
+    def from_dict(cls, d, pins=None):
         """v2 dict, v1 (components without versions), or the unversioned v0 layout {parts:{name:{kind,x,y,params}},
         wires, tstop, tstep}. Validates the whole schema; every problem is a ModelError('bad simulation file: ...').
         A component with no usable definition (unknown type, newer version, unknown param or pin) is not an error:
-        it loads as a placeholder (see docs/persistence.md)."""
+        it loads as a placeholder (see docs/persistence.md). `pins` ({name: [pin ids]}) is the history's memory of
+        placeholder pins, so they are not re-derived from the connections alone."""
         try:
-            return cls._from_dict(d)
+            return cls._from_dict(d, pins or {})
         except ModelError as e:
             raise ModelError(f"bad simulation file: {e}") from None
         except (KeyError, TypeError, AttributeError, ValueError, RecursionError, OverflowError) as e:
@@ -309,7 +321,7 @@ class Document:
         c = CATALOG.defs.get(typ)
         if c is None:
             return None, ("missing", f"component type {typ!r} (version {ver}) is not in the catalog")
-        if ver > c.version:
+        if ver != c.version:   # D19: every bump is breaking, so an older version is not reinterpreted either
             return None, ("incompatible", f"saved with {typ} version {ver}; this catalog has version {c.version}")
         bad = [f"parameter {k!r}" for k in params if k not in c.defaults()] + \
               [f"pin {p!r}" for p in sorted(pins) if p not in c.terminals]
@@ -319,7 +331,7 @@ class Document:
         return c, None
 
     @classmethod
-    def _from_dict(cls, d):
+    def _from_dict(cls, d, kept):
         def need(v, typ, what):
             if not isinstance(v, typ) or isinstance(v, bool): raise ModelError(f"{what} has the wrong type")
             return v
@@ -330,8 +342,10 @@ class Document:
             comps = {n: {"type": need(p, dict, n)["kind"], "params": p["params"]} for n, p in parts.items()}
             layout = {n: {"x": p["x"], "y": p["y"], "rotation": 0} for n, p in parts.items()}
             wires, sim = d["wires"], {"tstop": d["tstop"], "tstep": d["tstep"]}
+            extra = {}
         elif type(ver) is int and 1 <= ver <= VERSION and d.get("format") == FORMAT:
             comps, wires, sim, layout = d["components"], d["connections"], d["simulation"], d.get("layout", {})
+            extra = {k: v for k, v in d.items() if k not in ("format", "version", "components", "connections", "simulation", "layout")}
         elif type(ver) is int and ver > VERSION:
             raise ModelError(f"file format version {ver} is newer than this app supports ({VERSION})")
         else:
@@ -352,7 +366,9 @@ class Document:
                      for q in (x, y))
             if not ok or type(rot) is not int or rot not in ROTATIONS:
                 raise ModelError(f"{n}: bad layout {lay}")
-            recs[n] = (typ, v, params, x, y, rot)
+            xr = {k: val for k, val in c.items() if k not in ("type", "version", "params")}
+            xl = {k: val for k, val in lay.items() if k not in ("x", "y", "rotation")}
+            recs[n] = (typ, v, params, x, y, rot, {k: val for k, val in (("record", xr), ("layout", xl)) if val})
         wl, seen, used = [], set(), {}   # used: part -> pin ids its connections reference
         for w in wires:
             if not isinstance(w, (list, tuple)) or len(w) != 2: raise ModelError(f"bad connection {w}")
@@ -365,7 +381,8 @@ class Document:
             seen.add(frozenset(w))
             wl.append(tuple(w))
         doc = cls()
-        for n, (typ, v, raw, x, y, rot) in recs.items():
+        doc.extra = copy.deepcopy(extra)
+        for n, (typ, v, raw, x, y, rot, xtra) in recs.items():
             comp, why = cls._resolve(typ, v, raw, used.get(n, ()))
             if comp:
                 params = comp.defaults()          # older files may lack params added later: use defaults
@@ -373,7 +390,9 @@ class Document:
                 doc.parts[n] = {"kind": comp.id, "version": comp.version, "x": x, "y": y, "rot": rot, "params": params}
             else:   # kept verbatim, never substituted; its pins are the ones the connections use
                 doc.parts[n] = {"kind": typ, "version": v, "x": x, "y": y, "rot": rot, "params": copy.deepcopy(raw),
-                                "placeholder": {"reason": why[0], "pins": sorted(used.get(n, ())), "detail": why[1]}}
+                                "placeholder": {"reason": why[0], "pins": sorted({*used.get(n, ()), *kept.get(n, ())}),
+                                                "detail": why[1]}}
+            if xtra: doc.parts[n]["extra"] = copy.deepcopy(xtra)
         doc.wires = wl
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
         if sim.get("analysis", "transient") != "transient":
