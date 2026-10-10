@@ -143,7 +143,8 @@ def run_embedded(netlines, vec="v(out)"):
     Returns (value_or_None, log_text).
     """
     import sys
-    sys.path.insert(0, '<repo>/experiments/coupling-proto/src')
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'coupling-proto/src'))
     from ngspice_ctypes import NgSpice
     ng = NgSpice()
     ng.init()

@@ -1,7 +1,7 @@
 # Independent test review: does the suite prove the simulator works?
 
 Date: 2026-10-06. Scope: `app/tests` (188 tests, 7.7 s, all green). Method: I read every test, classified each one, then
-ran mutation testing on a copy (`/tmp/claude-1000/-home-jperez-Documents-Sim/review-copy`; `app` imported from the
+ran mutation testing on a copy (`<tmp>/review-copy`; `app` imported from the
 copy through `conftest.py`, `benchcore` from the installed wheel and left unmutated). Originals were not modified.
 
 ## Verdict
