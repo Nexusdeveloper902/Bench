@@ -115,7 +115,7 @@ def test_search_prefix_alias_tags_and_subcategory(extra_root):
     assert [d.id for d in CATALOG.search("wid")] == ["C_YAK", "B_WIDMARK", "A_MARKWID"]
     assert [d.id for d in CATALOG.search("qwertytag")] == ["D_TAG"]                    # tags
     assert [d.id for d in CATALOG.search("qwertysub")] == ["D_TAG"]                    # subcategory
-    assert [d.id for d in CATALOG.search("Semiconductors")] == ["D_1N4148", "D", "LED"]
+    assert [d.id for d in CATALOG.search("Semiconductors")] == ["D_1N4148", "Q_2N2222", "D", "LED"]
     assert [d.id for d in CATALOG.search("3.3-6 V")] == ["DHT22"]
 
 
@@ -177,7 +177,7 @@ def test_category_filter_and_simulated_only(extra_root):
     assert CATALOG.get("BOARD").readiness == "interface" and not CATALOG.get("BOARD").simulated
     assert {d.id for d in CATALOG.search(category="Microcontrollers")} == {"BOARD", "ESP32_DEVKITC", "ARDUINO_UNO_R3"}
     assert "BOARD" in {d.id for d in CATALOG.search()} and "BOARD" not in {d.id for d in CATALOG.search(simulated_only=True)}
-    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148"}
+    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222"}
     assert CATALOG.search(category="Communication") == []
 
 
