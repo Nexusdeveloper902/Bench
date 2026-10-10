@@ -181,8 +181,8 @@ Severity counts: **high 2, medium 4, low 8**.
   - Part names match `NAME_RE`.
 
   F2 is about topology, not code execution.
-- **Boundary.** `simcore` is imported only in `sim.py`. The catalog imports `electrical`, which is pure, but never
-  ngspice. R6: only typed `simcore` errors are caught.
+- **Boundary.** `benchcore` is imported only in `sim.py`. The catalog imports `electrical`, which is pure, but never
+  ngspice. R6: only typed `benchcore` errors are caught.
 - **Doc example blocks validate** (`test_doc_examples_validate`), and both of my doc-only parts validated the first
   time.
 

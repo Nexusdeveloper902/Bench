@@ -7,8 +7,8 @@ Output of this task: the Penpot file, 28 PNG exports in `docs/milestone/design/`
 
 | Item | Value |
 |---|---|
-| File | "New File 3" (open file of the connected plugin). **Not renamed**: `penpot.currentFile.name` is read-only in the plugin API (`TypeError: setting getter-only property "name"`). Rename it to "Sim Workspace" by hand in the Penpot UI. |
-| D18 (reuse a "Sim" file) | The Penpot MCP exposes only the one connected file, no project listing. There was nothing to reuse, so the design was built in this file. |
+| File | "New File 3" (open file of the connected plugin). **Not renamed**: `penpot.currentFile.name` is read-only in the plugin API (`TypeError: setting getter-only property "name"`). Rename it to "Bench Workspace" by hand in the Penpot UI. |
+| D18 (reuse a "Bench" file) | The Penpot MCP exposes only the one connected file, no project listing. There was nothing to reuse, so the design was built in this file. |
 | Pages | `Foundations` (3 frames), `Components` (6 section boards holding the 79 main components), `Screens` (2 frames), `States` (18 frames; `results-running-blocked` added in T4). |
 | Library assets | 55 colours (`app-bg`, `wire`, ...), 10 typographies (`text/heading` ... `text/code`), token sets `sim/core` (55 colour tokens, `color.*`) and `sim/layout` (spacing, radius, sizing, font size and weight tokens: 26). |
 | Components | 79 Penpot components with path names (`Button / Primary / Default`). Screens use **instances** of them (top bar, buttons, search, nav items, toggle, cards, badges, field rows, pin rows, banners, state badges, zoom control, problem rows, dialogs, status bar). One Penpot variant group would have been tidier, but separate components per state were chosen because they instantiate and nest reliably through the plugin API. |

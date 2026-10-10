@@ -1,13 +1,13 @@
 # Frontend components, parameters and save format
 
 Contract for `app/components.py` (catalog, SI units, netlist builder), the parts of `app/model.py` that use it
-(validation, persistence) and what `app/sim.py` returns. All three are Qt-free; only `app/sim.py` imports `simcore`.
+(validation, persistence) and what `app/sim.py` returns. All three are Qt-free; only `app/sim.py` imports `benchcore`.
 
 ```
 Component definition (components.CATALOG[kind])
   -> Document part {kind, x, y, rot, params}            (app/model.py)
   -> components.build_netlist -> SPICE lines/.model/.save/vector names
-  -> app/sim.py -> simcore.Simulation -> libngspice
+  -> app/sim.py -> benchcore.Simulation -> libngspice
   -> RunResult.series (+ readable RunResult.signals)
 ```
 
@@ -124,7 +124,7 @@ signals      [{"name": "V(C1)", "vector": "v(C1)", "quantity": "voltage", "unit"
 
 Electrical checks (floating islands, voltage-source loops, capacitor-only nodes) stay in the core (`[NO-DC-PATH]`, ...).
 `run_document` stops on the first app error and does not call the core: status `blocked`. Only errors raised by the
-core (`simcore.SimError` subclasses) become status `failed`; an exception from app code propagates.
+core (`benchcore.SimError` subclasses) become status `failed`; an exception from app code propagates.
 
 `RunResult`: `ok`, `status` (`success`/`failed`/`blocked`), `state` (`completed`/`failed`/`blocked`), `message` (one
 line, `[CODE] text` for app diagnostics), `excluded` (unsimulated parts left out of an otherwise successful run; the
@@ -132,7 +132,7 @@ success message ends `; not simulated: U1, U2`), `series` (keyed by vector name)
 `details` (developer text: error type, full message, diagnostics, findings, netlist sent), `get(name)` and
 `stats(name)` (accept readable or vector names), `signal(name)`.
 
-`simcore.Simulation.state` is now `idle` -> `running` -> `completed` | `failed` (it used to stay `running` after
+`benchcore.Simulation.state` is now `idle` -> `running` -> `completed` | `failed` (it used to stay `running` after
 a raising `run`). Runs are synchronous, so `paused` is never observed from Python.
 
 ## Save format

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Reproduce all Sim prototype experiments. Run from repo root.
+# Reproduce all Bench prototype experiments. Run from repo root.
 # Requires: python3, node, npm deps, ngspice 47 + libngspice, openvaf (for e09; set OPENVAf env).
 set -u
 cd "$(dirname "$0")/.."

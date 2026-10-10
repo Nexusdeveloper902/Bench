@@ -32,7 +32,7 @@ No new dependencies are needed.
 | D15 | (audit Q5) The current source keeps no current observable. This is stated in its `limitations`. | The core has no `i()` for I sources. | Inventing a vector name. |
 | D16 | (audit Q6) No Rust changes are planned, so no wheel rebuild is needed. R5 (case-only duplicate names) and R6 (over-broad `SimError` catch) are fixed in T6 at `Document.validate` and `sim.py`. | Fixes genuine gaps at the right boundary. | Leaving R5 to fail at Run with a core error. |
 | D17 | (audit Q7) The review's mutations M04, M07, M12, M16, M17 and M18 become explicit numerical tests in T10. | A permanent guard instead of a one-off mutation run. | Re-running the mutation harness. |
-| D18 | (audit Q1) The repo has no Penpot design. T3 first lists Penpot projects through the MCP and reuses a "Sim" file if one exists. Otherwise it creates "Sim Workspace". | Avoids duplicating an existing design. | n/a |
+| D18 | (audit Q1) The repo has no Penpot design. T3 first lists Penpot projects through the MCP and reuses a "Bench" file if one exists. Otherwise it creates "Bench Workspace". | Avoids duplicating an existing design. | n/a |
 | D19 | Definition `version` is an integer. Removing or renaming a pin or param, or changing a param's meaning, bumps it. Adding a param with a default does not. | Simple and checkable. | Semver strings. |
 | D20 | Search is case-insensitive AND over whitespace tokens, each a substring of the metadata. Ranking: exact name/id/alias match, then name prefix, then the rest. Ties sort by name. | Small, predictable, testable. | A fuzzy-search dependency. |
 
@@ -201,7 +201,7 @@ Search haystack: id, name, aliases, keywords, tags, description, category, subca
 **`app/sim.py`**:
 - `RunResult` gains `excluded: list`.
 - On success the message reads `ok, N points; not simulated: U1, U2` whenever `excluded` is not empty.
-- The `except` catches only `SIM_ERRORS = (simcore.InvalidCircuitError, InvalidConfigError, ConvergenceError, SolverError, BackendError, UnsupportedError, UnavailableError)`. `_diff` runs after the `try`, so app bugs propagate to `window.run`'s "Internal error" path (R6).
+- The `except` catches only `SIM_ERRORS = (benchcore.InvalidCircuitError, InvalidConfigError, ConvergenceError, SolverError, BackendError, UnsupportedError, UnavailableError)`. `_diff` runs after the `try`, so app bugs propagate to `window.run`'s "Internal error" path (R6).
 
 **Qt modules:**
 - `app/symbols.py`: `renderer(path, color) -> QSvgRenderer | None` (lru_cache), `add_symbol(scene, part, defn, color) -> list[QGraphicsItem]`, `add_generic_body(scene, transform, box, pins, title, color)`, `icon_pixmap(defn, px=40) -> QPixmap`.
@@ -279,7 +279,7 @@ Today's per-kind code becomes data (the netlist text must stay byte-identical; t
 | LED | D | `{dev} {a} {k} dled` | `.model dled D(Is=1e-20 N=1.8 Rs=5)` | `@{dev_lc}[id]` | indicator glow, show_current, designator D |
 | SW | R | select state: open `{dev} {a} {b} {roff}`, closed `{dev} {a} {b} {ron}` | | `@{dev_lc}[i]` | value state, symbol select state |
 
-Boundary: `simcore` is reached only from `sim.py`, and the catalog never sees SPICE text. Removed per-kind UI code:
+Boundary: `benchcore` is reached only from `sim.py`, and the catalog never sees SPICE text. Removed per-kind UI code:
 - `SHOW_CURRENT` and `GLOWS` become `show_current` and `indicator`.
 - The `mode != "DC"` autoplay rule becomes `animate_when`.
 - `_switch` reading `state` becomes a `symbol` select.
@@ -556,14 +556,14 @@ Scenarios:
 
 ## 14. T6 notes (implementation choices where the plan was silent)
 
-- **`blocked` covers every pre-check refusal**, not only capability errors (A1: "a Run refused by the pre-check"). `run_document` returns status/state `blocked` for any `validate()` error (and for the `ModelError` safety net after it); `failed` is only for core (`simcore.SimError`) errors. The window prefixes the status `BLOCKED:`, the error box reads `Run blocked: ...`, the state colour is `#a05000`. Existing tests that asserted `failed` for pre-check refusals (`test_components`, `test_e2e`, `test_gui_review`, `test_gui_workflow`, `test_led`, `test_led_e2e`) were changed to `blocked`/`BLOCKED`; core-error cases (NO-DC-PATH) stay `failed`.
+- **`blocked` covers every pre-check refusal**, not only capability errors (A1: "a Run refused by the pre-check"). `run_document` returns status/state `blocked` for any `validate()` error (and for the `ModelError` safety net after it); `failed` is only for core (`benchcore.SimError`) errors. The window prefixes the status `BLOCKED:`, the error box reads `Run blocked: ...`, the state colour is `#a05000`. Existing tests that asserted `failed` for pre-check refusals (`test_components`, `test_e2e`, `test_gui_review`, `test_gui_workflow`, `test_led`, `test_led_e2e`) were changed to `blocked`/`BLOCKED`; core-error cases (NO-DC-PATH) stay `failed`.
 - **Exclusion is enforced at the netlist boundary.** `Document.netlist()` returns the `build_netlist` dict plus `"excluded"` (all unmodeled parts) and raises `ModelError` if any unmodeled part is wired; `sim.py` builds the success message and `RunResult.excluded` from that key only, so no success path can omit an excluded part. The golden comparison in `test_catalog.py` now expects the extra `"excluded": []` key from `Document.netlist()`.
 - **Net numbering:** `Document.nets()` names modeled pins first, so an excluded part never renumbers `n1..` (a run with an unwired board is identical to one without it, asserted).
 - **Placeholder record:** `{"placeholder": {"reason", "pins", "detail"}}` on the part dict; `detail` is the human text used in the diagnostic (`U2: component type 'FOO' (version 1) is not in the catalog; kept unchanged...`). Not persisted: it is re-derived on every `from_dict`, including undo/redo. Consequence: a placeholder's pin list is re-derived from the connections present, so if the user deletes all its wires and then undoes/redoes through a state without them, the pins that no wire references are gone (they were never stored). Placeholder `params` are deep-copied verbatim (not coerced to text); unknown extra keys in a record are dropped, as for every part (v1 promise).
 - **Diagnostic wording** for MISSING/INCOMPATIBLE: wired errors end `It is wired to the circuit: disconnect it to run.`, unwired warnings end `; excluded from the run.`.
 - **Pin ids in connections** must match `PIN_RE` (`[A-Za-z0-9_]+`), else whole-file `no such pin`; this keeps junk out of placeholders.
 - **Edge cases:** `add_part` of an unknown type still raises (only loading creates placeholders). Version in a v2 record must be an int >= 1. `DUP-NAME-CASE` is reported by `validate()` only; `rename_part` still allows `r2` when `R2` exists (plan: caught at validate).
-- **R6:** `sim.SIM_ERRORS` lists the 7 concrete `simcore` error classes (all subclass `SimError`); `_diff` runs after the `try`, so app bugs reach `window.run`'s "Internal error" path.
+- **R6:** `sim.SIM_ERRORS` lists the 7 concrete `benchcore` error classes (all subclass `SimError`); `_diff` runs after the `try`, so app bugs reach `window.run`'s "Internal error" path.
 - **Window (minimal):** geometry via `catalog.geometry/pin_offset` (`terminal_offset` kept as a wrapper), placeholders draw with `symbols.add_placeholder` (generic body, no dashed style/badge: T9), inspector shows the reason and read-only note, status bar warns after opening a file with placeholders (`1 part has no usable definition: U2 (FUTURE_RELAY v3)`). No panels.
 - **Docs:** new `docs/persistence.md`; the "Save format" section of `docs/frontend-components.md` now points to it and the validation table / `RunResult` text were updated.
 

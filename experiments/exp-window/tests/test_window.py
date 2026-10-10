@@ -9,7 +9,7 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, '..'))
-sys.path.insert(0, os.path.join(os.path.dirname(_HERE), '..', 'Sim', 'exp-safety'))
+sys.path.insert(0, os.path.join(os.path.dirname(_HERE), '..', 'Bench', 'exp-safety'))
 sys.path.insert(0, '<repo>/experiments/exp-safety')
 sys.path.insert(0, '<repo>/experiments/exp-window')
 

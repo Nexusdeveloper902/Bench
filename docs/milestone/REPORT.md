@@ -8,15 +8,15 @@ The work ran as 14 sequential tasks; the per-task inputs and outputs are in this
 | Check | Result |
 |---|---|
 | `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | **434 passed** (262 at the start of the milestone). Two consecutive green runs; no flakes in repeated, reverse-order or parallel runs (T12). |
-| `cargo test` (simcore) | 26 passed |
-| `pytest tests/python` (simcore) | 3 passed. These tests import the installed wheel; the wheel was not rebuilt because no Rust changed. |
+| `cargo test` (benchcore) | 26 passed |
+| `pytest tests/python` (benchcore) | 3 passed. These tests import the installed wheel; the wheel was not rebuilt because no Rust changed. |
 | `python3 -m app.catalog` | 16 definitions, 0 errors, 0 warnings |
 | LED regression | I(D1) = 9.1772 mA through the real engine, unchanged from before the milestone |
 | Mutation testing (T12, before the T13 fixes) | 53 of 69 mutants killed. T13 added tests targeting 13 of the 16 survivors. X2 (the DHT22 pinout) is covered by the new pinout table; P2 and I2 are covered by the T7 and F3 tests. The suite has not been re-scored since. |
 
 ## Penpot deliverables
 
-- **Penpot file:** "New File 3"; the plugin API cannot rename files, so rename it to "Sim Workspace" by hand. It has four pages:
+- **Penpot file:** "New File 3"; the plugin API cannot rename files, so rename it to "Bench Workspace" by hand. It has four pages:
   - **Foundations:** 3 frames.
   - **Components:** 79 reusable components, plus 55 library colours, 10 typographies and 81 tokens.
   - **Screens:** the 1280×800 workspace with the LED circuit and an unwired ESP32.

@@ -1,4 +1,4 @@
-# Sim prototype (throwaway): MCU + libngspice coupling validation
+# Bench prototype (throwaway): MCU + libngspice coupling validation
 
 Answers: can a native host run AVR firmware against a real nonlinear ngspice
 circuit, synchronize at cross-domain events, measure correctly, fast enough for

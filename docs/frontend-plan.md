@@ -1,19 +1,19 @@
-# Frontend plan (schematic editor + transient plots over simcore)
+# Frontend plan (schematic editor + transient plots over benchcore)
 
 ## Core facts (inspected 2026-10-05)
 
-- Core: `simcore/` — Rust crate (kernel + libngspice FFI) exposed to Python via
-  PyO3/maturin. Public API: `simcore.Simulation` (`simcore/python/simcore/__init__.py`).
+- Core: `benchcore/` — Rust crate (kernel + libngspice FFI) exposed to Python via
+  PyO3/maturin. Public API: `benchcore.Simulation` (`benchcore/python/benchcore/__init__.py`).
   All numerics live in libngspice (`/usr/lib/libngspice.so`, ngspice 47).
-- Build/install: `cd simcore && maturin build && pip install --user --force-reinstall target/wheels/simcore-*.whl`.
-- Tests: `cargo test` (26 real-engine), `python -m pytest simcore/tests/python` (3).
+- Build/install: `cd benchcore && maturin build && pip install --user --force-reinstall target/wheels/benchcore-*.whl`.
+- Tests: `cargo test` (26 real-engine), `python -m pytest benchcore/tests/python` (3).
 - Verified: V1 5 V → R 1k → C 1u → 0, `v(out)` vs `5(1-exp(-t/1ms))` over 5τ:
   max error 14.7 µV (511 pts, ~1.4 ms wall). Pause path also exact.
 
 ### Fixes made in core (genuine blockers)
 
-1. Packaging: wheel shipped only `_simcore`; `import simcore` (the documented API)
-   failed. Now `module-name = "simcore._simcore"`, `python-source = "python"`.
+1. Packaging: wheel shipped only `_benchcore`; `import benchcore` (the documented API)
+   failed. Now `module-name = "benchcore._benchcore"`, `python-source = "python"`.
 2. Unknown/unsaved observables silently returned empty (or 1-point) series, so a
    stale probe would plot nothing with no error. Now `InvalidConfigError` naming
    the observable (Rust T24 + Python test).
@@ -29,7 +29,7 @@
 ## Core API surface the UI uses (only these)
 
 ```python
-from simcore import Simulation, InvalidCircuitError, InvalidConfigError, \
+from benchcore import Simulation, InvalidCircuitError, InvalidConfigError, \
     ConvergenceError, SolverError, BackendError, UnsupportedError, UnavailableError
 s = Simulation(title)
 s.build_circuit(lines)            # device lines from the schematic
@@ -77,10 +77,10 @@ which is the same interpreter the core wheel targets. No new dependencies.
 (Tk is available but weaker for a canvas editor; PyQt5 is legacy.)
 
 ```
-Sim/app/
+Bench/app/
   __main__.py      # python -m app
   model.py         # parts, wires, params, net extraction, netlist lines (pure, no Qt)
-  sim.py           # the only file importing simcore: model -> Simulation -> result
+  sim.py           # the only file importing benchcore: model -> Simulation -> result
   window.py        # QMainWindow: palette, QGraphicsScene canvas, param panel, toolbar
   plot.py          # FigureCanvasQTAgg widget, plots [(t,v)] series
 tests/
@@ -99,6 +99,6 @@ with units (s, V, A). Multiple probes overlay; rerun replaces data.
 - E2E: construct the main window, place V/R/C/Ground and wires through the same
   model/controller methods the UI handlers call, set Vs=5, R=1k, C=1u, tstop=5 ms,
   trigger Run, then assert the plotted series for the capacitor net matches
-  `Vs(1-exp(-t/RC))` within 20 mV (core tolerance, `simcore/docs/testing.md`).
+  `Vs(1-exp(-t/RC))` within 20 mV (core tolerance, `benchcore/docs/testing.md`).
 - Error path: delete the ground → Run → status shows `[NO-GROUND]`/`[NO-DC-PATH]`, no plot.
 - Probe a deleted net → `InvalidConfigError` shown, not an empty plot.

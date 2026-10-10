@@ -12,7 +12,7 @@ Build the deck (`build_circuit`/`add`/`add_model`), declare what to watch
 ## Example
 
 ```python
-from simcore import Simulation  # pip install target/wheels/simcore-*.whl
+from benchcore import Simulation  # pip install target/wheels/benchcore-*.whl
 s = Simulation("RC")
 s.build_circuit(["V1 in 0 DC 5", "R1 in out 1k", "C1 out 0 1u IC=0"])
 s.configure(tstep=10e-6, tstop=5e-3, tmax=10e-6)

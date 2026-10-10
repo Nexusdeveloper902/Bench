@@ -4,7 +4,7 @@
 //! failure cases. Every test exercises libngspice through the public kernel
 //! API. Tolerances are justified inline; see docs/testing.md.
 
-use simcore::kernel::{run_simulation, SimRequest};
+use benchcore::kernel::{run_simulation, SimRequest};
 use std::collections::HashMap;
 
 fn rc_deck() -> Vec<String> {
@@ -204,7 +204,7 @@ fn t04_diode_op_range() {
 /// only by breakpoint-forced points. A .ic-restart seam would be ~0.2mV.
 #[test]
 fn t05_pause_resume_identity() {
-    use simcore::ngspice as ng;
+    use benchcore::ngspice as ng;
     let mk = |stops: Vec<f64>| SimRequest {
         netlist: rc_deck(),
         observables: vec!["v(out)".to_string()],
@@ -243,7 +243,7 @@ fn t05_pause_resume_identity() {
 /// stop-resume must equal it index-wise at 1nV.
 #[test]
 fn t06_multi_breakpoint() {
-    use simcore::ngspice as ng;
+    use benchcore::ngspice as ng;
     let mk = |stops: Vec<f64>| SimRequest {
         netlist: rc_deck(),
         observables: vec!["v(out)".to_string()],
@@ -357,7 +357,7 @@ fn t10_v_loop_rejected() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidCircuit { code, .. }) => {
+        Err(benchcore::SimError::InvalidCircuit { code, .. }) => {
             assert!(code.contains("V-LOOP"), "code {}", code)
         }
         other => panic!("expected V-LOOP, got {:?}", other.map(|_| ())),
@@ -378,7 +378,7 @@ fn t11_no_ground_rejected() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidCircuit { code, .. }) => {
+        Err(benchcore::SimError::InvalidCircuit { code, .. }) => {
             assert!(code.contains("NO-GROUND"), "code {}", code)
         }
         other => panic!("expected NO-GROUND, got {:?}", other.map(|_| ())),
@@ -398,7 +398,7 @@ fn t12_isrc_open_rejected() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidCircuit { code, .. }) => {
+        Err(benchcore::SimError::InvalidCircuit { code, .. }) => {
             assert!(code.contains("ISRC-OPEN"), "code {}", code)
         }
         other => panic!("expected ISRC-OPEN, got {:?}", other.map(|_| ())),
@@ -418,7 +418,7 @@ fn t13_shorted_vsrc_rejected() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidCircuit { code, .. }) => {
+        Err(benchcore::SimError::InvalidCircuit { code, .. }) => {
             assert!(code.contains("SHORTED-VSRC"), "code {}", code)
         }
         other => panic!("expected SHORTED-VSRC, got {:?}", other.map(|_| ())),
@@ -542,7 +542,7 @@ fn t17_unknown_time_demands_bound() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidConfig { .. }) => {}
+        Err(benchcore::SimError::InvalidConfig { .. }) => {}
         other => panic!("expected InvalidConfig for unknown TIME, got {:?}", other.map(|_| ())),
     }
 }
@@ -564,7 +564,7 @@ fn t18_b_selfref_rejected() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::InvalidCircuit { code, .. }) => {
+        Err(benchcore::SimError::InvalidCircuit { code, .. }) => {
             assert!(code.contains("B-SELFREF"), "code {}", code)
         }
         other => panic!("expected B-SELFREF, got {:?}", other.map(|_| ())),
@@ -590,8 +590,8 @@ fn t19_loud_failure_is_error() {
         stops: vec![],
     });
     match r {
-        Err(simcore::SimError::SolverFailure { .. })
-        | Err(simcore::SimError::ConvergenceFailure { .. }) => {}
+        Err(benchcore::SimError::SolverFailure { .. })
+        | Err(benchcore::SimError::ConvergenceFailure { .. }) => {}
         other => panic!("expected solver/convergence error, got {:?}", other.map(|_| ())),
     }
 }
@@ -642,7 +642,7 @@ fn t21_nonfinite_stops_rejected() {
         stops: vec![f64::NAN],
     });
     match r {
-        Err(simcore::SimError::InvalidConfig { .. }) => {}
+        Err(benchcore::SimError::InvalidConfig { .. }) => {}
         other => panic!("expected InvalidConfig, got {:?}", other.map(|_| ())),
     }
 }
@@ -730,7 +730,7 @@ fn t24_unknown_observable_is_error() {
         })
         .expect_err("unknown observable must be rejected");
         match err {
-            simcore::SimError::InvalidConfig { message } => {
+            benchcore::SimError::InvalidConfig { message } => {
                 assert!(message.contains(obs), "message must name {}: {}", obs, message)
             }
             other => panic!("expected InvalidConfig, got {:?}", other),

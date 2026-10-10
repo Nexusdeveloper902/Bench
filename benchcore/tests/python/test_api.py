@@ -1,5 +1,5 @@
-"""Public Python API smoke: `import simcore` from the installed wheel
-(regression: the wheel used to ship only `_simcore`), RC vs analytic, and
+"""Public Python API smoke: `import benchcore` from the installed wheel
+(regression: the wheel used to ship only `_benchcore`), RC vs analytic, and
 unknown observables raising instead of returning empty series.
 
 Run: maturin build && pip install --force-reinstall target/wheels/*.whl
@@ -9,8 +9,8 @@ import math
 
 import pytest
 
-import simcore
-from simcore import InvalidConfigError, Simulation
+import benchcore
+from benchcore import InvalidConfigError, Simulation
 
 
 def rc():
@@ -34,4 +34,4 @@ def test_unknown_observable_raises():
 
 
 def test_wrapper_is_the_package():
-    assert simcore.Simulation.__module__ == "simcore"
+    assert benchcore.Simulation.__module__ == "benchcore"

@@ -1,4 +1,4 @@
-# Production architecture: simcore 0.1.0
+# Production architecture: benchcore 0.1.0
 
 ## Kernel responsibilities
 
@@ -10,7 +10,7 @@ electrical domain (netlists + models).
 
 ## Public Simulation API
 
-`python/simcore/__init__.py:Simulation` exposes simulation concepts:
+`python/benchcore/__init__.py:Simulation` exposes simulation concepts:
 create, build_circuit/add/add_model, configure, observe, pause_at,
 clear_stops, validate, run, observable/time/state, modify, reset, destroy.
 The Rust surface (`src/kernel.rs:run_simulation(SimRequest)`) is

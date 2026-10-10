@@ -1,11 +1,11 @@
 [package]
-name = "simcore"
+name = "benchcore"
 version = "0.1.0"
 edition = "2021"
 description = "Production simulation core: native kernel + electrical domain over libngspice"
 
 [lib]
-name = "simcore"
+name = "benchcore"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

@@ -7,7 +7,7 @@
 //! propagation, hundreds of synchronized PWL events, validator silence on a
 //! large DAG, and pause-free throughput on a dense netlist.
 
-use simcore::kernel::{run_simulation, SimRequest};
+use benchcore::kernel::{run_simulation, SimRequest};
 
 const VDD: f64 = 5.0;
 const TH: f64 = 2.5; // logic threshold

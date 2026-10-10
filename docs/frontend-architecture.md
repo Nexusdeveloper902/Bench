@@ -10,13 +10,13 @@ app/window.py   Qt only: canvas, inspector, problems, controls, viewer      (imp
 app/history.py  undo/redo snapshots                                          (pure Python)
 app/model.py    Document: parts, wires, nets, validate(), save/load          (pure Python)
 app/components.py  CATALOG metadata, SI units, netlist builder              (pure Python)
-app/sim.py      run_document(doc) -> RunResult        <- ONLY importer of simcore
-simcore         Simulation API -> Rust kernel -> libngspice
+app/sim.py      run_document(doc) -> RunResult        <- ONLY importer of benchcore
+benchcore         Simulation API -> Rust kernel -> libngspice
 ```
 
 Rules the GUI keeps:
 
-- Nothing in `app/window.py` imports `simcore` or builds SPICE text. It calls `run_document(doc)` and reads the
+- Nothing in `app/window.py` imports `benchcore` or builds SPICE text. It calls `run_document(doc)` and reads the
   returned `RunResult`. No solving in the GUI: displayed numbers are core series, linear interpolation of them
   (`model.value_at`, cursor readout) or their min/max/final (`RunResult.stats`).
 - No per-component branching. Geometry comes from `Component.pos`/`box` via `components.terminal_offset`; the

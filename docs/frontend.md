@@ -1,22 +1,22 @@
-# Frontend (native PySide6 app over simcore)
+# Frontend (native PySide6 app over benchcore)
 
 ## Layout
 
 - `app/components.py` - component catalog (metadata per kind), SI unit parse/format, netlist builder (all SPICE text, `.model`/`.save` lines and ngspice vector names). Pure Python. Contract: `docs/frontend-components.md`.
 - `app/model.py` - `Document`: parts, wires, params (all stored as strings), rotation, net extraction, pre-run `validate()`, save format v1. Pure Python.
-- `app/sim.py` - the only module importing `simcore`. `run_document(doc) -> RunResult`; never raises.
+- `app/sim.py` - the only module importing `benchcore`. `run_document(doc) -> RunResult`; never raises.
 - `app/history.py` - undo/redo: snapshots of `Document.to_dict()` (minus the `simulation` section); `with hist.change(doc):` records only if the doc changed; restores in place. Pure Python.
 - `app/window.py` - `MainWindow` (QGraphicsScene canvas, catalog-driven inspector, problems panel, simulation controls, matplotlib waveform viewer). Handlers only call model/sim. Structure, controls/state and the viewer data contract: `docs/frontend-architecture.md`.
 - `app/tests/test_e2e.py` - end-to-end tests on the real core.
 
 ## Integration decisions
 
-- **Adapter boundary.** `sim.py` is the single seam: `Document -> netlist dict -> simcore.Simulation -> RunResult`. Nothing else knows about the core.
+- **Adapter boundary.** `sim.py` is the single seam: `Document -> netlist dict -> benchcore.Simulation -> RunResult`. Nothing else knows about the core.
 - **No second sim model.** The UI never computes circuit behaviour. Plots and stats are the core's series; nothing is re-simulated or derived.
 - **Netlist mapping.** Union-find over wired pins gives nets; any net with a ground pin is `0`, others are `n1, n2, ...` in part-creation order. Each part maps to SPICE text through its catalog entry (`components.build_netlist`); see `docs/frontend-components.md`. Observables: `v(<net>)`, `i(<vsrc>)`, `@<dev>[i]`, plus readable aliases (`V(C1)`, `I(R1)`) in `RunResult.signals`.
 - **SI input, plain floats out.** Users type `1k`, `10u`, `4.7 nF`, `2.2M` (M = mega, as in SI; `meg` also works). `components.parse_si` converts to float and the core always receives `repr(float)`, so SPICE's `M` = milli never applies.
 - **UI-side validation.** `Document.validate()` returns structured diagnostics (bad run settings, empty circuit, NO-GROUND, unconnected part/terminal, bad parameter) before the core is called. The core only reports malformed values as a vague "circuit not parsed", so this check is required.
-- **Error surfacing.** `run_document` converts app diagnostics and every `simcore.SimError` into `RunResult(ok=False, status="failed", message=...)`, keeping `diagnostics`, core `findings` and developer `details` (error type, full message, netlist sent). Core `InvalidCircuitError` messages keep their `[NO-GROUND]` / `[NO-DC-PATH]` codes. The window shows `FAILED: <message>` in red and clears the stats. Observables come from the netlist, so the UI cannot request a nonexistent one. The core raising for an unknown observable (core test T24) is the backstop.
+- **Error surfacing.** `run_document` converts app diagnostics and every `benchcore.SimError` into `RunResult(ok=False, status="failed", message=...)`, keeping `diagnostics`, core `findings` and developer `details` (error type, full message, netlist sent). Core `InvalidCircuitError` messages keep their `[NO-GROUND]` / `[NO-DC-PATH]` codes. The window shows `FAILED: <message>` in red and clears the stats. Observables come from the netlist, so the UI cannot request a nonexistent one. The core raising for an unknown observable (core test T24) is the backstop.
 
 ## LED, battery, derived voltages
 
@@ -61,14 +61,14 @@ python3 -m app            # GUI
 python3 -m app --smoke    # headless demo: build RC, run, print status
 ```
 
-Requires the simcore wheel installed:
-`cd simcore && maturin build && pip install --user --force-reinstall target/wheels/simcore-*.whl`.
+Requires the benchcore wheel installed:
+`cd benchcore && maturin build && pip install --user --force-reinstall target/wheels/benchcore-*.whl`.
 
 ## Test
 
 ```
 QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests   # real core, offscreen Qt (GUI workflows: test_gui_workflow.py)
-cd simcore && cargo test && python3 -m pytest -q tests/python
+cd benchcore && cargo test && python3 -m pytest -q tests/python
 ```
 
 ## Next phase

@@ -19,13 +19,13 @@ use pyo3::create_exception;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
-create_exception!(_simcore, InvalidCircuitError, pyo3::exceptions::PyValueError);
-create_exception!(_simcore, InvalidConfigError, pyo3::exceptions::PyValueError);
-create_exception!(_simcore, ConvergenceError, pyo3::exceptions::PyRuntimeError);
-create_exception!(_simcore, SolverError, pyo3::exceptions::PyRuntimeError);
-create_exception!(_simcore, BackendError, pyo3::exceptions::PyRuntimeError);
-create_exception!(_simcore, UnsupportedError, pyo3::exceptions::PyRuntimeError);
-create_exception!(_simcore, UnavailableError, pyo3::exceptions::PyRuntimeError);
+create_exception!(_benchcore, InvalidCircuitError, pyo3::exceptions::PyValueError);
+create_exception!(_benchcore, InvalidConfigError, pyo3::exceptions::PyValueError);
+create_exception!(_benchcore, ConvergenceError, pyo3::exceptions::PyRuntimeError);
+create_exception!(_benchcore, SolverError, pyo3::exceptions::PyRuntimeError);
+create_exception!(_benchcore, BackendError, pyo3::exceptions::PyRuntimeError);
+create_exception!(_benchcore, UnsupportedError, pyo3::exceptions::PyRuntimeError);
+create_exception!(_benchcore, UnavailableError, pyo3::exceptions::PyRuntimeError);
 
 fn map_err(e: SimError) -> PyErr {
     match e {
@@ -109,7 +109,7 @@ fn py_required_tmax(expr: String) -> PyResult<Option<f64>> {
 }
 
 #[pymodule]
-fn _simcore(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _benchcore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_run_simulation, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate, m)?)?;
     m.add_function(wrap_pyfunction!(py_required_tmax, m)?)?;

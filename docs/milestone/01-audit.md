@@ -1,4 +1,4 @@
-# Task 1 audit: current state of Sim
+# Task 1 audit: current state of Bench
 
 Date: 2026-10-08. Read-only audit of the repo at `<repo>` (HEAD `1b2c335`, plus untracked `docs/milestone/`). No source files were modified. Paths are repo-relative; `file:line` refers to the current working tree.
 
@@ -7,12 +7,12 @@ Date: 2026-10-08. Read-only audit of the repo at `<repo>` (HEAD `1b2c335`, plus 
 | Command | Result |
 |---|---|
 | `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | **262 passed**, 0 failed, 9.19 s (141 `def test_` functions, parametrized to 262) |
-| `cd simcore && cargo test` | `tests/adder.rs` 3 passed; `tests/correctness.rs` 23 passed; unit and doctests 0. **26 passed, 0 failed** |
-| `cd simcore && python3 -m pytest -q tests/python` | **3 passed** |
+| `cd benchcore && cargo test` | `tests/adder.rs` 3 passed; `tests/correctness.rs` 23 passed; unit and doctests 0. **26 passed, 0 failed** |
+| `cd benchcore && python3 -m pytest -q tests/python` | **3 passed** |
 | LED workflow subset: `app/tests/test_led.py test_led_e2e.py test_led_glow.py test_led_pixels.py test_e2e.py` | **52 passed** |
 
 - Failures: none. Blockers: none. ngspice 47 is present (`/usr/lib/libngspice.so.0.0.16`).
-- Caveat: `simcore/tests/python` imports the **installed** wheel at `~/.local/lib/python3.14/site-packages/simcore/`, not the repo source. Its `__init__.py` is identical to `simcore/python/simcore/__init__.py`. The `_simcore` `.so` is dated Oct 5 20:48, later than the last Rust edit (`simcore/src/kernel.rs`, Oct 5 19:37). I did not rebuild, so "in sync" is inferred from timestamps only.
+- Caveat: `benchcore/tests/python` imports the **installed** wheel at `~/.local/lib/python3.14/site-packages/benchcore/`, not the repo source. Its `__init__.py` is identical to `benchcore/python/benchcore/__init__.py`. The `_benchcore` `.so` is dated Oct 5 20:48, later than the last Rust edit (`benchcore/src/kernel.rs`, Oct 5 19:37). I did not rebuild, so "in sync" is inferred from timestamps only.
 
 ## 2. Architecture map
 
@@ -22,8 +22,8 @@ app/window.py    (855 lines, Qt only)  Canvas 164-271; MainWindow 274-855
 app/history.py   (55)                  undo/redo = Document.to_dict() snapshots (minus "simulation")
 app/model.py     (330)                 Document: parts, wires, nets, validate, save/load (pure Python)
 app/components.py(304)                 CATALOG, Param/Observable/Component, SI units, build_netlist (pure)
-app/sim.py       (93)                  only importer of simcore: run_document(doc) -> RunResult
-simcore (PyO3 module _simcore) -> Rust kernel (kernel.rs) -> validate.rs -> libngspice
+app/sim.py       (93)                  only importer of benchcore: run_document(doc) -> RunResult
+benchcore (PyO3 module _benchcore) -> Rust kernel (kernel.rs) -> validate.rs -> libngspice
 ```
 
 `docs/frontend-architecture.md:6-15` describes the same layering, and the code matches it.
@@ -35,10 +35,10 @@ Data flow, GUI to simulator to results:
 3. **Run.** `window.py:559-573` calls `run_document(self.doc)`, synchronously on the GUI thread (`window.py:563-565`).
 4. **Pre-run gate.** `sim.py:63-68`: `doc.validate()` (`model.py:174-203`). Any error returns a failed `RunResult` without calling the core.
 5. **Netlist.** `sim.py:69-72`: `doc.config()` (`model.py:154-164`) and `doc.netlist()` (`model.py:170-172`), which calls `components.build_netlist` (`components.py:260-304`) over `Document.nets()` (`model.py:133-151`).
-6. **Core call.** `sim.py:76-83`: `simcore.Simulation("app")`, `build_circuit`, `add_model`, `add` (for `.save` lines), `configure`, `observe`, `validate`, `run`.
+6. **Core call.** `sim.py:76-83`: `benchcore.Simulation("app")`, `build_circuit`, `add_model`, `add` (for `.save` lines), `configure`, `observe`, `validate`, `run`.
 7. **Results.** `sim.py:84-86`: `series[name] = list(s.observable(n))`. Derived `v(Part)` is computed by subtraction in `_diff` (`sim.py:51-57`). `sim.py:88-93` builds the `RunResult`.
 8. **Display.** `window.py:582-606` (`_show_result`) fills the signal picker; `plot` at `613-637`; cursor readout and LED glow use `model.value_at` (`model.py:33`) and `window.part_current` (`706-710`).
-9. **Exceptions.** `sim.py:87` catches `simcore.SimError`, which is an alias for `Exception` (`simcore/python/simcore/__init__.py:40`). See section 9, R6.
+9. **Exceptions.** `sim.py:87` catches `benchcore.SimError`, which is an alias for `Exception` (`benchcore/python/benchcore/__init__.py:40`). See section 9, R6.
 
 ## 3. Component representation today
 
@@ -71,16 +71,16 @@ Catalog today (`components.py:182-214`, 10 entries, hardcoded Python literal):
 
 ## 4. Simulation API contract
 
-**Python wrapper** (`simcore/python/simcore/__init__.py`):
+**Python wrapper** (`benchcore/python/benchcore/__init__.py`):
 
 - `Simulation` (`43-168`): `add`, `build_circuit`, `add_model`, `modify`, `configure(tstep, tstop, tstart, tmax, uic)`, `observe`, `pause_at`, `clear_stops`, `validate`, `run`, `reset`, `destroy`, `observable(name)`, and properties `state`, `time`, `used_pauses`, `fallback_reason`.
 - Generated deck (`_deck`, `110-117`): title `"app"`, devices, models, `.tran tstep tstop tstart [tmax] [uic]`, `.end`. `uic` defaults to True.
 
-**PyO3 exports** (`simcore/src/lib.rs`):
+**PyO3 exports** (`benchcore/src/lib.rs`):
 
-- `_simcore.run_simulation(netlist, observables, stops)` (`48-79`) returns a dict: `series {vector: [(t, v)]}`, `time`, `npts`, `wall_ms`, `used_pauses`, `fallback_reason`.
-- `_simcore.validate(netlist)` (`82-96`) returns a list of `{code, severity, message, nodes, devices, layer}`.
-- `_simcore.required_tmax(expr)` (`99-109`): not referenced by `app/` (grep).
+- `_benchcore.run_simulation(netlist, observables, stops)` (`48-79`) returns a dict: `series {vector: [(t, v)]}`, `time`, `npts`, `wall_ms`, `used_pauses`, `fallback_reason`.
+- `_benchcore.validate(netlist)` (`82-96`) returns a list of `{code, severity, message, nodes, devices, layer}`.
+- `_benchcore.required_tmax(expr)` (`99-109`): not referenced by `app/` (grep).
 - Typed exceptions (`lib.rs:22-28`, mapped in `map_err` at `30-43`): `InvalidCircuitError` (message `"[CODE] msg"`), `InvalidConfigError`, `ConvergenceError`, `SolverError`, `BackendError`, `UnsupportedError`, `UnavailableError`.
 - Kernel gates run before the backend (`kernel.rs:309-318`): any validator error becomes `InvalidCircuitError`. An empty netlist gives `MALFORMED`. Control-flow escapes are refused.
 
@@ -97,7 +97,7 @@ Catalog today (`components.py:182-214`, 10 entries, hardcoded Python literal):
 - `observe(*nl["observables"])`, for example `v(n1)`, `i(v1)`, `@d1[id]`. Nodes come first, then source currents, then device currents (`components.py:302`).
 - `validate()`, then `run()`. `pause_at` is never called, so `used_pauses` is always False in the app.
 
-**What comes back:** a `series` dict keyed by the exact vector names observed. Unknown observables raise `InvalidConfigError` (checked by `simcore/tests/python/test_api.py`). `sim.py:88-90` shows `"{ErrType}: {msg}"` as the message, or the bare message for `InvalidCircuitError`.
+**What comes back:** a `series` dict keyed by the exact vector names observed. Unknown observables raise `InvalidConfigError` (checked by `benchcore/tests/python/test_api.py`). `sim.py:88-90` shows `"{ErrType}: {msg}"` as the message, or the bare message for `InvalidCircuitError`.
 
 **Limits:** `MAX_POINTS = 100_000` and `MAX_SAMPLES = 2_000_000` (`model.py:14-15`, enforced in `config()` at `160-163`).
 
@@ -192,8 +192,8 @@ Undo/redo (`history.py`): snapshots are `to_dict()` minus `"simulation"` (`histo
 ## 8. Docs vs code discrepancies
 
 1. **`docs/frontend-architecture.md:22`** says "No per-component branching". Mostly true for logic, but the display exceptions in section 6 (`window.py:35-36`, `752`, `778-789`, `572`, `122-125`) are not mentioned.
-2. **`simcore/docs/components.md:3-20`** presents `components.rs` as the device representation, with PWL, K, T, subcircuits and the thin B-source layer "supported in v1". In fact the Rust `Component` enum and `build_deck` (`simcore/src/components.rs:37-80`, `84-113`) have no references in `simcore/src` or `simcore/tests`. `docs/frontend-components.md:15-16` says the same. The Python API accepts raw SPICE lines, so "supported" means the kernel and validator accept such lines. No app code uses them.
-3. **`simcore/docs/api.md:20`** shows `r = s.run()` with fields read as attributes. The real return is a dict (`simcore/src/lib.rs:50-79`, `simcore/python/simcore/__init__.py:123-134`). `docs/frontend-plan.md:43` uses dict access correctly.
+2. **`benchcore/docs/components.md:3-20`** presents `components.rs` as the device representation, with PWL, K, T, subcircuits and the thin B-source layer "supported in v1". In fact the Rust `Component` enum and `build_deck` (`benchcore/src/components.rs:37-80`, `84-113`) have no references in `benchcore/src` or `benchcore/tests`. `docs/frontend-components.md:15-16` says the same. The Python API accepts raw SPICE lines, so "supported" means the kernel and validator accept such lines. No app code uses them.
+3. **`benchcore/docs/api.md:20`** shows `r = s.run()` with fields read as attributes. The real return is a dict (`benchcore/src/lib.rs:50-79`, `benchcore/python/benchcore/__init__.py:123-134`). `docs/frontend-plan.md:43` uses dict access correctly.
 4. **`docs/frontend-plan.md`** (dated 2026-10-05) is stale. It mentions a `plot.py` (plots are in `window.py`), `tests/test_model.py` (tests are in `app/tests/`), a "palette", and a components table without BAT, LED or SW.
 5. **`docs/review/test-review.md:3`** says 188 tests. The suite now has 262 passing cases (141 functions). Its item M21 ("no current source ever simulated") looks addressed: `app/tests/test_review_physics.py:114` builds an `I` source circuit. I did not re-run the mutation tests.
 6. **Severity vocabulary:** core `"warn"` (`validate.rs:439`) vs app `"warning"` (`model.py:195`). Docs only list app codes (`docs/frontend-components.md:111-117`). Not wrong, but there are two vocabularies.
@@ -210,7 +210,7 @@ Undo/redo (`history.py`): snapshots are `to_dict()` minus `"simulation"` (`histo
 - `run_document` and `RunResult` (`sim.py`) as the only simulator seam. Add capability checks here.
 - `SYMBOLS` painter table and `_box`/`terminal_offset` geometry (`window.py:97-146`, `40-70`).
 - GUI test harness: `test_gui_workflow.py`, `test_led_e2e.py` (QTest mouse and key events, offscreen).
-- Simulation API and error taxonomy (`simcore/python/simcore/__init__.py`, `lib.rs`). LED example and blink example as regression cases (`model.py:205-225`).
+- Simulation API and error taxonomy (`benchcore/python/benchcore/__init__.py`, `lib.rs`). LED example and blink example as regression cases (`model.py:205-225`).
 
 **Gaps against the brief:**
 
@@ -227,10 +227,10 @@ Undo/redo (`history.py`): snapshots are `to_dict()` minus `"simulation"` (`histo
 - **R3 (high):** the UI cannot show categories, search or capability state, and adding one requires editing `window.py`. The redesign will touch most of `window.py`. Consider splitting it first.
 - **R4 (medium): electrical test gaps.** The 2026-10-06 review (`docs/review/test-review.md`) reported these injected bugs as missed: a second Ground not being node 0 (M04), `ic` dropped on save (M07), diode `Rs` ignored (M12), PULSE `tr` vs `tf` swap (M16), SIN never simulated (M17), inductor `ic` ignored (M18). Some tests have since been added, so I did not confirm which are still open. Re-run those mutations before trusting the electrical regression.
 - **R5 (medium): case-only name collision not caught before Run.** `NAME_RE` (`model.py:16`) allows `r2` and `R2`. SPICE device names are case-insensitive. I probed this: the core reports `[DUP-NAME] duplicate device name 'R2'` at Run, and the Problems panel is empty beforehand. Fix in `Document.validate`.
-- **R6 (medium):** `sim.py:87` catches `simcore.SimError`, which is `Exception` (`__init__.py:40`). It also covers app code (`_diff`, `sim.py:85-86`), so an app bug shows up as a typed simulator failure. `window.py:565` has a second catch-all.
-- **R7 (medium): stale installed wheel.** Tests run against `~/.local/.../simcore`. After any Rust change, run `maturin build` and reinstall, as CLAUDE.md says.
+- **R6 (medium):** `sim.py:87` catches `benchcore.SimError`, which is `Exception` (`__init__.py:40`). It also covers app code (`_diff`, `sim.py:85-86`), so an app bug shows up as a typed simulator failure. `window.py:565` has a second catch-all.
+- **R7 (medium): stale installed wheel.** Tests run against `~/.local/.../benchcore`. After any Rust change, run `maturin build` and reinstall, as CLAUDE.md says.
 - **R8 (low): geometry does not scale.** Bodies are fixed 60x30 (`components.py:142-143`, `183-213`). Pin hit radius is 10 px (`window.py:184`). A part with many pins (an ESP32 has dozens) needs a larger box and label placement that the model does not support.
-- **R9 (low): dead Rust code.** `simcore/src/components.rs` and `build_deck` are unused (section 8, item 2). Removing them or documenting them as reserved would avoid confusion.
+- **R9 (low): dead Rust code.** `benchcore/src/components.rs` and `build_deck` are unused (section 8, item 2). Removing them or documenting them as reserved would avoid confusion.
 - **R10 (low): `model.py:7` `KINDS`** is dead. The I (current) source has no observable (`components.py:199`), so the inspector cannot show its current.
 
 ## 10. Open questions (my uncertainty stated)
@@ -240,6 +240,6 @@ Undo/redo (`history.py`): snapshots are `to_dict()` minus `"simulation"` (`histo
 3. **Catalog package format.** Keep Python modules with `emit` closures, or move metadata to a declarative manifest (TOML or JSON) with an optional Python `emit` module? My guess is the second, because it keeps definitions separate from simulation. This is a judgement, not tested.
 4. **Wired non-simulated parts.** Should they block Run as an error, or should the rest of the circuit still run with a warning? The brief implies an error, since it forbids partial success. Not decided.
 5. **Current source observable.** `components.py:199` gives `I` no observable. Intentional (the docs say "its current is its parameter") or a gap?
-6. **Installed `_simcore`.** I trusted timestamps and did not rebuild. A rebuild would confirm it.
+6. **Installed `_benchcore`.** I trusted timestamps and did not rebuild. A rebuild would confirm it.
 7. **Mutation results.** The review's mutations were run on a copy on 2026-10-06. I did not re-run them.
 8. **Dark chrome in the screenshot.** The app sets no palette, so the look depends on the OS Qt style. The machine I audited may differ from the one that captured the screenshot.

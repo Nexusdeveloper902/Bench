@@ -9,13 +9,13 @@ Frontend-facing surface::
     result = sim.run()
     v = sim.observable("v(out)")
 
-Implemented over the Rust kernel (_simcore). All ngspice details
+Implemented over the Rust kernel (_benchcore). All ngspice details
 (stop/run/resume commands, plots, TMAX slots) stay below this boundary.
 """
 
-from . import _simcore as _k
+from . import _benchcore as _k
 
-from ._simcore import (
+from ._benchcore import (
     InvalidCircuitError,
     InvalidConfigError,
     ConvergenceError,
