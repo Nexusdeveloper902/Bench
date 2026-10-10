@@ -2,6 +2,7 @@
 name = "benchcore"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "Production simulation core: native kernel + electrical domain over libngspice"
 
 [lib]

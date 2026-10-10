@@ -5,3 +5,13 @@ target/
 node_modules/
 *.egg-info/
 .venv/
+
+.claude/
+CLAUDE.local.md
+.env
+.env.*
+*.whl
+*.so
+*.osdi
+.idea/
+.vscode/
