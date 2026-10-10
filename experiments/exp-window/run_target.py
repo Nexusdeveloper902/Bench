@@ -3,7 +3,8 @@ Reference: full-fine TMAX=10ns over 10ms (~1M pts). Segmented: coarse 10us + fin
 PWL: restated event, coarse throughout. Compares event + state + cost.
 """
 import sys, os, json
-sys.path.insert(0, '<repo>/experiments/exp-safety')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'exp-safety'))
 from helper_safety import tran_run
 import re
 from validator import parse_value
@@ -82,6 +83,6 @@ out = {'ref': {'peak': ref_peak, 'final': ref_final, 'npts': r_ref['npts'], 'wal
                'ratio': n_seg/r_ref['npts']},
        'pwl': {'peak': p_peak, 'final': p_final, 'npts': rP['npts'], 'wall_ms': rP['wall_ms'],
                'ratio': rP['npts']/r_ref['npts']}}
-os.makedirs('<repo>/experiments/exp-window/logs', exist_ok=True)
-json.dump(out, open('<repo>/experiments/exp-window/logs/target_demo.json', 'w'), indent=1, default=str)
+os.makedirs(str(Path(__file__).resolve().parents[1] / 'exp-window/logs'), exist_ok=True)
+json.dump(out, open(str(Path(__file__).resolve().parents[1] / 'exp-window/logs/target_demo.json'), 'w'), indent=1, default=str)
 print('wrote target_demo.json')

@@ -1,0 +1,37 @@
+format = 1
+id = "D_1N4148"
+version = 1
+name = "1N4148 diode"
+description = "General-purpose silicon signal diode with a fixed SPICE model (about 0.7 V forward drop at a few mA)."
+designator = "D"
+category = "Electrical"
+subcategory = "Semiconductors"
+aliases = ["1N4148", "signal diode", "small-signal diode"]
+keywords = ["diode", "switching", "signal", "shockley", "silicon"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Fixed model (Is=2.52n, N=1.752, Rs=0.568): commonly published values, not a fit to one datasheet.",
+               "Reverse breakdown and temperature dependence are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} d1n4148"
+models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]
+current = "@{dev_lc}[id]"

@@ -116,7 +116,9 @@ def main():
           'summary': f"tran first={vv[0] if vv else None} "
                      f"last={vv[-1] if vv else None} (diverges, not 1mV)"})
     # P11 embedded (subprocess-contained: crash cannot kill campaign)
-    code = ('import sys; sys.path.insert(0,"<repo>/experiments/coupling-proto/src");'
+    from pathlib import Path
+    src = Path(__file__).resolve().parents[1] / 'coupling-proto' / 'src'
+    code = (f'import sys; sys.path.insert(0,{str(src)!r});'
             'from ngspice_ctypes import NgSpice;'
             'ng=NgSpice(); ng.init();'
             'ng.circ(["t","I1 0 out DC 1m",".op",".end"]);'

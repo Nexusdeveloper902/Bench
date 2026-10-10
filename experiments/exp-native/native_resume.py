@@ -115,7 +115,8 @@ def _cur_time(ng):
 def _new_handle():
     import sys
     import os
-    sys.path.insert(0, '<repo>/experiments/coupling-proto/src')
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'coupling-proto/src'))
     _here = os.path.dirname(os.path.abspath(__file__))
     if _here not in sys.path:
         sys.path.insert(0, _here)

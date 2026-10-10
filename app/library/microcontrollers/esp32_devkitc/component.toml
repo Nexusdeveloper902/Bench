@@ -1,0 +1,60 @@
+format = 1
+id = "ESP32_DEVKITC"
+version = 1
+name = "ESP32-DevKitC V4"
+description = "Espressif development board with an ESP32-WROOM-32 module and two 19-pin headers (J2, J3)."
+designator = "U"
+category = "Microcontrollers"
+subcategory = "Development boards"
+aliases = ["ESP32", "ESP-WROOM-32", "DevKitC"]
+keywords = ["wifi", "bluetooth", "espressif", "mcu", "gpio"]
+tags = ["3.3 V logic"]
+domain = "mcu"
+capabilities = ["interface"]
+limitations = ["Not simulated: no MCU emulation; firmware does not run and GPIO pins are not driven.",
+               "Not simulated: not part of the electrical simulation; Run is blocked while it is wired into the circuit."]
+docs = ["https://docs.espressif.com/projects/esp-idf/en/v5.2.2/esp32/hw-reference/esp32/get-started-devkitc.html"]
+# J2 (x = 0) pins 1-19 top to bottom, then J3 (x = 160) pins 1-19. Source: Espressif guide, "Header Block" J2 and J3 tables.
+pins = [
+  {id = "3V3", at = [0, 20], description = "3.3 V power supply"},
+  {id = "EN", at = [0, 40], description = "CHIP_PU, reset"},
+  {id = "VP", at = [0, 60], description = "GPIO36, ADC1_CH0, S_VP"},
+  {id = "VN", at = [0, 80], description = "GPIO39, ADC1_CH3, S_VN"},
+  {id = "IO34", at = [0, 100], description = "GPIO34, ADC1_CH6, VDET_1"},
+  {id = "IO35", at = [0, 120], description = "GPIO35, ADC1_CH7, VDET_2"},
+  {id = "IO32", at = [0, 140], description = "GPIO32, ADC1_CH4, TOUCH_CH9, XTAL_32K_P"},
+  {id = "IO33", at = [0, 160], description = "GPIO33, ADC1_CH5, TOUCH_CH8, XTAL_32K_N"},
+  {id = "IO25", at = [0, 180], description = "GPIO25, ADC1_CH8, DAC_1"},
+  {id = "IO26", at = [0, 200], description = "GPIO26, ADC2_CH9, DAC_2"},
+  {id = "IO27", at = [0, 220], description = "GPIO27, ADC2_CH7, TOUCH_CH7"},
+  {id = "IO14", at = [0, 240], description = "GPIO14, ADC2_CH6, TOUCH_CH6, MTMS"},
+  {id = "IO12", at = [0, 260], description = "GPIO12, ADC2_CH5, TOUCH_CH5, MTDI (strapping pin)"},
+  {id = "GND1", name = "GND", at = [0, 280], description = "Ground"},
+  {id = "IO13", at = [0, 300], description = "GPIO13, ADC2_CH4, TOUCH_CH4, MTCK"},
+  {id = "D2", at = [0, 320], description = "GPIO9, internal SPI flash (avoid)"},
+  {id = "D3", at = [0, 340], description = "GPIO10, internal SPI flash (avoid)"},
+  {id = "CMD", at = [0, 360], description = "GPIO11, internal SPI flash (avoid)"},
+  {id = "5V", at = [0, 380], description = "5 V power supply"},
+  {id = "GND2", name = "GND", at = [160, 20], description = "Ground"},
+  {id = "IO23", at = [160, 40], description = "GPIO23"},
+  {id = "IO22", at = [160, 60], description = "GPIO22"},
+  {id = "TX", at = [160, 80], description = "GPIO1, U0TXD"},
+  {id = "RX", at = [160, 100], description = "GPIO3, U0RXD"},
+  {id = "IO21", at = [160, 120], description = "GPIO21"},
+  {id = "GND3", name = "GND", at = [160, 140], description = "Ground"},
+  {id = "IO19", at = [160, 160], description = "GPIO19"},
+  {id = "IO18", at = [160, 180], description = "GPIO18"},
+  {id = "IO5", at = [160, 200], description = "GPIO5"},
+  {id = "IO17", at = [160, 220], description = "GPIO17 (only on WROOM and SOLO modules)"},
+  {id = "IO16", at = [160, 240], description = "GPIO16 (only on WROOM and SOLO modules)"},
+  {id = "IO4", at = [160, 260], description = "GPIO4, ADC2_CH0, TOUCH_CH0"},
+  {id = "IO0", at = [160, 280], description = "GPIO0, ADC2_CH1, TOUCH_CH1, boot"},
+  {id = "IO2", at = [160, 300], description = "GPIO2, ADC2_CH2, TOUCH_CH2 (strapping pin)"},
+  {id = "IO15", at = [160, 320], description = "GPIO15, ADC2_CH3, TOUCH_CH3, MTDO"},
+  {id = "D1", at = [160, 340], description = "GPIO8, internal SPI flash (avoid)"},
+  {id = "D0", at = [160, 360], description = "GPIO7, internal SPI flash (avoid)"},
+  {id = "CLK", at = [160, 380], description = "GPIO6, internal SPI flash (avoid)"},
+]
+
+[presentation]
+box = [0, 0, 160, 400]

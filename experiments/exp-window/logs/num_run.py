@@ -3,10 +3,11 @@ Batch subprocess only, timeout-contained. Reuses exp-safety/helper_safety.py.
 Tmp artifacts use num_ prefix in /tmp/opencode.
 """
 import sys, os, json, math, time, bisect
-sys.path.insert(0, '<repo>/experiments/exp-safety')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'exp-safety'))
 import helper_safety as H
 
-OUT_JSON = '<repo>/experiments/exp-window/logs/agent_numerical.json'
+OUT_JSON = str(Path(__file__).resolve().parents[2] / 'exp-window/logs/agent_numerical.json')
 os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
 TMP = '/tmp/opencode'
 R, C = 10e3, 100e-9

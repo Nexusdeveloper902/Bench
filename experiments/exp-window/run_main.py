@@ -3,7 +3,8 @@
 Subprocess-contained ngspice batch only. Writes logs/window_main.json.
 """
 import sys, os, json, time, math
-sys.path.insert(0, '<repo>/experiments/exp-safety')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'exp-safety'))
 from helper_safety import tran_run
 import bsource as BS
 
@@ -97,7 +98,7 @@ expr = '5*(u(TIME-5m)-u(TIME-5.0001m))'
 req, bw = BS.required_tmax_for_expr(expr)
 emit({'id': 'V7 bsource autoderive', 'note': f'req={req} widths={bw["widths"]} events={bw["events"]} unknown={bw["unknown_time"]}', 'npts': None, 'wall_ms': 0})
 
-os.makedirs('<repo>/experiments/exp-window/logs', exist_ok=True)
-with open('<repo>/experiments/exp-window/logs/window_main.json', 'w') as f:
+os.makedirs(str(Path(__file__).resolve().parents[1] / 'exp-window/logs'), exist_ok=True)
+with open(str(Path(__file__).resolve().parents[1] / 'exp-window/logs/window_main.json'), 'w') as f:
     json.dump(REC, f, indent=1, default=str)
 print('wrote window_main.json')

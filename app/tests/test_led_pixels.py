@@ -1,7 +1,8 @@
 """What is actually painted: grab() the canvas and read LED pixels (accessor values are not enough)."""
 import pytest
 from PySide6.QtWidgets import QApplication
-from PySide6.QtTest import QTest
+from conftest import wait_for
+from app.results import LOOP_SECONDS
 from app.window import MainWindow
 
 
@@ -11,8 +12,10 @@ def qapp():
 
 
 @pytest.fixture
-def win(qapp):
-    w = MainWindow(); w.show(); w.load_blink_example(); w.a_run.trigger(); QTest.qWait(50); return w
+def win(shown_window):
+    shown_window.load_blink_example(); shown_window.a_run.trigger()
+    assert wait_for(shown_window.plotw.isVisible)
+    return shown_window
 
 
 def reddish(w):
@@ -51,9 +54,11 @@ def test_autoplay_after_run_only_when_enabled(qapp):
     assert not w.timer.isActive()                   # default off: tests stay deterministic
     w.autoplay = True; w.a_run.trigger()
     assert w.timer.isActive() and w.play_btn.text() == "Pause"
+    w.timer.stop()                                  # the frames are driven by tick(), not by the wall clock
     seen = set()
-    for _ in range(40):
-        QTest.qWait(50); seen.add(reddish(w) > 50)
-    assert seen == {True, False}                    # real timer, real event loop: LED lit and dark
+    for _ in range(100):                            # one loop (LOOP_SECONDS) in 100 frames
+        w.tick(LOOP_SECONDS / 100); seen.add(reddish(w) > 50)
+    assert seen == {True, False}                    # LED lit and dark over one loop
+    w.timer.start()
     w.play_btn.click(); assert not w.timer.isActive()
     w.load_led_example(); w.a_run.trigger(); assert not w.timer.isActive()   # DC circuit: no autoplay

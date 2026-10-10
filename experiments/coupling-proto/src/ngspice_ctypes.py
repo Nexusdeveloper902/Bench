@@ -1,4 +1,4 @@
-"""Shared libngspice ctypes wrapper for Sim prototype.
+"""Shared libngspice ctypes wrapper for Bench prototype.
 Returns handles with instrumentation: senddata times, vsrc calls, stat log.
 """
 import ctypes, time

@@ -1,4 +1,4 @@
-"""Real-engine analytic checks: Document (catalog, SI input) -> app.sim -> simcore -> libngspice -> series,
+"""Real-engine analytic checks: Document (catalog, SI input) -> app.sim -> benchcore -> libngspice -> series,
 compared with closed-form circuit theory. No mocks.
 
 Tolerances:

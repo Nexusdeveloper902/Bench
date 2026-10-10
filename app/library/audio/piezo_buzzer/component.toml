@@ -1,0 +1,24 @@
+format = 1
+id = "PIEZO_BUZZER"
+version = 1
+name = "Piezo buzzer"
+description = "Two-terminal piezo buzzer element. Needs an external driver to sound."
+designator = "BZ"
+category = "Audio"
+subcategory = "Buzzers"
+aliases = ["piezo", "buzzer", "beeper", "piezo element"]
+keywords = ["sound", "alarm", "transducer", "beep"]
+tags = ["2 terminals"]
+domain = "audio"
+capabilities = ["interface"]
+limitations = ["Not simulated: no audio or electro-mechanical model.",
+               "Terminal polarity is not stated in the cited source: check the marking on your part."]
+docs = ["https://asset.conrad.com/media10/add/160267/c1/-/en/002300529DS02/podatkovna-tablica-2300529-tru-components-tc-9202116-piezo-zujalica-razvoj-buke-90-db-napon-12-v-1-st.pdf"]
+pins = [
+  {id = "T1", name = "Pin 1", at = [0, 20]},
+  {id = "T2", name = "Pin 2", at = [60, 20]},
+]
+
+[presentation]
+box = [0, 0, 60, 40]
+symbol = "symbol.svg"

@@ -2,7 +2,7 @@
 import pytest
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout
+from PySide6.QtWidgets import QApplication
 from app.window import MainWindow, pin_pos
 
 
@@ -12,8 +12,8 @@ def qapp():
 
 
 @pytest.fixture
-def win(qapp):
-    w = MainWindow(); w.show(); w.canvas.setFocus(); return w
+def win(shown_window):
+    return shown_window
 
 
 def click(w, pt):
@@ -21,7 +21,7 @@ def click(w, pt):
 
 
 def place(w, kind, x, y):
-    w.tool_btns[kind].click(); click(w, (x + 5, y + 5))
+    w.library.card(kind).click(); click(w, (x + 5, y + 5))
 
 
 def wire(w, a, b):
@@ -32,7 +32,7 @@ def set_param(w, part, text):
     """Select the part by clicking it, then type into the first param field of the panel."""
     d = w.doc.parts[part]; click(w, (d["x"] + 30, d["y"] + 15))
     assert w.sel == part
-    ed = w.form.itemAt(1, QFormLayout.FieldRole).widget()
+    ed = next(iter(w.inspector.edits.values()))
     ed.setText(text); ed.editingFinished.emit()
 
 
@@ -113,7 +113,7 @@ def test_reversed_led_blocks(win):
 
 def test_led_without_battery_fails_informatively(win):
     w = win; build(w, battery=False); w.a_run.trigger()
-    assert w.status.text().startswith("FAILED") and len(w.status.text()) > 20
+    assert w.status.text().startswith("BLOCKED") and len(w.status.text()) > 20
     assert not w.result.ok and w.result.message in w.status.text()
 
 

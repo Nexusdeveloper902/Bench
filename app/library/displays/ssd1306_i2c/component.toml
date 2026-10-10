@@ -1,0 +1,27 @@
+format = 1
+id = "SSD1306_I2C"
+version = 1
+name = "SSD1306 OLED (I2C)"
+description = "0.96 inch 128x64 monochrome OLED module with an SSD1306 controller on I2C. Four pins."
+designator = "U"
+category = "Displays"
+subcategory = "OLED"
+aliases = ["SSD1306", "0.96 inch OLED", "OLED I2C"]
+keywords = ["oled", "i2c", "128x64", "display", "monochrome"]
+tags = ["I2C"]
+domain = "digital"
+capabilities = ["interface"]
+limitations = ["Not simulated: the controller and its I2C traffic are not modelled.",
+               "Pin order varies by vendor: check the silkscreen on your module before wiring."]
+docs = ["https://shillehtek.com/blogs/shillehtek-product-manuals/0-96-i2c-white-oled-display-module-4-pin-ssd1306-manual"]
+# Order VCC, GND, SCL, SDA as in the Shillehtek manual (the Open-Electronics page cited earlier is gone: HTTP 404, and
+# it printed GND first, which is why other modules differ).
+pins = [
+  {id = "VCC", at = [0, 20], description = "Power, 3.3-5 V"},
+  {id = "GND", at = [0, 40], description = "Ground"},
+  {id = "SCL", at = [0, 60], description = "I2C clock"},
+  {id = "SDA", at = [0, 80], description = "I2C data"},
+]
+
+[presentation]
+box = [0, 0, 80, 120]

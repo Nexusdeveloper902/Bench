@@ -8,8 +8,9 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, '..'))
-sys.path.insert(0, '<repo>/experiments/exp-safety')
-sys.path.insert(0, '<repo>/experiments/exp-window')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'exp-safety'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'exp-window'))
 
 from helper_safety import tran_run
 import window as W

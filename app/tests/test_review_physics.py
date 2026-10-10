@@ -1,5 +1,5 @@
 """Regression tests from the independent review (docs/review/test-review.md). Real path: Document -> app.sim ->
-simcore -> libngspice, oracles hard-coded or computed from the values TYPED into the model (never read back from
+benchcore -> libngspice, oracles hard-coded or computed from the values TYPED into the model (never read back from
 the emitted netlist/card, never from the SI parser under test).
 
 Tolerances: DC resistive = 1e-6 (ngspice linear solve, vntol 1 uV); transient RC/RL = 1e-3 relative to the initial

@@ -1,0 +1,38 @@
+format = 1
+id = "LED"
+version = 1
+name = "LED"
+description = "Red indicator LED. About 1.97 V forward drop at 9 mA."
+designator = "D"                       # LED parts are D1, D2 ... (shares D numbering, as before)
+category = "Electrical"
+subcategory = "Semiconductors"
+aliases = ["light emitting diode"]
+keywords = ["indicator", "light", "diode"]
+tags = ["optoelectronic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Fixed red-LED model (Is=1e-20, N=1.8, Rs=5): colour is not a parameter.",
+               "Brightness on the canvas is a display mapping of the simulated current (0.1 mA dark, 15 mA full)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"                  # viewBox="0 -10 60 40": the arrows overhang the body, which is fine
+indicator = "glow"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} dled"
+models = [".model dled D(Is=1e-20 N=1.8 Rs=5)"]
+current = "@{dev_lc}[id]"

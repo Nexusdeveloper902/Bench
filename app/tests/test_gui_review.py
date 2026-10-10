@@ -4,15 +4,16 @@ import json, math
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QFormLayout, QLabel, QMessageBox, QPushButton, QLineEdit, QComboBox
+from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QLineEdit, QComboBox
 from app.model import Document, value_at
 from app.components import format_si
 from app.tests.test_gui_workflow import qapp, show, win, select, field, type_into, click, pick  # noqa: F401
+from conftest import wait_for
 
 
 def typing(w, text):
     """Click into the Resistance field and type without Enter (what a user does before pressing F5)."""
-    QTest.qWait(20); ed = field(w, "Resistance")
+    ed = field(w, "Resistance"); assert wait_for(ed.isVisible)          # the inspector has been laid out
     QTest.mouseClick(ed, Qt.LeftButton); ed.selectAll(); QTest.keyClicks(ed, text)
     assert w.focusWidget() is ed
     return ed
@@ -33,7 +34,7 @@ def test_pending_invalid_edit_blocks_run_with_message(win):
     w = win; w._reset(Document.led_example()); select(w, "R1")
     ed = typing(w, "abc")
     w.a_run.trigger()
-    assert w.state == "failed" and "R1" in w.result.message
+    assert w.state == "blocked" and "R1" in w.result.message
 
 
 @pytest.mark.parametrize("which,text", [("tstop", "1m"), ("tstep", "20u")])
@@ -80,15 +81,17 @@ def test_run_fields_show_si_and_examples_roundtrip(win):
 def test_inspector_fields_readable_at_1300x850(win):
     """B7: a PULSE source's 7 fields must each be a usable size and the Play row must not overlap the plot."""
     w = win; w.resize(1300, 850)
-    w._reset(Document.blink_example()); select(w, "V1"); QTest.qWait(50)
-    eds = [w.form.itemAt(i, QFormLayout.FieldRole).widget() for i in range(w.form.rowCount())
-           if w.form.itemAt(i, QFormLayout.FieldRole)]
+    w._reset(Document.blink_example()); select(w, "V1")
+    assert wait_for(lambda: all(e.isVisible() for e in w.inspector.edits.values()))
+    eds = list(w.inspector.edits.values())
     assert len([e for e in eds if isinstance(e, QLineEdit)]) == 7
     for e in [e for e in eds if not isinstance(e, QLabel)]:
         assert e.width() >= 100 and e.height() >= 20, (type(e).__name__, e.size())
     assert w.minimumSizeHint().height() <= 850
+    w.a_run.trigger()
+    assert wait_for(w.plotw.isVisible)                             # the plot page is only shown with results
     pb, pw = w.play_btn.mapTo(w, w.play_btn.rect().topLeft()), w.plotw.mapTo(w, w.plotw.rect().topLeft())
-    assert pw.y() + w.plotw.height() <= pb.y(), (pw, w.plotw.size(), pb)
+    assert pb.y() + w.play_btn.height() <= pw.y(), (pw, w.plotw.size(), pb)   # design order (results-states.png): Play row above the plot
 
 
 def test_no_duplicate_rotate_delete_in_inspector(win):
@@ -109,7 +112,7 @@ def test_time_axis_ticks_and_cursor_readout(win, t, label):
     ticks = [x for x in w.ax.get_xticks() if 0 <= x <= 5e-3 + 1e-12]
     assert 5e-3 in [round(x, 9) for x in ticks]
     w.set_cursor_time(t)
-    assert w.readout.text().startswith("cursor  t = ")
+    assert w.readout.text().startswith("t = ")
     if t >= 1e-3:                                                 # (t = 0 clamps to the first sample, step/100)
         assert f"t = {label} " in w.readout.text()
         v = value_at(w.view_data()[1], t)
@@ -127,7 +130,7 @@ def test_real_solver_failure_shows_failed_with_details(win):
     w.doc.tstop, w.doc.tstep = "10u", "10n"
     w.a_run.trigger()
     assert w.state == "failed" and not w.result.ok
-    assert "Timestep too small" in w.result.message and w.err.text().startswith("Simulation failed")
+    assert "Timestep too small" in w.result.message and w.err_title.text() == "Run failed"
     assert w.view_data() is None and w.details_btn.isEnabled()
     assert "ConvergenceError" in w.details.toPlainText() and "B-CYCLE" in w.details.toPlainText()
     assert "FAILED" in w.status.text()

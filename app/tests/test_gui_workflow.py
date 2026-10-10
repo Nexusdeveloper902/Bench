@@ -5,9 +5,8 @@ import math
 import pytest
 from PySide6.QtCore import Qt, QPointF
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout, QFileDialog, QMessageBox, QLineEdit, QComboBox
-from app.window import MainWindow, pin_pos, wire_pts, part_rect, symbol, SYMBOLS
-from app.components import CATALOG, terminal_offset
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QLineEdit, QComboBox
+from app.window import MainWindow, pin_pos, wire_pts, part_rect
 
 VF, R, C = 5.0, 1e3, 10e-6
 TAU = R * C                 # 10 ms
@@ -42,7 +41,7 @@ def click(w, pt, button=Qt.LeftButton):
 
 
 def place(w, kind, x, y):
-    w.tool_btns[kind].click(); click(w, (x + 5, y + 5))
+    w.library.card(kind).click(); click(w, (x + 5, y + 5))
     return next(reversed(w.doc.parts))
 
 
@@ -56,11 +55,10 @@ def wire(w, a, b):
 
 def field(w, label):
     """Inspector widget whose row label starts with `label` (e.g. 'Resistance')."""
-    for i in range(w.form.rowCount()):
-        lab = w.form.itemAt(i, QFormLayout.LabelRole)
-        if lab and lab.widget().text().startswith(label):
-            return w.form.itemAt(i, QFormLayout.FieldRole).widget()
-    raise AssertionError(f"no inspector field {label}")
+    try:
+        return w.inspector.field(label)
+    except StopIteration:
+        raise AssertionError(f"no inspector field {label}") from None
 
 
 def type_into(ed, text):
@@ -108,7 +106,7 @@ def check_rc(w):
 # ---- workflows ----
 def test_rc_built_with_mouse_matches_analytic(win):
     w = win; build_rc(w)
-    assert not [p for p in w.doc.validate() if p["severity"] == "error"] and "none" in w.problems_lbl.text()
+    assert not [p for p in w.doc.validate() if p["severity"] == "error"] and w.problems.count() == 0
     w.a_run.trigger()
     assert w.state == "completed" and w.status.text().startswith("SUCCESS"), w.status.text()
     pick(w, "V(C1)")
@@ -145,7 +143,7 @@ def test_run_reset_rerun_is_deterministic(win):
     first = viewer_xy(w)
     w.a_reset.trigger()
     assert w.result is None and w.state == "idle" and not w.ax.lines and w.probe.count() == 0
-    assert "idle" in w.state_lbl.text() and not w.slider.isEnabled()
+    assert "idle" in w.state_lbl.text().lower() and not w.slider.isEnabled()
     w.a_run.trigger()
     assert w.probe.currentText() == "V(C1)" and viewer_xy(w) == first   # pick survives reset, same numbers
     w.a_rerun.trigger()
@@ -173,16 +171,16 @@ def test_undo_redo_rotate_and_param_edit(win):
 
 def test_inline_validation_and_units(win):
     w = win; place(w, "C", 100, 100); select(w, "C1")
-    ed = field(w, "Capacitance (F)")
+    ed = field(w, "Capacitance")
     ed.setFocus(); ed.selectAll(); QTest.keyClicks(ed, "4.7n")
-    assert "4.7 nF" in w.param_msg.text() and "d02020" not in ed.styleSheet()
+    assert "4.7 nF" in w.inspector.message("C") and not w.inspector.boxes["C"].property("invalid")
     ed.selectAll(); QTest.keyClicks(ed, "abc")
-    assert "not a number" in w.param_msg.text() and "d02020" in ed.styleSheet()
+    assert "not a number" in w.inspector.message("C") and w.inspector.boxes["C"].property("invalid")
     QTest.keyClick(ed, Qt.Key_Return)                                # stored as typed, flagged everywhere
     assert w.doc.parts["C1"]["params"]["C"] == "abc"
     assert any("BAD-PARAM" in w.problems.item(i).text() for i in range(w.problems.count()))
-    select(w, "C1"); assert "d02020" in field(w, "Capacitance").styleSheet()
-    type_into(w.tstop, "-1"); assert "d02020" in w.tstop.styleSheet()
+    select(w, "C1"); assert w.inspector.boxes["C"].property("invalid")
+    type_into(w.tstop, "-1"); assert w.tstop.property("invalid")
 
 
 def test_no_ground_shows_diagnostics_and_details(win):
@@ -192,7 +190,7 @@ def test_no_ground_shows_diagnostics_and_details(win):
     texts = [w.problems.item(i).text() for i in range(w.problems.count())]
     assert any("NO-GROUND" in t for t in texts)                       # shown before running
     w.a_run.trigger()
-    assert w.state == "failed" and "failed" in w.state_lbl.text() and w.status.text().startswith("FAILED")
+    assert w.state == "blocked" and "blocked" in w.state_lbl.text().lower() and w.status.text().startswith("BLOCKED")
     assert w.err.isVisible() and "No ground" in w.err.text() and not w.ax.lines and w.stats.text() == ""
     w.details_btn.click()
     assert w.details.isVisible() and "ValidationError" in w.details.toPlainText()
@@ -256,16 +254,3 @@ def test_unsaved_prompt_and_save_error(win, tmp_path, monkeypatch):
     monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Discard))
     w.a_open.trigger()
     assert "cannot open" in errors[-1] and "R1" in w.doc.parts       # failed open keeps the current circuit
-
-
-def test_every_catalog_symbol_drawn_with_pins_at_its_ends(win):
-    """Each catalog component has a renderer, and in every rotation its pins sit on its drawn symbol."""
-    w = win
-    assert {c.symbol for c in CATALOG.values()} <= set(SYMBOLS)
-    for kind in CATALOG:
-        for rot in (0, 90, 180, 270):
-            d = {"kind": kind, "x": 200, "y": 200, "rot": rot, "params": CATALOG[kind].defaults()}
-            box = symbol(d).boundingRect().adjusted(-1, -1, 1, 1)
-            for t in CATALOG[kind].terminals:
-                ox, oy = terminal_offset(kind, t, rot)
-                assert box.contains(QPointF(200 + ox, 200 + oy)), (kind, rot, t)

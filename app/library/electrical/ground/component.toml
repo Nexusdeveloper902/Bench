@@ -1,0 +1,25 @@
+format = 1
+id = "GND"
+version = 1
+name = "Ground"
+description = "Reference node (0 V). Every ground in a circuit is the same node."
+designator = "GND"
+category = "Electrical"
+subcategory = "Reference"
+aliases = ["earth", "0 V", "common"]
+keywords = ["reference", "node 0"]
+tags = ["reference"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+
+[presentation]
+box = [-16, 8, 32, 24]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "g"
+name = "Ground"
+at = [0, 10]
+
+[sim.electrical]
+ground = true

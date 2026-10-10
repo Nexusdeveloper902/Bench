@@ -1,0 +1,1316 @@
+{
+ "all_kinds_defaults": {
+  "derived": {
+   "v(C1)": [
+    "n3",
+    "0"
+   ],
+   "v(D1)": [
+    "n6",
+    "0"
+   ],
+   "v(D2)": [
+    "n7",
+    "0"
+   ],
+   "v(I1)": [
+    "n5",
+    "0"
+   ],
+   "v(L1)": [
+    "n4",
+    "0"
+   ],
+   "v(R1)": [
+    "n2",
+    "0"
+   ],
+   "v(SW1)": [
+    "n8",
+    "0"
+   ],
+   "v(V1)": [
+    "n1",
+    "0"
+   ],
+   "v(V2)": [
+    "n9",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 DC 5.0",
+   "R1 n2 0 1000.0",
+   "C1 n3 0 1e-06 IC=0.0",
+   "L1 n4 0 0.001 IC=0.0",
+   "I1 n5 0 DC 0.001",
+   "D1 n6 0 dmod_d1",
+   "D2 n7 0 dled",
+   "RSW1 n8 0 1000000000.0",
+   "V2 n9 0 DC 5.0"
+  ],
+  "models": [
+   ".model dmod_d1 D(Is=1e-14 N=1.0 Rs=0.0)",
+   ".model dled D(Is=1e-20 N=1.8 Rs=5)"
+  ],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "v(n3)",
+   "v(n4)",
+   "v(n5)",
+   "v(n6)",
+   "v(n7)",
+   "v(n8)",
+   "v(n9)",
+   "i(v1)",
+   "i(v2)",
+   "@r1[i]",
+   "@c1[i]",
+   "@l1[i]",
+   "@d1[id]",
+   "@d2[id]",
+   "@rsw1[i]"
+  ],
+  "saves": [
+   ".save all @r1[i]",
+   ".save all @c1[i]",
+   ".save all @l1[i]",
+   ".save all @d1[id]",
+   ".save all @d2[id]",
+   ".save all @rsw1[i]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n3)",
+    "part": null,
+    "pins": [
+     "C1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n3)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n4)",
+    "part": null,
+    "pins": [
+     "L1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n4)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n5)",
+    "part": null,
+    "pins": [
+     "I1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n5)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n6)",
+    "part": null,
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n6)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n7)",
+    "part": null,
+    "pins": [
+     "D2.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n7)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n8)",
+    "part": null,
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n8)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n9)",
+    "part": null,
+    "pins": [
+     "V2.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n9)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a",
+     "R1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(R1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@r1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(C1)",
+    "part": "C1",
+    "pins": [
+     "C1.a",
+     "C1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(C1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(C1)",
+    "part": "C1",
+    "pins": [
+     "C1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@c1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(L1)",
+    "part": "L1",
+    "pins": [
+     "L1.a",
+     "L1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(L1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(L1)",
+    "part": "L1",
+    "pins": [
+     "L1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@l1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(I1)",
+    "part": "I1",
+    "pins": [
+     "I1.p",
+     "I1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(I1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a",
+     "D1.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d1[id]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D2)",
+    "part": "D2",
+    "pins": [
+     "D2.a",
+     "D2.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D2)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D2)",
+    "part": "D2",
+    "pins": [
+     "D2.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d2[id]"
+   },
+   {
+    "kind": "across",
+    "name": "V(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a",
+     "SW1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(SW1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@rsw1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(V2)",
+    "part": "V2",
+    "pins": [
+     "V2.p",
+     "V2.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V2)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V2)",
+    "part": "V2",
+    "pins": [
+     "V2.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v2)"
+   }
+  ]
+ },
+ "bat_i": {
+  "derived": {
+   "v(I1)": [
+    "n2",
+    "0"
+   ],
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 DC 9.0",
+   "I1 n2 0 DC 0.005"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "i(v1)"
+  ],
+  "saves": [],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "I1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(I1)",
+    "part": "I1",
+    "pins": [
+     "I1.p",
+     "I1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(I1)"
+   }
+  ]
+ },
+ "blink_example": {
+  "derived": {
+   "v(D1)": [
+    "n2",
+    "0"
+   ],
+   "v(R1)": [
+    "n1",
+    "n2"
+   ],
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 PULSE(0.0 5.0 0.0 1e-05 1e-05 0.001 0.002)",
+   "R1 n1 n2 330.0",
+   "D1 n2 0 dled"
+  ],
+  "models": [
+   ".model dled D(Is=1e-20 N=1.8 Rs=5)"
+  ],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "i(v1)",
+   "@r1[i]",
+   "@d1[id]"
+  ],
+  "saves": [
+   ".save all @r1[i]",
+   ".save all @d1[id]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p",
+     "R1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "R1.b",
+     "D1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a",
+     "R1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(R1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@r1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a",
+     "D1.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d1[id]"
+   }
+  ]
+ },
+ "c_l_initial": {
+  "derived": {
+   "v(C1)": [
+    "n1",
+    "0"
+   ],
+   "v(L1)": [
+    "n2",
+    "0"
+   ],
+   "v(R1)": [
+    "n3",
+    "0"
+   ]
+  },
+  "lines": [
+   "C1 n1 0 4.7e-09 IC=2.0",
+   "L1 n2 0 0.01 IC=0.001",
+   "R1 n3 0 2200000.0"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "v(n3)",
+   "@c1[i]",
+   "@l1[i]",
+   "@r1[i]"
+  ],
+  "saves": [
+   ".save all @c1[i]",
+   ".save all @l1[i]",
+   ".save all @r1[i]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "C1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "L1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n3)",
+    "part": null,
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n3)"
+   },
+   {
+    "kind": "across",
+    "name": "V(C1)",
+    "part": "C1",
+    "pins": [
+     "C1.a",
+     "C1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(C1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(C1)",
+    "part": "C1",
+    "pins": [
+     "C1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@c1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(L1)",
+    "part": "L1",
+    "pins": [
+     "L1.a",
+     "L1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(L1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(L1)",
+    "part": "L1",
+    "pins": [
+     "L1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@l1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a",
+     "R1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(R1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@r1[i]"
+   }
+  ]
+ },
+ "d_custom_and_leds": {
+  "derived": {
+   "v(D1)": [
+    "n1",
+    "0"
+   ],
+   "v(D2)": [
+    "n2",
+    "0"
+   ],
+   "v(D3)": [
+    "n3",
+    "0"
+   ],
+   "v(D4)": [
+    "n4",
+    "0"
+   ]
+  },
+  "lines": [
+   "D1 n1 0 dmod_d1",
+   "D2 n2 0 dmod_d2",
+   "D3 n3 0 dled",
+   "D4 n4 0 dled"
+  ],
+  "models": [
+   ".model dmod_d1 D(Is=2e-14 N=1.5 Rs=10.0)",
+   ".model dmod_d2 D(Is=1e-14 N=1.0 Rs=0.0)",
+   ".model dled D(Is=1e-20 N=1.8 Rs=5)"
+  ],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "v(n3)",
+   "v(n4)",
+   "@d1[id]",
+   "@d2[id]",
+   "@d3[id]",
+   "@d4[id]"
+  ],
+  "saves": [
+   ".save all @d1[id]",
+   ".save all @d2[id]",
+   ".save all @d3[id]",
+   ".save all @d4[id]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "D2.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n3)",
+    "part": null,
+    "pins": [
+     "D3.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n3)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n4)",
+    "part": null,
+    "pins": [
+     "D4.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n4)"
+   },
+   {
+    "kind": "across",
+    "name": "V(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a",
+     "D1.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d1[id]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D2)",
+    "part": "D2",
+    "pins": [
+     "D2.a",
+     "D2.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D2)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D2)",
+    "part": "D2",
+    "pins": [
+     "D2.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d2[id]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D3)",
+    "part": "D3",
+    "pins": [
+     "D3.a",
+     "D3.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D3)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D3)",
+    "part": "D3",
+    "pins": [
+     "D3.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d3[id]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D4)",
+    "part": "D4",
+    "pins": [
+     "D4.a",
+     "D4.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D4)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D4)",
+    "part": "D4",
+    "pins": [
+     "D4.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d4[id]"
+   }
+  ]
+ },
+ "led_example": {
+  "derived": {
+   "v(D1)": [
+    "n2",
+    "0"
+   ],
+   "v(R1)": [
+    "n1",
+    "n2"
+   ],
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 DC 5.0",
+   "R1 n1 n2 330.0",
+   "D1 n2 0 dled"
+  ],
+  "models": [
+   ".model dled D(Is=1e-20 N=1.8 Rs=5)"
+  ],
+  "observables": [
+   "v(n1)",
+   "v(n2)",
+   "i(v1)",
+   "@r1[i]",
+   "@d1[id]"
+  ],
+  "saves": [
+   ".save all @r1[i]",
+   ".save all @d1[id]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p",
+     "R1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "node",
+    "name": "V(n2)",
+    "part": null,
+    "pins": [
+     "R1.b",
+     "D1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n2)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a",
+     "R1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(R1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(R1)",
+    "part": "R1",
+    "pins": [
+     "R1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@r1[i]"
+   },
+   {
+    "kind": "across",
+    "name": "V(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a",
+     "D1.k"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(D1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(D1)",
+    "part": "D1",
+    "pins": [
+     "D1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@d1[id]"
+   }
+  ]
+ },
+ "sw_closed": {
+  "derived": {
+   "v(SW1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "RSW1 n1 0 0.1"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "@rsw1[i]"
+  ],
+  "saves": [
+   ".save all @rsw1[i]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a",
+     "SW1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(SW1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@rsw1[i]"
+   }
+  ]
+ },
+ "sw_open": {
+  "derived": {
+   "v(SW1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "RSW1 n1 0 1000000000.0"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "@rsw1[i]"
+  ],
+  "saves": [
+   ".save all @rsw1[i]"
+  ],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a",
+     "SW1.b"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(SW1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(SW1)",
+    "part": "SW1",
+    "pins": [
+     "SW1.a"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "@rsw1[i]"
+   }
+  ]
+ },
+ "v_dc": {
+  "derived": {
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 DC 12.0"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "i(v1)"
+  ],
+  "saves": [],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   }
+  ]
+ },
+ "v_pulse": {
+  "derived": {
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 PULSE(0.0 3.3 1e-06 2e-06 5e-06 0.001 0.003)"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "i(v1)"
+  ],
+  "saves": [],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   }
+  ]
+ },
+ "v_sin": {
+  "derived": {
+   "v(V1)": [
+    "n1",
+    "0"
+   ]
+  },
+  "lines": [
+   "V1 n1 0 SIN(0.5 1.0 2000.0)"
+  ],
+  "models": [],
+  "observables": [
+   "v(n1)",
+   "i(v1)"
+  ],
+  "saves": [],
+  "signals": [
+   {
+    "kind": "node",
+    "name": "V(n1)",
+    "part": null,
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(n1)"
+   },
+   {
+    "kind": "across",
+    "name": "V(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p",
+     "V1.n"
+    ],
+    "quantity": "voltage",
+    "unit": "V",
+    "vector": "v(V1)"
+   },
+   {
+    "kind": "current",
+    "name": "I(V1)",
+    "part": "V1",
+    "pins": [
+     "V1.p"
+    ],
+    "quantity": "current",
+    "unit": "A",
+    "vector": "i(v1)"
+   }
+  ]
+ }
+}

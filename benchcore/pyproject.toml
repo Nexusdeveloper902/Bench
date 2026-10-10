@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "benchcore"
+version = "0.1.0"
+license = "MIT"
+requires-python = ">=3.10"
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "benchcore._benchcore"
+python-source = "python"
+features = ["pyo3/extension-module"]

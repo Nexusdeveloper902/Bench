@@ -1,10 +1,10 @@
 # Testing strategy (app layer)
 
 Goal: the tests must prove the **simulator computes correct physics**, not that the UI/API exists. Every analytic
-test runs the real path: `Document` (catalog, SI text) -> `app.sim.run_document` -> `simcore.Simulation` ->
+test runs the real path: `Document` (catalog, SI text) -> `app.sim.run_document` -> `benchcore.Simulation` ->
 libngspice -> series, and compares against an oracle computed independently in the test. No mocks anywhere.
 
-Run: `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` (core: `cd simcore && cargo test`).
+Run: `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` (core: `cd benchcore && cargo test`).
 
 ## What is covered where
 

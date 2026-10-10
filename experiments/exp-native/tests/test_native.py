@@ -15,7 +15,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _NAT = os.path.dirname(_HERE)
 if _NAT not in sys.path:
     sys.path.insert(0, _NAT)
-sys.path.insert(0, '<repo>/experiments/coupling-proto/src')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'coupling-proto/src'))
 
 from native_resume import SimRequest, run_simulation
 from ngspice_ctypes import NgSpice

@@ -1,7 +1,7 @@
 """Run -> rerun determinism through the REAL path. ngspice is deterministic for a given deck, and each
 run_document call builds a fresh Simulation, so equal documents must give bit-identical arrays regardless of
 what ran before. Exact equality (not approx) is intended: any difference means state leaked between runs."""
-import simcore
+import benchcore
 from app.model import Document
 from app.sim import run_document
 
@@ -49,7 +49,7 @@ def test_edit_and_revert_parameter_restores_identical_result():
 def test_core_simulation_reset_and_rerun_is_identical():
     """The core object's own lifecycle: run -> reset -> run on ONE Simulation gives identical vectors."""
     nl, cfg = rlc().netlist(), rlc().config()
-    s = simcore.Simulation("det")
+    s = benchcore.Simulation("det")
     s.build_circuit(nl["lines"])
     for m in nl["models"]: s.add_model(m)
     for line in nl["saves"]: s.add(line)

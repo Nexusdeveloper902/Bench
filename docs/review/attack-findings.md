@@ -95,7 +95,7 @@ rebuilds the whole inspector on every edit. The existing suite passed 3 of 3 run
   parallel V sources and series I sources, each with a clear code. Bad values (0, negative, NaN, inf, 1e999, empty,
   unit mismatch) are rejected. tstep > tstop and tstop/tstep > 5e6 are refused. A failed run never leaves the
   state at `running`, and back-to-back runs are bit-identical.
-- Boundary: only `app/sim.py` imports `simcore` (outside tests). The GUI only interpolates and maps results
+- Boundary: only `app/sim.py` imports `benchcore` (outside tests). The GUI only interpolates and maps results
   (`value_at`, `led_level`), and `sim._diff` is a node-series subtraction.
 - Minor observations: an open current source through the 1 GOhm "open" switch silently gives -1e6 V; `1_000` and
   full-width digits are accepted as numbers; source currents use the SPICE sign (I(V1) = -5 mA when delivering).

@@ -8,13 +8,14 @@ read_wrdata + run helpers imported from helper_safety where noted.
 import subprocess, tempfile, os, re, time, math, json, sys
 import numpy as np
 
-sys.path.insert(0, '<repo>/experiments/exp-safety')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'exp-safety'))
 from validator import parse_value as pv
 from helper_safety import read_wrdata  # reuse
 
 TMP = '/tmp/opencode'
 os.makedirs(TMP, exist_ok=True)
-LOGDIR = '<repo>/experiments/exp-window/logs'
+LOGDIR = str(Path(__file__).resolve().parents[2] / 'exp-window/logs')
 
 FATAL_RES = [re.compile(p, re.I) for p in (
     r'no convergence', r'timestep too small', r'singular matrix',
@@ -551,7 +552,8 @@ def run_T7():
 
 # ================= AUTO auto-derived windows via bsource.extract_bandwidth =================
 def run_AUTO():
-    sys.path.insert(0, '<repo>/experiments/exp-safety')
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'exp-safety'))
     from bsource import extract_bandwidth
     E1A, E1B = 500e-6, 500.1e-6
     expr = (f'5*(u(TIME-{E1A:.12g})-u(TIME-{E1B:.12g}))+5*(u(TIME-0.00055)-u(TIME-0.0005501))'

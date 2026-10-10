@@ -1,4 +1,4 @@
-"""Undo/redo as Document.to_dict() snapshots. No Qt, no simcore. tstop/tstep are not history (typing there is
+"""Undo/redo as Document.to_dict() snapshots. No Qt, no benchcore. tstop/tstep are not history (typing there is
 never undone and undo never rewinds them)."""
 import copy
 from contextlib import contextmanager
@@ -8,11 +8,15 @@ LIMIT = 200
 
 
 def _state(doc):
-    d = copy.deepcopy(doc.to_dict()); d.pop("simulation"); return d
+    """Snapshot = the file dict (minus run settings) + "_pins": placeholder pins, which the file does not store."""
+    d = copy.deepcopy(doc.to_dict()); d.pop("simulation")
+    d["_pins"] = {n: list(doc.parts[n]["placeholder"]["pins"]) for n in doc.placeholders()}
+    return d
 
 
 def _restore(doc, state):
-    new = Document.from_dict({**state, "simulation": doc.sim_config()})
+    state = dict(state); pins = state.pop("_pins")
+    new = Document.from_dict({**state, "simulation": doc.sim_config()}, pins)
     new.path = doc.path
     doc.__dict__.update(new.__dict__)   # in place: window/test references to doc stay valid
 
