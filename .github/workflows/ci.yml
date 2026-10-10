@@ -1,0 +1,80 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+env:
+  NGSPICE_VERSION: "47"
+  NGSPICE_PREFIX: /home/runner/ngspice47
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages (Qt offscreen, fonts, ngspice build deps)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libxkbcommon0 libgl1 libfontconfig1 libdbus-1-3 \
+            fonts-noto-core fonts-dejavu-core \
+            build-essential bison flex libsuitesparse-dev libfftw3-dev
+
+      # simcore dlopen()s the hard-coded path /usr/lib/libngspice.so and the
+      # tests depend on ngspice-47 behaviour; Ubuntu's apt ngspice is older.
+      - name: Cache ngspice
+        id: ngcache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NGSPICE_PREFIX }}
+          key: ngspice-${{ env.NGSPICE_VERSION }}-shared-${{ runner.os }}-v1
+
+      - name: Build ngspice from source
+        if: steps.ngcache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o ngspice.tar.gz \
+            "https://downloads.sourceforge.net/project/ngspice/ng-spice-rework/${NGSPICE_VERSION}/ngspice-${NGSPICE_VERSION}.tar.gz"
+          mkdir ngsrc && tar -xzf ngspice.tar.gz -C ngsrc --strip-components=1
+          cd ngsrc
+          ./configure --prefix="$NGSPICE_PREFIX" --with-ngshared --without-x \
+            --with-readline=no --enable-xspice --enable-cider --enable-osdi \
+            --enable-klu --disable-debug
+          make -j"$(nproc)"
+          make install
+
+      - name: Expose libngspice at /usr/lib/libngspice.so
+        run: |
+          sudo ln -sf "$NGSPICE_PREFIX/lib/libngspice.so" /usr/lib/libngspice.so
+          ls -l /usr/lib/libngspice.so
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simcore
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Python deps
+        run: pip install PySide6 matplotlib pytest maturin
+
+      - name: Rust tests
+        run: cd simcore && cargo test
+
+      - name: Build and install simcore wheel
+        run: |
+          cd simcore
+          maturin build --release
+          pip install --force-reinstall target/wheels/simcore-*.whl
+
+      - name: simcore Python tests
+        run: cd simcore && python -m pytest -q tests/python
+
+      - name: App tests
+        run: python -m pytest -q app/tests
+
+      - name: Catalog check
+        run: python -m app.catalog
