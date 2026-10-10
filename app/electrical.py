@@ -6,7 +6,9 @@ import string
 
 from .components import ModelError
 
-DEVICE_LETTERS = "RCLDVI"      # letters the core validator models statically; extend after checking validate.rs
+DEVICE_LETTERS = "RCLDVIQJM"   # letters the core validator models statically
+PINS = {"Q": (3, 4), "J": (3,), "M": (4,)}   # allowed pin counts per letter; default (2,)
+CUR_PIN = {"Q": "ic", "J": "id", "M": "id"}   # the only [x] current we attribute to node 1 of these
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 CURRENT = re.compile(r"(@\{dev_lc\}\[[a-z]+\]|i\(\{dev_lc\}\))\Z")
 KEYS = ("device", "line", "models", "current", "ground")
@@ -76,14 +78,19 @@ def check(section, pins, params):
                 else: branches[c] = (line[c], {p.key for p in params if set(p.when) <= {(sel, c)}})
     elif line is not None:
         bad("must be a string or a table {select = <choice param>, <choice> = <line>}", "line")
-    if section.get("device") in tuple(DEVICE_LETTERS) and len(pids) != 2:
-        bad(f"a {section['device']} device has exactly two terminals; this part has {len(pids)} pins", "line")
+    letter = section.get("device")
+    allowed = PINS.get(letter, (2,))
+    if letter in tuple(DEVICE_LETTERS) and len(pids) not in allowed:
+        want = " or ".join(map(str, allowed))
+        bad(f"a {letter} device has {want} terminals; this part has {len(pids)} pins", "line")
     for lab, (tpl, ok) in branches.items():
         field = "line" if lab is None else f"line.{lab}"
         template(tpl, field, {"dev", "dev_lc", *pids, *ok}, "{dev} ")
         if not isinstance(tpl, str) or not tpl.startswith("{dev} "): continue
         if ";" in tpl or "$" in tpl: bad("must not contain ';' or '$' (SPICE comments would hide what follows)", field)
-        nodes, tail = tpl.split(None, 3)[1:3], (tpl.split(None, 3) + [""])[3]
+        n = len(pids)
+        toks = tpl.split(None, n + 1)
+        nodes, tail = toks[1:n + 1], (toks + [""])[n + 1]
         try: tail_names = _names(tail)
         except ValueError: continue    # already reported by template()
         if sorted(nodes) != sorted(f"{{{p}}}" for p in pids) or tail_names & set(pids):
@@ -100,6 +107,8 @@ def check(section, pins, params):
     cur = section.get("current")
     if "current" in section and not (isinstance(cur, str) and CURRENT.match(cur)):
         bad("must look like '@{dev_lc}[i]' or 'i({dev_lc})'", "current")
+    elif letter in CUR_PIN and "current" in section and cur != f"@{{dev_lc}}[{CUR_PIN[letter]}]":
+        bad(f"a {letter} device's current must be '@{{dev_lc}}[{CUR_PIN[letter]}]' (the current into its first node)", "current")
     return out
 
 
@@ -129,13 +138,16 @@ def _r(v):   # numbers reach the core as repr(float); choices as text
     return v if isinstance(v, str) else repr(float(v))
 
 
+def _line(section, values):
+    line = section["line"]
+    return line[values[line["select"]]] if isinstance(line, dict) else line
+
+
 def emit(section, part_name, nodes, values):
     """-> (lines, models). nodes: {pin id: net}; values: parsed applicable params {key: float | choice}."""
     dev = device_name(section, part_name)
     kw = {**{k: _r(v) for k, v in values.items()}, **nodes, "dev": dev, "dev_lc": dev.lower()}
-    line = section["line"]
-    if isinstance(line, dict): line = line[values[line["select"]]]
-    return [line.format(**kw)], [m.format(**kw) for m in section.get("models", [])]
+    return [_line(section, values).format(**kw)], [m.format(**kw) for m in section.get("models", [])]
 
 
 def build_netlist(parts, nets, defs):
@@ -180,7 +192,7 @@ def build_netlist(parts, nets, defs):
             vec = sec["current"].format(dev_lc=dev.lower())
             cur.append(vec)
             signals.append({"name": f"I({name})", "vector": vec, "quantity": "current", "unit": "A", "kind": "current",
-                            "part": name, "pins": [f"{name}.{pins[0]}"]})
+                            "part": name, "pins": [f"{name}.{_line(sec, c.values(d['params'], name)).split()[1][1:-1]}"]})
     if not lines:
         raise ModelError("circuit has no components")
     node_obs = [f"v({n})" for n in sorted(used - {"0"}, key=lambda s: int(s[1:]))]

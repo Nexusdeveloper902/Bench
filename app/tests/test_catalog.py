@@ -390,3 +390,79 @@ def test_switch_symbol_follows_state_and_colour_follows_part(qapp):
     f = str(c.symbol_for({"state": "open"}))
     assert renderer(f, "#222222") is renderer(f, "#222222") and renderer(f, "#222222") is not renderer(f, "#e07000")
     assert renderer(f + ".missing", "#222222") is None
+
+
+# ---------------------------------------------------------------- N-terminal devices (Q/J/M)
+def _multi(letter, pins, line, **elec):
+    def m(d):
+        d["pins"] = [{"id": p, "at": [0, 10 * i]} for i, p in enumerate(pins)]
+        d["params"] = []
+        d["sim"]["electrical"] = {"device": letter, "line": line, **elec}
+    return m
+
+
+Q3 = ("Q", "cbe", "{dev} {c} {b} {e} qm")
+M4 = ("M", "dgsb", "{dev} {d} {g} {s} {b} nm")
+
+
+@pytest.mark.parametrize("letter,pins,line", [Q3, M4, ("J", "dgs", "{dev} {d} {g} {s} jm"),
+                                              ("Q", "cbes", "{dev} {c} {b} {e} {s} qm")])
+def test_multi_terminal_valid(extra_root, letter, pins, line):
+    write_def(extra_root, "MT", mutate=_multi(letter, pins, line))
+    assert CATALOG.problems == [] and CATALOG.get("MT").terminals == tuple(pins)
+
+
+@pytest.mark.parametrize("letter,pins,line,msg", [
+    ("Q", "ce", "{dev} {c} {e} qm", "a Q device has 3 or 4 terminals; this part has 2 pins"),
+    ("M", "dgs", "{dev} {d} {g} {s} nm", "a M device has 4 terminals; this part has 3 pins"),
+    ("J", "dgsb", "{dev} {d} {g} {s} {b} jm", "a J device has 3 terminals; this part has 4 pins"),
+    ("R", "abc", "{dev} {a} {b} {c}", "a R device has 2 terminals; this part has 3 pins")])
+def test_wrong_pin_count_rejected(extra_root, letter, pins, line, msg):
+    write_def(extra_root, "MT", mutate=_multi(letter, pins, line))
+    assert any(msg in p["message"] for p in problems("DEF-SIM", "sim.electrical.line")), CATALOG.problems
+    assert "MT" not in CATALOG.defs
+
+
+@pytest.mark.parametrize("line", [
+    "{dev} {c} {b} qm",              # missing {e}
+    "{dev} {c} {b} 0 qm",            # literal node
+    "{dev} {c} {b} {b} qm",          # duplicate
+    "{dev} {c} {b} {e} {c} qm",      # pin in the tail
+])
+def test_multi_terminal_node_check(extra_root, line):
+    write_def(extra_root, "MT", mutate=_multi("Q", "cbe", line))
+    assert problems("DEF-SIM", "sim.electrical.line") and "MT" not in CATALOG.defs
+
+
+def test_multi_terminal_node_order_is_the_authors(extra_root):
+    write_def(extra_root, "MT", mutate=_multi("Q", "cbe", "{dev} {e} {b} {c} qm"))     # any order of the pins is fine
+    assert CATALOG.problems == []
+
+
+@pytest.mark.parametrize("letter,pins,line,cur,ok", [
+    ("Q", "cbe", "{dev} {c} {b} {e} qm", "@{dev_lc}[ib]", False), ("Q", "cbe", "{dev} {c} {b} {e} qm", "@{dev_lc}[ic]", True),
+    ("M", "dgsb", "{dev} {d} {g} {s} {b} nm", "@{dev_lc}[is]", False), ("M", "dgsb", "{dev} {d} {g} {s} {b} nm", "@{dev_lc}[id]", True),
+    ("Q", "cbe", "{dev} {c} {b} {e} qm", "i({dev_lc})", False)])
+def test_multi_terminal_current_restricted(extra_root, letter, pins, line, cur, ok):
+    write_def(extra_root, "MT", mutate=_multi(letter, pins, line, current=cur))
+    assert bool(problems("DEF-SIM", "sim.electrical.current")) is not ok and ("MT" in CATALOG.defs) is ok
+
+
+def test_multi_terminal_netlist_and_current_pin(extra_root):
+    write_def(extra_root, "QT", mutate=_multi("Q", "cbe", "{dev} {e} {b} {c} qm", current="@{dev_lc}[ic]",
+                                              models=[".model qm NPN(Bf=100)"]))
+    write_def(extra_root, "MT", mutate=_multi("M", "dgsb", "{dev} {d} {g} {s} {b} nm", current="@{dev_lc}[id]",
+                                              models=[".model nm NMOS(Level=1)"]))
+    assert CATALOG.problems == []
+    d = Document()
+    qn, mn = d.add_part("QT"), d.add_part("MT"); d.add_part("GND")
+    for p in [*d.pins(qn), *d.pins(mn)]:
+        d.connect(p, "GND1.g")
+    nl = d.netlist()
+    q, m = (s for s in nl["signals"] if s["kind"] == "current")
+    assert nl["lines"] == [f"Q{qn} 0 0 0 qm", f"M{mn} 0 0 0 0 nm"]
+    assert nl["saves"][0].startswith(".save all @q") and nl["saves"][0].endswith("[ic]")
+    assert nl["saves"][1].endswith("[id]")
+    assert q["pins"] == [f"{q['part']}.e"]          # first node field of the template, not pins[0] (= c)
+    assert m["pins"] == [f"{m['part']}.d"]
+    assert not [s for s in nl["signals"] if s["kind"] == "across"]
