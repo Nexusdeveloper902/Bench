@@ -125,3 +125,57 @@ def test_screenshot(win, tmp_path):
     qapp = __import__("PySide6.QtWidgets", fromlist=["x"]).QApplication; qapp.processEvents()
     out = os.environ.get("SIM_SHOT") or str(tmp_path / "led.png")
     assert w.grab().save(out)
+
+
+# ---------------------------------------------------------------- 3-pin part (collector top, base left, emitter bottom)
+Q3 = {"c": (40, 0), "b": (0, 30), "e": (40, 60)}
+Q3_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" fill="none" stroke="currentColor" stroke-width="2">'
+          '<line x1="0" y1="30" x2="24" y2="30"/><line x1="24" y1="14" x2="24" y2="46"/>'
+          '<polyline points="24,22 40,10 40,0"/><polyline points="24,38 40,50 40,60"/></svg>')
+
+
+@pytest.fixture
+def q3(win, extra_root):
+    from conftest import write_def
+
+    def mut(d):
+        d.update(designator="Q", capabilities=["interface"], pins=[{"id": k, "at": list(v)} for k, v in Q3.items()], params=[],
+                 limitations=["test part"], presentation={"box": [0, 0, 60, 60], "symbol": "symbol.svg"})
+        del d["sim"]
+    f = write_def(extra_root, "Q3T", mutate=mut)
+    (f.parent / "symbol.svg").write_text(Q3_SVG)
+    from app import catalog
+    catalog.reload([catalog.BUILTIN_ROOT, extra_root])
+    win.library.reload()
+    return win
+
+
+def test_three_pin_place_hit_wire_undo(q3):
+    from app import catalog
+    w = q3
+    assert not [p for p in catalog.CATALOG.problems if p["severity"] == "error"]
+    place(w, "Q3T", 100, 100)                         # through the library card and a canvas click
+    x, y = w.doc.parts["Q1"]["x"], w.doc.parts["Q1"]["y"]
+    assert w.doc.pins("Q1") == [f"Q1.{k}" for k in Q3]
+    for k, (px, py) in Q3.items():                     # pin placement and hit-test of each pin
+        assert pin_pos(w.doc, f"Q1.{k}") == QPointF(x + px, y + py)
+        assert w.canvas.hit(pin_pos(w.doc, f"Q1.{k}")) == ("pin", f"Q1.{k}")
+    with w.hist.change(w.doc): w.doc.add_part("R", 260, 100)
+    for k, other in (("c", "R1.a"), ("b", "R1.b"), ("e", "R1.a")):   # wire each pin by clicking pin then pin
+        click(w, pin_pos(w.doc, f"Q1.{k}")); click(w, pin_pos(w.doc, other))
+        assert (f"Q1.{k}", other) in w.doc.wires
+    assert len(w.doc.wires) == 3
+    w.undo(); assert len(w.doc.wires) == 2
+    w.undo(); w.undo(); assert w.doc.wires == []
+    w.redo(); assert len(w.doc.wires) == 1
+
+
+def test_three_pin_rotate_moves_pins(q3):
+    w = q3
+    with w.hist.change(w.doc): w.doc.add_part("Q3T", 100, 100)
+    before = {k: pin_pos(w.doc, f"Q1.{k}") for k in Q3}
+    w.select("Q1"); w.rotate_selected()
+    after = {k: pin_pos(w.doc, f"Q1.{k}") for k in Q3}
+    assert w.doc.parts["Q1"]["rot"] == 90 and after != before and len({(p.x(), p.y()) for p in after.values()}) == 3
+    for k in Q3: assert w.canvas.hit(after[k]) == ("pin", f"Q1.{k}")
+    w.undo(); assert w.doc.parts["Q1"]["rot"] == 0
