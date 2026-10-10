@@ -1,209 +1,34 @@
 """Thin Qt layer over app.model / app.sim / app.history. All logic lives there; handlers just call it.
 
-Everything per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the
-app.catalog Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
+The window composes the top bar (file actions, undo/redo, run settings, Run / Re-run / Reset, run-state badge), the
+library panel, the canvas (app.canvas), the inspector, the results dock (app.results) and the status bar. Everything
+per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the app.catalog
+Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
 import os
-import time
 import traceback
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
-from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QKeySequence, QAction, QFont, QRadialGradient, \
-    QPolygonF
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGraphicsScene,
-                               QGraphicsView, QPushButton, QLabel, QLineEdit, QComboBox, QFileDialog, QToolBar,
-                               QSplitter, QSlider, QListWidget, QListWidgetItem, QPlainTextEdit, QMessageBox)
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter, QPixmap
+from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
+                               QMessageBox, QPushButton, QSizePolicy, QSplitter, QToolButton, QVBoxLayout, QWidget)
 from .model import Document, ModelError, RUN_PARAMS, led_level, value_at
-from .catalog import CATALOG, geometry, pin_offset, summary
+from .catalog import CATALOG
 from .components import format_si
-from .symbols import add_placeholder, add_symbol, part_transform
 from .sim import run_document, RunResult
 from .history import History
+from .canvas import Canvas, pin_pos, wire_pts, part_rect   # re-exported: tests and scripts import them from here
 from .inspector import Inspector
 from .library import LibraryPanel
-from . import theme
-
-GRID = 20
-SLIDER_MAX = 10000
-LOOP_SECONDS = 4.0   # wall-clock time for one pass over the simulated window (blink example: ~1 Hz)
-LED_OFF, LED_ON = (90, 90, 90), (255, 70, 30)
-HINT = "1 Place: pick a part, click the canvas.   2 Connect: click a pin, then another pin (or drag pin to pin).   " \
-       "3 Configure: select a part, edit values (1k, 10u, 4.7n ...).   4 Run (F5).   " \
-       "R rotates, drag moves, Delete removes, Ctrl+Z undoes. Click a wire to plot its node."
-INK, SEL, HOVER, WIRE = QColor("#222"), QColor("#e07000"), QColor("#2a7fff"), QColor("#1a5fb4")
-OK_PIN, OPEN_PIN, BAD = QColor("#2fa82f"), QColor("#d02020"), QColor("#b00020")
-STATE_COLORS = {"idle": "#666", "running": "#1a5fb4", "completed": "#1b6e1b", "failed": "#b00020", "blocked": "#a05000"}
-GROUPS = (("node", "Node voltages"), ("across", "Voltage across parts"), ("current", "Currents"))
-QUANTITY = {"V": "Voltage", "A": "Current"}
+from .results import ProblemsPanel, ResultsPanel
+from . import theme, widgets as W
 
 
-# ---------------------------------------------------------------- geometry (catalog driven)
-def _box(part):
-    x0, y0, w, h = geometry(part)[0]
-    return x0, y0, w, h, x0 + w / 2, y0 + h / 2
-
-
-def pin_pos(doc, ref):
-    name, _, pin = ref.partition(".")
-    d = doc.parts[name]
-    ox, oy = pin_offset(d, pin)
-    return QPointF(d["x"] + ox, d["y"] + oy)
-
-
-def part_rect(d):
-    x0, y0, w, h, *_ = _box(d)
-    return part_transform(d).mapRect(QRectF(x0, y0, w, h))
-
-
-def exits_horizontally(doc, ref):
-    name, _, pin = ref.partition(".")
-    d = doc.parts[name]
-    *_, cx, cy = _box(d)
-    px, py = geometry(d)[1][pin]
-    return (abs(px - cx) >= abs(py - cy)) == (d.get("rot", 0) % 180 == 0)
-
-
-def _crossings(rects, pts):
-    segs = [QRectF(a, b).normalized().adjusted(-.5, -.5, .5, .5) for a, b in zip(pts, pts[1:])]
-    return sum(s.intersects(r) for s in segs for r in rects)
-
-
-def wire_pts(doc, a, b):
-    """Right-angle route with one corner: the corner that crosses fewer part bodies, else leave the first pin along
-    its own axis. ponytail: two candidate routes only, no real router; wires may still cross parts in dense layouts."""
-    p, q = pin_pos(doc, a), pin_pos(doc, b)
-    if p.x() == q.x() or p.y() == q.y():
-        return [p, q]
-    h, v = [p, QPointF(q.x(), p.y()), q], [p, QPointF(p.x(), q.y()), q]
-    rects = [part_rect(d).adjusted(2, 2, -2, -2) for d in doc.parts.values()]
-    ch, cv = _crossings(rects, h), _crossings(rects, v)
-    return h if ch < cv or (ch == cv and exits_horizontally(doc, a)) else v
-
-
-def seg_dist(p, a, b):
-    ab, ap = b - a, p - a
-    L = ab.x() ** 2 + ab.y() ** 2
-    t = 0 if L == 0 else max(0, min(1, (ap.x() * ab.x() + ap.y() * ab.y()) / L))
-    q = a + ab * t
-    return ((p.x() - q.x()) ** 2 + (p.y() - q.y()) ** 2) ** 0.5
-
-
-def eng(m):
-    """(scale, prefix) for showing magnitudes around m: 0.0047 -> (1e-3, 'm')."""
-    for s, pre in ((1e9, "G"), (1e6, "M"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "µ"), (1e-9, "n"), (1e-12, "p")):
-        if m >= s * 0.9999: return s, pre
-    return (1, "") if m == 0 else (1e-12, "p")
-
-
-# ---------------------------------------------------------------- canvas
-class Canvas(QGraphicsView):
-    def __init__(self, win):
-        self.sc = QGraphicsScene()
-        super().__init__(self.sc)
-        self.win = win
-        self.drag = None        # (part, dx, dy) while moving a part
-        self.wiring = False     # pressed on a pin, may drag to another
-        self.hover = None       # ("pin", ref) | ("wire", wire)
-        self.cursor = None
-        self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setSceneRect(0, 0, 1000, 700)
-        self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.sc.setBackgroundBrush(QBrush(Qt.white))
-
-    # ---- hit tests ----
-    def hit(self, pt):
-        doc = self.win.doc
-        for n in doc.parts:
-            for r in doc.pins(n):
-                if (pin_pos(doc, r) - pt).manhattanLength() < 10: return ("pin", r)
-        for n, d in doc.parts.items():
-            if part_rect(d).contains(pt): return ("part", n)
-        for w in doc.wires:
-            pts = wire_pts(doc, *w)
-            if any(seg_dist(pt, pts[i], pts[i + 1]) < 5 for i in range(len(pts) - 1)): return ("wire", w)
-        return None
-
-    def led_glow(self, name):
-        return self.win.led_glow(name)
-
-    def pt(self, e):
-        return self.mapToScene(e.position().toPoint())
-
-    # ---- events ----
-    def mousePressEvent(self, e):
-        self.setFocus()
-        w, doc = self.win, self.win.doc
-        pt = self.cursor = self.pt(e)
-        h = self.hit(pt)
-        if h and h[0] == "pin":
-            ref = h[1]
-            if e.button() == Qt.RightButton:
-                with w.hist.change(doc): doc.disconnect(ref)
-            elif w.pending_pin and w.pending_pin != ref:
-                with w.hist.change(doc): doc.connect(w.pending_pin, ref)
-                w.pending_pin = None
-            else:
-                w.pending_pin = ref; self.wiring = True
-            return w.refresh()
-        w.pending_pin = None
-        if e.button() != Qt.LeftButton:
-            return w.refresh()
-        if w.tool and not h:
-            x, y = round(pt.x() / GRID) * GRID, round(pt.y() / GRID) * GRID
-            w.select(w.place(w.tool, x, y)); w.set_tool(None)
-            return
-        if h and h[0] == "part":
-            d = doc.parts[h[1]]
-            self.drag = (h[1], pt.x() - d["x"], pt.y() - d["y"]); w.hist.begin(doc)
-            return w.select(h[1])
-        if h:
-            return w.select_wire(h[1])
-        w.select(None)
-
-    def mouseMoveEvent(self, e):
-        w, doc = self.win, self.win.doc
-        pt = self.cursor = self.pt(e)
-        if self.drag:
-            n, dx, dy = self.drag
-            doc.parts[n]["x"] = round((pt.x() - dx) / GRID) * GRID
-            doc.parts[n]["y"] = round((pt.y() - dy) / GRID) * GRID
-            return w.draw()
-        h = self.hit(pt)
-        self.hover = h if h and h[0] in ("pin", "wire") else None
-        w.draw()
-
-    def mouseReleaseEvent(self, e):
-        w, doc = self.win, self.win.doc
-        if self.drag:
-            self.drag = None
-            if w.hist.end(doc): w.set_status("Moved part")
-            return w.refresh()
-        if self.wiring:
-            self.wiring = False
-            h = self.hit(self.pt(e))
-            if h and h[0] == "pin" and h[1] != w.pending_pin:
-                with w.hist.change(doc): doc.connect(w.pending_pin, h[1])
-                w.pending_pin = None
-            w.refresh()
-
-    def leaveEvent(self, e):
-        self.hover = None; self.win.draw()
-
-    def keyPressEvent(self, e):
-        if e.key() in (Qt.Key_Delete, Qt.Key_Backspace):
-            self.win.delete_selected()
-        elif e.key() == Qt.Key_Escape:
-            self.win.pending_pin = None; self.win.set_tool(None); self.win.refresh()
-        elif e.key() == Qt.Key_R and not e.modifiers() & ~Qt.KeypadModifier:   # fallback if the shortcut is inactive
-            self.win.rotate_selected()
-        elif e.matches(QKeySequence.Undo):   # fallback when the window-level shortcut is inactive
-            self.win.undo()
-        elif e.matches(QKeySequence.Redo) or (e.key() == Qt.Key_Y and e.modifiers() & Qt.ControlModifier):
-            self.win.redo()
-        else:
-            super().keyPressEvent(e)
+def logo_pixmap(px=28):
+    """The app logo: a primary-coloured rounded square with a white pulse."""
+    pm = QPixmap(px * 2, px * 2); pm.fill(Qt.transparent); pm.setDevicePixelRatio(2)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing); p.setPen(Qt.NoPen); p.setBrush(QColor(theme.PRIMARY))
+    p.drawRoundedRect(0, 0, px, px, theme.R_MD, theme.R_MD)
+    p.drawPixmap((px - 20) // 2, (px - 20) // 2, W.svg_pixmap("pulse", "#FFFFFF", 20)); p.end()
+    return pm
 
 
 # ---------------------------------------------------------------- main window
@@ -213,105 +38,158 @@ class MainWindow(QMainWindow):
         theme.apply(QApplication.instance())
         self.doc, self.result, self.sel, self.sel_wire = Document(), None, None, None
         self.ran_key = None     # circuit signature of the last run; a mismatch means the result is stale
+        self.stale = False      # the results were dropped because the circuit or the settings changed since the run
         self.tool, self.pending_pin = None, None
         self.state = "idle"     # idle | running | completed | failed | blocked (no pause: the core runs synchronously)
-        self.want = None        # observable the user picked; kept across reruns
+        self.invalid = {}       # run-setting key -> message, for the fields that do not parse
+        self.autoplay = False   # start looping after a Run of a time-varying source
         self.hist = History()
         self.clean = self.doc.to_dict()
         self.canvas = Canvas(self)
 
-        def act(text, fn, *keys, tip=None):
+        def act(text, fn, *keys, tip=None, icon=None):
             a = QAction(text, self); a.triggered.connect(lambda _=False: fn())
             if keys: a.setShortcuts([QKeySequence(k) for k in keys])
             if tip: a.setToolTip(tip)
+            if icon: a.setIcon(W.icon(icon, theme.TEXT_2, 18))
+            self.addAction(a)   # shortcuts work with or without a visible menu
             return a
-        self.a_new, self.a_open = act("New", self.new, "Ctrl+N"), act("Open...", self.open, "Ctrl+O")
-        self.a_save, self.a_saveas = act("Save", self.save, "Ctrl+S"), act("Save As...", self.save_as, "Ctrl+Shift+S")
+        self.a_new, self.a_open = act("New", self.new, "Ctrl+N", tip="New circuit (Ctrl+N)", icon="new"), \
+            act("Open...", self.open, "Ctrl+O", tip="Open a circuit (Ctrl+O)", icon="open")
+        self.a_save, self.a_saveas = act("Save", self.save, "Ctrl+S", tip="Save (Ctrl+S)", icon="save"), \
+            act("Save As...", self.save_as, "Ctrl+Shift+S")
         self.a_led = act("Load LED example", self.load_led_example)
         self.a_blink = act("Load blinking LED example", self.load_blink_example)
-        self.a_undo = act("Undo", self.undo, "Ctrl+Z")
-        self.a_redo = act("Redo", self.redo, "Ctrl+Shift+Z", "Ctrl+Y")
+        self.a_undo = act("Undo", self.undo, "Ctrl+Z", tip="Undo (Ctrl+Z)", icon="undo")
+        self.a_redo = act("Redo", self.redo, "Ctrl+Shift+Z", "Ctrl+Y", tip="Redo (Ctrl+Y)", icon="redo")
         self.a_rotate = act("Rotate", self.rotate_selected, "R", tip="Rotate the selected part 90° (R)")
         self.a_delete = act("Delete", self.delete_selected, tip="Delete the selected part or wire (Del)")
         self.a_run = act("Run", self.run, "F5", tip="Run the transient simulation (F5)")
         self.a_rerun = act("Re-run", self.rerun, "Ctrl+F5", tip="Clear results and run again (Ctrl+F5)")
         self.a_reset = act("Reset", self.reset, tip="Clear the results (the circuit is kept)")
-        fm, em, sm = (self.menuBar().addMenu(t) for t in ("File", "Edit", "Simulation"))
-        for a in (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink):
-            fm.addSeparator() if a is None else fm.addAction(a)
-        for a in (self.a_undo, self.a_redo, self.a_rotate, self.a_delete): em.addAction(a)
-        for a in (self.a_run, self.a_rerun, self.a_reset): sm.addAction(a)
-        # toolbars: file/edit | simulation controls (the parts palette is the library panel)
-        tb = QToolBar("File"); self.addToolBar(tb)
-        for a in (self.a_new, self.a_open, self.a_save, self.a_undo, self.a_redo, self.a_rotate, self.a_delete): tb.addAction(a)
-        st = QToolBar("Simulation"); self.addToolBar(st)
-        self.analysis = QLabel(" Analysis: <b>Transient</b> ")   # the only analysis the core supports
-        self.analysis.setToolTip("Analysis type. The simulation core supports transient analysis only.")
-        st.addWidget(self.analysis)
-        self.tstop, self.tstep = QLineEdit(), QLineEdit()
-        for lab, ed, tip in (("Stop time", self.tstop, "Simulated time span, e.g. 5m = 5 ms"),
-                             ("Time step", self.tstep, "Maximum solver step / output resolution, e.g. 10u = 10 µs")):
-            ed.setFixedWidth(80); ed.setProperty("help", tip); ed.setToolTip(tip)
-            ed.textEdited.connect(self.cfg_changed); ed.editingFinished.connect(self.cfg_changed)
-            st.addWidget(QLabel(f" {lab} ")); st.addWidget(ed)
-        st.addSeparator()
-        for a in (self.a_run, self.a_rerun, self.a_reset): st.addAction(a)
-        self.state_lbl = QLabel(); self.state_lbl.setMinimumWidth(110); st.addWidget(self.state_lbl)
+        self.a_zoom_in = act("Zoom in", lambda: self.canvas.zoom_by(1.25), "Ctrl+=", "Ctrl++")
+        self.a_zoom_out = act("Zoom out", lambda: self.canvas.zoom_by(1 / 1.25), "Ctrl+-")
+        self.a_fit = act("Fit all parts", self.canvas.fit, "Ctrl+0")
         # library (left) and inspector (right) panels
         self.library, self.inspector = LibraryPanel(), Inspector()
-        self.library.place_requested.connect(lambda k: self.set_tool(None if self.tool == k else k))
+        self.library.place_requested.connect(self._toggle_tool)
         self.inspector.param_edited.connect(self.edit_param)
         self.inspector.plot_requested.connect(self.probe_pin)
         self.inspector.delete_requested.connect(self.delete_selected)
-        self.problems = QListWidget()
-        self.problems.itemClicked.connect(lambda it: it.data(Qt.UserRole) and self.select(it.data(Qt.UserRole)))
-        self.problems_lbl = QLabel("<b>Problems</b>")
-        pw = QWidget(); pl = QVBoxLayout(pw); pl.setContentsMargins(8, 8, 8, 8)
-        pl.addWidget(self.problems_lbl); pl.addWidget(self.problems, 1)
-        # waveform viewer
-        self.probe, self.stats = QComboBox(), QLabel("")
-        self.probe.setToolTip("Signal to plot. Tip: click a wire on the canvas to plot its node voltage.")
-        self.findings = QLabel(""); self.findings.setWordWrap(True)
-        self.findings.setStyleSheet("color: #a05000")
-        self.probe.currentTextChanged.connect(self._probe_changed)
-        self.cur_t, self.cur_line, self.t_rng = None, None, (0.0, 1.0)
-        self.autoplay, self.bg, self._last = False, None, 0.0   # autoplay: start looping after a Run of a time-varying source
-        self.play_btn, self.slider, self.readout = QPushButton("Play"), QSlider(Qt.Horizontal), QLabel("")
-        self.slider.setRange(0, SLIDER_MAX); self.slider.setEnabled(False); self.play_btn.setEnabled(False)
-        self.timer = QTimer(self); self.timer.setInterval(40); self.timer.timeout.connect(self._on_timer)
-        self.play_btn.clicked.connect(self.toggle_play)
-        self.slider.valueChanged.connect(lambda v: self.set_cursor_time(self.t_rng[0] + (self.t_rng[1] - self.t_rng[0]) * v / SLIDER_MAX))
-        self.fig = Figure(figsize=(5, 3), layout="constrained"); self.ax = self.fig.add_subplot()
-        self.plotw = FigureCanvasQTAgg(self.fig); self.plotw.setMinimumSize(300, 160)
-        self.plotw.mpl_connect("draw_event", self._on_draw)
-        self.plotw.mpl_connect("button_press_event",
-                               lambda e: e.inaxes is self.ax and e.xdata is not None and self.set_cursor_time(e.xdata))
-        self.err = QLabel(""); self.err.setWordWrap(True); self.err.setStyleSheet("color: #b00020; font-weight: bold")
-        self.details_btn = QPushButton("Show details"); self.details_btn.setCheckable(True)
-        self.details = QPlainTextEdit(); self.details.setReadOnly(True); self.details.setVisible(False)
-        self.details.setMinimumHeight(120)
-        self.details_btn.toggled.connect(lambda on: (self.details.setVisible(on),
-                                                     self.details_btn.setText("Hide details" if on else "Show details")))
-        bot = QWidget(); rl = QVBoxLayout(bot); rl.setContentsMargins(0, 0, 0, 0)
-        rl.addWidget(QLabel("<b>Waveform</b>  signal:")); rl.addWidget(self.probe); rl.addWidget(self.plotw, 1)
-        pr = QHBoxLayout(); pr.addWidget(self.play_btn); pr.addWidget(self.slider, 1); rl.addLayout(pr)
-        rl.addWidget(self.readout); rl.addWidget(self.stats); rl.addWidget(self.err); rl.addWidget(self.findings)
-        dl = QHBoxLayout(); dl.addWidget(self.details_btn); dl.addStretch(1); rl.addLayout(dl); rl.addWidget(self.details)
-        dock = QSplitter(); dock.addWidget(bot); dock.addWidget(pw); dock.setStretchFactor(0, 1); dock.setSizes([620, 240])
-        mid = QWidget(); ml = QVBoxLayout(mid); ml.setContentsMargins(0, 0, 0, 0); ml.setSpacing(0)
-        self.hint = QLabel(HINT); self.hint.setWordWrap(True); self.hint.setContentsMargins(8, 4, 8, 4)
-        ml.addWidget(self.hint); ml.addWidget(self.canvas, 1)
-        centre = QSplitter(Qt.Vertical); centre.addWidget(mid); centre.addWidget(dock)
-        centre.setStretchFactor(0, 1); centre.setSizes([450, 330]); centre.setChildrenCollapsible(False)
+        # results dock: waveform viewer | Problems
+        self.results, self.problems_panel = ResultsPanel(), ProblemsPanel()
+        self.problems_panel.part_clicked.connect(self.select)
+        self.results.cursor_moved.connect(self._cursor_moved)
+        for n in ("probe", "stats", "readout", "findings", "err", "err_title", "details", "details_btn", "play_btn",
+                  "slider", "plotw", "fig", "ax", "timer"):
+            setattr(self, n, getattr(self.results, n))      # the viewer's widgets, reachable from the window
+        self.problems, self.problems_lbl = self.problems_panel.list, self.problems_panel.title
+        dock = QWidget(); dock.setObjectName("results"); dock.setFixedHeight(theme.DOCK_H)
+        dl = QHBoxLayout(dock); dl.setContentsMargins(0, 0, 0, 0); dl.setSpacing(0)
+        sep = QFrame(); sep.setObjectName("vsep")
+        self.problems_panel.setMinimumWidth(150); self.problems_panel.setMaximumWidth(theme.PROBLEMS_W)   # narrows below 1280
+        self.results.setMinimumWidth(240)
+        dl.addWidget(self.results, 1); dl.addWidget(sep); dl.addWidget(self.problems_panel)
+        rule = QFrame(); rule.setObjectName("rule")
+        centre = QWidget(); cl = QVBoxLayout(centre); cl.setContentsMargins(0, 0, 0, 0); cl.setSpacing(0)
+        cl.addWidget(self.canvas, 1); cl.addWidget(rule); cl.addWidget(dock)
         sp = QSplitter(); sp.addWidget(self.library); sp.addWidget(centre); sp.addWidget(self.inspector)
         sp.setStretchFactor(1, 1); sp.setChildrenCollapsible(False)
         sp.setSizes([theme.LIBRARY_W, 1280 - theme.LIBRARY_W - theme.INSPECTOR_W, theme.INSPECTOR_W])
-        self.setCentralWidget(sp)
-        self.status = QLabel("Ready.")
-        self.statusBar().addWidget(self.status, 1)
+        root = QWidget(); rl = QVBoxLayout(root); rl.setContentsMargins(0, 0, 0, 0); rl.setSpacing(0)
+        rl.addWidget(self._topbar()); rl.addWidget(sp, 1)
+        self.setCentralWidget(root)
+        self.notice = QLabel(root); self.notice.setObjectName("notice"); self.notice.hide()   # under the top bar
+        self.status = QLabel("Ready."); self.status.setContentsMargins(8, 0, 0, 0)
+        self.counts = QLabel(""); self.counts.setObjectName("hint"); self.counts.setContentsMargins(0, 0, 8, 0)
+        self.statusBar().setSizeGripEnabled(False); self.statusBar().setFixedHeight(theme.STATUS_H)
+        self.statusBar().addWidget(self.status, 1); self.statusBar().addPermanentWidget(self.counts)
         self.resize(1280, 800)
         self._show_result()
         self.refresh()
+
+    # --- top bar ---
+    def _topbar(self):
+        bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
+        bar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)   # narrow windows compact it (see resizeEvent)
+        lay = QHBoxLayout(bar); lay.setContentsMargins(16, 0, 16, 0); lay.setSpacing(8)
+        app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Sim"); app.setIcon(QPixmap(logo_pixmap()))
+        app.setIconSize(QSize(28, 28)); app.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        app.setPopupMode(QToolButton.InstantPopup); app.setToolTip("Menu: file, edit, simulation, view")
+        menu = QMenu(app)
+        for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
+                            ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
+                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset)),
+                            ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit))):
+            sub = menu.addMenu(title)
+            for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
+        app.setMenu(menu); self.app_menu = menu
+        lay.addWidget(app); lay.addSpacing(8)
+
+        def ibtn(a):
+            b = QToolButton(); b.setObjectName("iconbtn"); b.setDefaultAction(a); b.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            b.setIconSize(QSize(18, 18)); b.setFixedSize(32, 32); return b
+        for group in ((self.a_new, self.a_open, self.a_save), (self.a_undo, self.a_redo)):
+            g = QHBoxLayout(); g.setSpacing(3); g.setContentsMargins(0, 0, 0, 0)
+            for a in group: g.addWidget(ibtn(a))
+            lay.addLayout(g); lay.addWidget(W.vline(24))
+        self.file_lbl = W.label("", "filename"); self.file_lbl.setTextFormat(Qt.RichText)
+        self.file_lbl.setMinimumWidth(40); self.file_lbl.setMaximumWidth(260)
+        lay.addWidget(self.file_lbl, 1); lay.addSpacing(8)
+        self.analysis = W.label("Transient", "chipbox"); self.analysis.setFixedHeight(28)   # the only analysis the core supports
+        self.analysis.setToolTip("Analysis type. The simulation core supports transient analysis only.")
+        lay.addWidget(self.analysis)
+        self.tstop, self.tstep = QLineEdit(), QLineEdit()
+        self.field_labels = []
+        for lab, ed, tip in (("Stop time", self.tstop, "Simulated time span, e.g. 5m = 5 ms"),
+                             ("Time step", self.tstep, "Maximum solver step / output resolution, e.g. 10u = 10 µs")):
+            ed.setObjectName("topfield"); ed.setFixedSize(84, 28); ed.setProperty("help", tip); ed.setToolTip(tip)
+            ed.textEdited.connect(self.cfg_changed); ed.editingFinished.connect(self.cfg_changed)
+            fl = W.label(lab, "fieldlabel"); self.field_labels.append(fl)
+            lay.addWidget(fl); lay.addWidget(ed)
+        lay.addSpacing(8)
+        self.b_run, self.b_rerun, self.b_reset = (QPushButton(t) for t in ("Run", "Re-run", "Reset"))
+        for b, a, prim in ((self.b_run, self.a_run, True), (self.b_rerun, self.a_rerun, True), (self.b_reset, self.a_reset, False)):
+            b.setObjectName("simbtn"); b.setProperty("primary", prim); b.setFixedSize(96, 32); b.setToolTip(a.toolTip())
+            b.clicked.connect(lambda _=False, a=a: a.trigger())
+            if prim:
+                i = W.icon("play", "#FFFFFF", 16, theme.TEXT_DISABLED); b.setIcon(i); b.setIconSize(QSize(16, 16))
+            lay.addWidget(b)
+        self.state_lbl = W.StateBadge(); lay.addWidget(self.state_lbl)
+        return bar
+
+    def _sync_controls(self):
+        """Enable and label the run controls per the Run / Re-run / Reset table (design R2) and show the notice."""
+        s, running = self.state, self.state == "running"
+        stale = self.stale and self.result is None and s == "idle"
+        valid = not self.invalid
+        run = valid and s == "idle" and not stale
+        rerun = valid and (s in ("completed", "failed") or stale)
+        reset = valid and (s in ("completed", "failed") or stale)
+        for b, on in ((self.b_run, run), (self.b_rerun, rerun), (self.b_reset, reset)): b.setEnabled(on)
+        for w in (self.tstop, self.tstep, *self.field_labels): w.setEnabled(not running)
+        self.state_lbl.set_state("stale" if stale else s)
+        self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
+        self.a_reset.setEnabled(self.result is not None or stale)
+        msg = next(iter(self.invalid.values()), None)
+        notice = ("err", msg) if msg else ("err", f"{'Run blocked' if s == 'blocked' else 'Run failed'}: {self.result.message}") \
+            if s in ("failed", "blocked") and self.result else ("warn", "Results out of date. Re-run to refresh.") if stale else None
+        if notice:
+            self.notice.setProperty("kind", notice[0]); theme.repolish(self.notice)
+            c = self.canvas.mapTo(self.centralWidget(), self.canvas.rect().topLeft()).x()   # keep it over the canvas
+            self.notice.setWordWrap(True); self.notice.setFixedWidth(min(520, self.canvas.width() - 24))
+            self.notice.setText(notice[1]); self.notice.setToolTip(notice[1]); self.notice.adjustSize()
+            self.notice.move(c + 12, theme.TOPBAR_H + 8)
+            self.notice.raise_()
+        self.notice.setVisible(bool(notice))
+
+    def resizeEvent(self, e):
+        compact = self.width() < 1240   # below the full top bar's width: no analysis chip, narrower fields and buttons
+        if compact != self.analysis.isHidden():
+            self.analysis.setHidden(compact)
+            for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset):
+                x.setProperty("compact", compact); theme.repolish(x)
+        super().resizeEvent(e); self._sync_controls()
 
     # --- file path lives on the document (Document.save/load set it) ---
     @property
@@ -319,6 +197,22 @@ class MainWindow(QMainWindow):
 
     @path.setter
     def path(self, p): self.doc.path = p
+
+    # --- the viewer lives in app.results; the window forwards what scripts and tests use ---
+    cur_t = property(lambda self: self.results.cur_t)
+    t_rng = property(lambda self: self.results.t_rng)
+    cur_line = property(lambda self: self.results.cur_line)
+
+    def plot(self, name): self.results.plot(name)
+    def view_data(self): return self.results.view_data()
+    def set_cursor_time(self, t): self.results.set_cursor_time(t)
+    def toggle_play(self): self.results.toggle_play()
+    def play(self): self.results.play()
+    def tick(self, dt=None): self.results.tick(dt)
+
+    def _cursor_moved(self):
+        self.draw()
+        self.canvas.viewport().repaint()   # paint this frame now; a busy loop must not coalesce LED frames away
 
     # --- actions (thin) ---
     def place(self, kind, x, y):
@@ -329,7 +223,14 @@ class MainWindow(QMainWindow):
     def set_tool(self, k):
         self.tool = k
         self.library.set_armed(k)
+        self.canvas.refresh_cursor()
         if k: self.set_status(f"Placing {CATALOG.get(k).name}: click the canvas. Esc cancels.")
+        else: self.canvas.tip.hide()
+        self.draw()
+
+    def _toggle_tool(self, k):
+        if self.tool == k: self.set_tool(None); self.set_status("Ready.")
+        else: self.set_tool(k)
 
     def select(self, name):
         self.sel, self.sel_wire = name, None; self.refresh()
@@ -347,11 +248,20 @@ class MainWindow(QMainWindow):
         else: self.set_status(f"{pin} is on the ground net (0 V reference)")
 
     def delete_selected(self):
-        doc = self.doc
+        doc, what = self.doc, self.sel if self.sel in self.doc.parts else "wire"
         with self.hist.change(doc):
             if self.sel in doc.parts: doc.remove_part(self.sel)
             elif self.sel_wire in doc.wires: doc.remove_wire(self.sel_wire)
-        self.sel = self.sel_wire = None; self.refresh()
+            else: what = None
+        self.sel = self.sel_wire = None
+        if what: self.set_status(f"Deleted {what}")
+        self.refresh()
+
+    def disconnect_all(self, name):
+        """Remove every wire touching the part (the part stays)."""
+        with self.hist.change(self.doc):
+            for p in self.doc.pins(name): self.doc.disconnect(p)
+        self.set_status(f"Disconnected {name}"); self.refresh()
 
     def rotate_selected(self):
         if self.sel not in self.doc.parts: return self.set_status("Select a part to rotate")
@@ -369,7 +279,7 @@ class MainWindow(QMainWindow):
 
     # --- documents / files ---
     def _reset(self, doc):
-        self.doc, self.result, self.sel, self.sel_wire = doc, None, None, None
+        self.doc, self.result, self.sel, self.sel_wire, self.stale = doc, None, None, None, False
         self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict()
         self._show_result(); self.refresh()
 
@@ -437,8 +347,10 @@ class MainWindow(QMainWindow):
         e.accept() if self.maybe_save() else e.ignore()
 
     def _title(self):
-        self.setWindowTitle(f"Sim - {os.path.basename(self.path) if self.path else 'untitled'}"
-                            f"{' *' if self.dirty() else ''}")
+        name, dirty = os.path.basename(self.path) if self.path else "untitled", self.dirty()
+        self.setWindowTitle(f"Sim - {name}{' *' if dirty else ''}")
+        self.file_lbl.setText(f"{name}{f' <span style=\"color:{theme.SEL}\">●</span>' if dirty else ''}")
+        self.file_lbl.setToolTip(self.path or "Not saved yet")
 
     # --- simulation settings / params ---
     @staticmethod
@@ -453,10 +365,10 @@ class MainWindow(QMainWindow):
             if ed.text() != self._si(getattr(d, k)): setattr(d, k, ed.text())
         for ed, k in ((self.tstop, "tstop"), (self.tstep, "tstep")):
             try:
-                RUN_PARAMS[k].parse(ed.text(), "Run"); mark(ed, None)
+                RUN_PARAMS[k].parse(ed.text(), "Run"); mark(ed, None); self.invalid.pop(k, None)
             except ModelError as e:
-                mark(ed, str(e))
-        self._check_stale(); self._title()
+                mark(ed, str(e)); self.invalid[k] = str(e)
+        self._check_stale(); self._title(); self._sync_controls()
 
     def _key(self):
         d = self.doc
@@ -465,8 +377,9 @@ class MainWindow(QMainWindow):
 
     def _check_stale(self):
         if self.result is not None and self._key() != self.ran_key:
-            self.result = None; self.state = "idle"; self._show_result()
-            self.set_status("results out of date - press Run", True)
+            self.result, self.state, self.stale = None, "idle", True
+            self._show_result()
+            self.set_status("results out of date - press Re-run", True)
 
     def edit_param(self, n, k, v):
         if n in self.doc.parts:
@@ -477,15 +390,14 @@ class MainWindow(QMainWindow):
     # --- run controls ---
     def set_state(self, s):
         self.state = s
-        self.state_lbl.setText(f"  ● {s}")
-        self.state_lbl.setStyleSheet(f"color: {STATE_COLORS[s]}; font-weight: bold")
-        self.a_reset.setEnabled(self.result is not None)
+        self._sync_controls()
 
     def run(self):
         fw = self.focusWidget()
         if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
         self.cfg_changed()
-        self.set_state("running"); self.state_lbl.repaint()
+        self.stale = False
+        self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
         try:
             r = run_document(self.doc)   # never raises by contract; a raise is an app bug and is shown, not hidden
         except Exception as e:
@@ -501,136 +413,16 @@ class MainWindow(QMainWindow):
 
     def reset(self):
         """Drop the results (circuit, settings and the picked signal are kept)."""
-        self.result = None; self._show_result(); self.draw(); self.set_status("Results cleared")
+        self.result, self.stale = None, False; self._show_result(); self.draw(); self.set_status("Results cleared")
 
     def rerun(self):
         self.reset(); self.run()
 
     def _show_result(self):
-        """Sync the viewer, findings, error box and state with self.result (None = idle)."""
+        """Sync the viewer, state badge and controls with self.result (None = idle, or stale after an edit)."""
         r = self.result
+        self.results.set_view(r, "idle" if r is None else r.state, self.stale)
         self.set_state("idle" if r is None else r.state)
-        self.findings.setText("\n".join(f"Finding [{f['severity']}] {f['code']}: {f['message']}"
-                                        for f in (r.findings if r else [])))
-        self.err.setText("" if not r or r.ok else
-                         f"{'Run blocked' if r.status == 'blocked' else 'Simulation failed'}: {r.message}")
-        self.err.setVisible(bool(r and not r.ok))
-        self.details.setPlainText(r.details if r else "")
-        self.details_btn.setEnabled(r is not None)
-        if r is None: self.details_btn.setChecked(False)
-        self.probe.blockSignals(True); self.probe.clear()
-        first = -1
-        for kind, title in GROUPS:
-            sigs = [s for s in (r.signals if r and r.ok else []) if s["kind"] == kind]
-            if not sigs: continue
-            self.probe.addItem(f"--- {title} ---")
-            self.probe.model().item(self.probe.count() - 1).setEnabled(False)
-            for s in sigs:
-                self.probe.addItem(s["name"])
-                self.probe.setItemData(self.probe.count() - 1, ", ".join(s["pins"]), Qt.ToolTipRole)
-                if first < 0 or s["name"] == self.want: first = self.probe.count() - 1
-        self.probe.setCurrentIndex(first)
-        self.probe.blockSignals(False)
-        self._init_cursor(); self.plot(self.probe.currentText())
-
-    def _probe_changed(self, name):
-        if self.result and self.result.signal(name): self.want = name
-        self.plot(name)
-
-    # --- waveform viewer (reads RunResult only) ---
-    def plot(self, name):
-        self.ax.clear()
-        r = self.result
-        sig = r.signal(name) if r and r.ok else None
-        self.cur_line = None
-        if sig:
-            ser = r.series[sig["vector"]]
-            t, v = zip(*ser)
-            self.ax.plot(t, v, color=WIRE.name(), lw=1.6)
-            (ts, tp), (vs, vp) = eng(max(abs(t[0]), abs(t[-1]))), eng(max(map(abs, v)))
-            self.ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _, s=ts: f"{x / s:.6g}"))
-            self.ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _, s=vs: f"{x / s:.6g}"))
-            self.ax.set_xlabel(f"time ({tp}s)"); self.ax.set_ylabel(f"{QUANTITY[sig['unit']]} ({vp}{sig['unit']})")
-            self.ax.set_title(sig["name"]); self.ax.grid(True, alpha=.3)
-            self.cur_line = self.ax.axvline(self.cur_t if self.cur_t is not None else t[-1], color="#d02020", lw=1.2,
-                                            animated=True)   # drawn by blit, not by a full redraw per frame
-            s, u = r.stats(name), sig["unit"]
-            self.stats.setText("   ".join(f"{k} {format_si(s[k], u, 6)}" for k in ("final", "min", "max")))
-        else:
-            self.stats.setText("")
-            msg, col = ((f"{'Run blocked' if r.status == 'blocked' else 'Simulation failed'} - see the message below",
-                         "#b00020") if r and not r.ok else
-                        ("Press Run (F5) to simulate", "#888") if r is None else ("", "#888"))
-            self.ax.text(0.5, 0.5, msg, ha="center", va="center", color=col, transform=self.ax.transAxes)
-            self.ax.set_xticks([]); self.ax.set_yticks([])
-        self.bg = None; self._readout(); self.plotw.draw_idle()
-
-    def view_data(self):
-        """(signal dict, [(t, v)]) currently plotted - straight from RunResult.series - or None."""
-        r, name = self.result, self.probe.currentText()
-        sig = r.signal(name) if r and r.ok else None
-        return (sig, r.series[sig["vector"]]) if sig else None
-
-    # --- time cursor / playback (reads RunResult.series only) ---
-    def _init_cursor(self):
-        """Called whenever result changes: stop playback, cursor to end of run (or disabled if no result)."""
-        self.timer.stop(); self.play_btn.setText("Play")
-        ok = bool(self.result and self.result.ok and self.result.series)
-        self.slider.setEnabled(ok); self.play_btn.setEnabled(ok)
-        if ok:
-            ser = next(iter(self.result.series.values()))
-            self.t_rng = (ser[0][0], ser[-1][0]); self.cur_t = self.t_rng[1]
-        else:
-            self.cur_t = None
-        self.slider.blockSignals(True); self.slider.setValue(SLIDER_MAX); self.slider.blockSignals(False)
-
-    def set_cursor_time(self, t):
-        if self.cur_t is None: return
-        a, b = self.t_rng
-        self.cur_t = max(a, min(b, t))
-        v = round(SLIDER_MAX * (self.cur_t - a) / (b - a)) if b > a else SLIDER_MAX
-        if self.slider.value() != v:
-            self.slider.blockSignals(True); self.slider.setValue(v); self.slider.blockSignals(False)
-        if self.cur_line is not None:
-            self.cur_line.set_xdata([self.cur_t, self.cur_t]); self._blit()
-        self._readout(); self.draw()
-        self.canvas.viewport().repaint()   # paint this frame now; a busy loop must not coalesce LED frames away
-
-    def _on_draw(self, _=None):
-        self.bg = self.plotw.copy_from_bbox(self.fig.bbox)
-        if self.cur_line is not None: self.ax.draw_artist(self.cur_line)
-
-    def _blit(self):
-        if self.bg is None or self.cur_line is None: return self.plotw.draw_idle()
-        self.plotw.restore_region(self.bg); self.ax.draw_artist(self.cur_line); self.plotw.blit(self.fig.bbox)
-
-    def toggle_play(self):
-        if self.cur_t is None: return
-        if self.timer.isActive(): self.timer.stop(); self.play_btn.setText("Play")
-        else: self.play()
-
-    def play(self):
-        self._last = time.perf_counter(); self.timer.start(); self.play_btn.setText("Pause")
-
-    def _on_timer(self):
-        now = time.perf_counter(); dt, self._last = min(now - self._last, 0.25), now
-        self.tick(dt)
-
-    def tick(self, dt=None):
-        """Advance the cursor by dt wall-clock seconds (default: one timer interval); LOOP_SECONDS = one pass,
-        wraps to the start. Driven by elapsed time, so slow frames skip ahead instead of stretching the blink."""
-        if self.cur_t is None: return self.timer.stop()
-        a, b = self.t_rng
-        t = self.cur_t + (self.timer.interval() / 1000 if dt is None else dt) / LOOP_SECONDS * (b - a)
-        self.set_cursor_time(a if t > b else t)
-
-    def _readout(self):
-        vd = self.view_data()
-        if self.cur_t is None or not vd:
-            return self.readout.setText("")
-        sig, ser = vd
-        self.readout.setText(f"cursor  t = {format_si(self.cur_t, 's', 5)}    "
-                             f"{sig['name']} = {format_si(value_at(ser, self.cur_t), sig['unit'], 5)}")
 
     def part_current(self, name):
         """Core current series I(part) at the cursor time, or None."""
@@ -643,7 +435,7 @@ class MainWindow(QMainWindow):
         return 0.0 if i is None else led_level(i)
 
     def set_status(self, msg, bad=False):
-        self.status.setText(msg); self.status.setStyleSheet("color: #b00020" if bad else "")
+        self.status.setText(msg); self.status.setStyleSheet(f"color: {theme.BAD}" if bad else "")
 
     def load_demo(self):
         d = Document()
@@ -652,83 +444,12 @@ class MainWindow(QMainWindow):
             d.connect(a, b)
         self._reset(d)
 
-    # --- drawing ---
     def draw(self):
-        doc, sc, cv = self.doc, self.canvas.sc, self.canvas
-        sc.clear()
-        wired = {}
-        for w in doc.wires:
-            for p in w: wired[p] = wired.get(p, 0) + 1
-        for w in doc.wires:
-            pts = wire_pts(doc, *w)
-            col, wd = (SEL, 4) if w == self.sel_wire else (HOVER, 4) if cv.hover == ("wire", w) else (WIRE, 2)
-            path = QPainterPath(pts[0])
-            for q in pts[1:]: path.lineTo(q)
-            sc.addPath(path, QPen(col, wd, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        nets = doc.nets()
-        flag = {p for f in (self.result.findings if self.result else []) for p in nets
-                if nets[p] in f.get("nodes", [])}   # pins on nets named by core findings
-        for p in flag:
-            q = pin_pos(doc, p)
-            sc.addEllipse(q.x() - 10, q.y() - 10, 20, 20, QPen(QColor("#e0a000"), 3))
-        font = QFont(); font.setPointSize(9)
-        for n, d in doc.parts.items():
-            c, sel = doc.definition(n), n == self.sel
-            col, r = (SEL if sel else INK), part_rect(d)
-            if sel:
-                sc.addRect(r.adjusted(-6, -6, 6, 6), QPen(SEL, 1.5, Qt.DashLine), QBrush(QColor(255, 230, 190, 140)))
-            cur = self.part_current(n) if c and c.show_current else None
-            if c and c.indicator == "glow" and cur is not None:
-                self._glow(d, n)
-            add_symbol(sc, d, c, col) if c else add_placeholder(sc, d, col)
-            lines = [f"{n} {summary(d['kind'], d['params']) if c else ''}".strip()]
-            if cur is not None: lines.append(format_si(cur, "A", 3))
-            for i, text in enumerate(lines):
-                t = sc.addSimpleText(text, font); t.setBrush(QBrush(col if i == 0 else BAD))
-                bw, bh = t.boundingRect().width(), t.boundingRect().height()
-                if r.height() > r.width():   # vertical part: labels to the right
-                    t.setPos(r.right() + 8, r.center().y() - bh * len(lines) / 2 + i * bh)
-                else:
-                    t.setPos(r.center().x() - bw / 2, r.bottom() + 8 + i * bh)
-            for ref in doc.pins(n):
-                p = pin_pos(doc, ref)
-                hov, pend = cv.hover == ("pin", ref), ref == self.pending_pin
-                if pend: rad, pen, br = 6, QPen(HOVER, 2), QBrush(HOVER)
-                elif ref in wired: rad, pen, br = 4.5, QPen(QColor("#1b6e1b"), 1), QBrush(OK_PIN)
-                else: rad, pen, br = 5, QPen(OPEN_PIN, 2), QBrush(Qt.white)   # unconnected: hollow red
-                if hov: rad += 2
-                sc.addEllipse(p.x() - rad, p.y() - rad, 2 * rad, 2 * rad, pen, br)
-                if wired.get(ref, 0) >= 2:   # junction: 3+ conductors meet at this pin
-                    sc.addEllipse(p.x() - 4, p.y() - 4, 8, 8, QPen(Qt.NoPen), QBrush(WIRE))
-        if self.pending_pin in {p for n in doc.parts for p in doc.pins(n)} and cv.cursor is not None:
-            a = pin_pos(doc, self.pending_pin)
-            sc.addLine(a.x(), a.y(), cv.cursor.x(), cv.cursor.y(), QPen(HOVER, 1, Qt.DashLine))
-
-    def _glow(self, d, n):
-        sc, g = self.canvas.sc, self.led_glow(n)
-        x0, y0, w, h, cx, cy = _box(d)
-        t = part_transform(d); ctr = t.map(QPointF(cx, cy))
-        if g > 0:
-            gr = QRadialGradient(ctr, 55); a = int(255 * min(1, 0.4 + g))
-            gr.setColorAt(0, QColor(255, 140, 60, a)); gr.setColorAt(0.4, QColor(255, 60, 20, a // 2))
-            gr.setColorAt(1, QColor(255, 60, 20, 0))
-            sc.addEllipse(ctr.x() - 55, ctr.y() - 55, 110, 110, QPen(Qt.NoPen), QBrush(gr))
-        rgb = [int(a + (b - a) * g) for a, b in zip(LED_OFF, LED_ON)]
-        sc.addPolygon(t.map(QPolygonF([QPointF(cx - 10, cy - 10), QPointF(cx - 10, cy + 10), QPointF(cx + 10, cy)])),
-                      QPen(Qt.NoPen), QBrush(QColor(*rgb)))
+        self.canvas.draw()
 
     def _problems(self):
         """Live pre-run diagnostics from Document.validate() (the same checks Run applies)."""
-        self.problems.clear()
-        diags = self.doc.validate() if self.doc.parts else []
-        for dg in diags:
-            it = QListWidgetItem(f"{dg['severity'].capitalize()}: {dg['message']}  [{dg['code']}]")
-            it.setForeground(QBrush(BAD if dg["severity"] == "error" else QColor("#a05000")))
-            it.setData(Qt.UserRole, dg["part"]); it.setToolTip(dg["message"])
-            self.problems.addItem(it)
-        ne = sum(dg["severity"] == "error" for dg in diags)
-        self.problems_lbl.setText(f"<b>Problems</b> ({ne} error{'s' * (ne != 1)}, {len(diags) - ne} warnings)"
-                                  if diags else "<b>Problems</b> (none)")
+        self.problems_panel.set_diagnostics(self.doc.validate() if self.doc.parts else [])
 
     def refresh(self):
         doc = self.doc
@@ -742,9 +463,11 @@ class MainWindow(QMainWindow):
         self.a_undo.setEnabled(self.hist.can_undo()); self.a_redo.setEnabled(self.hist.can_redo())
         self.inspector.show_selection(doc, self.sel, self.sel_wire, ("Transient", self._si(doc.tstop), self._si(doc.tstep)))
         self._problems()
+        n, m = len(doc.parts), len(doc.wires)
+        self.counts.setText(f"{n} part{'s' * (n != 1)}   {m} wire{'s' * (m != 1)}   grid 20 px")
 
 
 def mark(ed, err):
-    """Inline validation state of a text field: red border + tooltip message, or plain."""
-    ed.setStyleSheet("border: 2px solid #d02020; background: #fff0f0; color: #222" if err else "")
+    """Inline validation state of a text field: red border (stylesheet property `invalid`) + tooltip message."""
+    ed.setProperty("invalid", bool(err)); theme.repolish(ed)
     ed.setToolTip(err or ed.property("help") or "")

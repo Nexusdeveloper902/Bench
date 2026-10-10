@@ -133,8 +133,8 @@ def win(qapp):
 def test_window_blocked_run_has_no_plot(win, extra_root):
     win._reset(led_with_board(extra_root, wired=True))
     win.a_run.trigger()
-    assert win.state == "blocked" and "blocked" in win.state_lbl.text() and win.status.text().startswith("BLOCKED")
-    assert "U1" in win.err.text() and win.err.text().startswith("Run blocked") and not win.ax.lines
+    assert win.state == "blocked" and "blocked" in win.state_lbl.text().lower() and win.status.text().startswith("BLOCKED")
+    assert "U1" in win.err.text() and win.err_title.text() == "Run blocked" and not win.ax.lines
     assert win.probe.count() == 0 and win.stats.text() == ""
 
 

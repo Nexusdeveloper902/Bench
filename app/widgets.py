@@ -3,14 +3,64 @@ Qt only; no component knowledge: everything is passed in from a catalog Definiti
 import os
 from html import escape
 
-from PySide6.QtCore import QRectF, QSize, Qt, QUrl
-from PySide6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPen
+from functools import cache
+
+from PySide6.QtCore import QByteArray, QRectF, QSize, Qt, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QAbstractButton, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
                                QVBoxLayout, QWidget)
 
 from . import theme
 from .catalog import DOC_EXTENSIONS
 from .symbols import icon_pixmap
+
+
+# 24 x 24 line icons (stroke 1.5 in the design, round caps); the shapes are plain SVG path data.
+ICONS = {
+    "new": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    "open": '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    "save": '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>'
+            '<polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+    "undo": '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
+    "redo": '<polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/>',
+    "rotate": '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/>',
+    "trash": '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    "minus": '<line x1="5" y1="12" x2="19" y2="12"/>',
+    "plus": '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+    "fit": '<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
+    "check": '<polyline points="20 6 9 17 4 12"/>',
+    "alert": '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
+             '<line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    "xcircle": '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    "down": '<polyline points="6 9 12 15 18 9"/>',
+    "up": '<polyline points="6 15 12 9 18 15"/>',
+    "right": '<polyline points="9 6 15 12 9 18"/>',
+    "play": '<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/>',
+    "pause": '<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>',
+    "pulse": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    "hand": '<path d="M18 11V6a2 2 0 0 0-4 0v1M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/>'
+            '<path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+}
+
+
+@cache
+def svg_pixmap(name, color, px, stroke=1.5):
+    """ICONS[name] drawn in `color` into a px x px pixmap (device ratio 2 for crispness)."""
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" '
+           f'stroke-width="{stroke * 24 / px:g}" stroke-linecap="round" stroke-linejoin="round">'
+           f'{ICONS[name].replace("currentColor", color)}</svg>')
+    r, k = QSvgRenderer(QByteArray(svg.encode())), 2
+    pm = QPixmap(px * k, px * k); pm.fill(Qt.transparent); pm.setDevicePixelRatio(k)
+    p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing); r.render(p, QRectF(0, 0, px, px)); p.end()
+    return pm
+
+
+def icon(name, color=theme.TEXT_2, px=20, disabled=theme.TEXT_DISABLED):
+    """QIcon of ICONS[name]: `color` normally, `disabled` when the button is disabled."""
+    i = QIcon()
+    i.addPixmap(svg_pixmap(name, color, px), QIcon.Normal); i.addPixmap(svg_pixmap(name, disabled, px), QIcon.Disabled)
+    return i
 
 
 def label(text="", name=None, wrap=False):
@@ -179,3 +229,38 @@ def bullets(items):
     for t in items:
         l = label(f"•  {escape(t)}", wrap=True); l.setTextFormat(Qt.RichText); out.append(l)
     return out
+
+
+class StateBadge(QWidget):
+    """Run-state pill (24 px high): coloured outline, dot (hollow ring while running) and bold text. `key` is a
+    theme.STATES key."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        f = QFont(theme.FONT); f.setPixelSize(theme.SMALL_PX); f.setWeight(QFont.DemiBold); self.setFont(f)
+        self.key = "idle"; self.setFixedHeight(24); self.set_state("idle")
+
+    def text(self):
+        return theme.STATES[self.key][0]
+
+    def set_state(self, key):
+        self.key = key; self.setFixedWidth(self.fontMetrics().horizontalAdvance(self.text()) + 40); self.update()
+
+    def paintEvent(self, _):
+        text, col, hollow = theme.STATES[self.key]
+        p = QPainter(self); p.setRenderHint(QPainter.Antialiasing)
+        c = QColor(col)
+        p.setPen(QPen(c, 1.5)); p.setBrush(QColor(theme.PANEL)); p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 11, 11)
+        if hollow: p.setBrush(Qt.NoBrush); p.setPen(QPen(c, 1.5)); p.drawEllipse(QRectF(10, 8, 8, 8))
+        else: p.setPen(Qt.NoPen); p.setBrush(c); p.drawEllipse(QRectF(10, 8, 8, 8))
+        p.setPen(c); p.setFont(self.font())
+        p.drawText(QRectF(24, 0, self.width() - 24, 24), Qt.AlignVCenter | Qt.AlignLeft, text)
+
+
+def icon_label(name, color, px=16):
+    """QLabel showing ICONS[name] (message and problem rows)."""
+    l = QLabel(); l.setPixmap(svg_pixmap(name, color, px)); l.setFixedSize(px, px)
+    l.setStyleSheet("background: transparent; border: 0"); return l
+
+
+def vline(h=20):
+    f = QFrame(); f.setObjectName("vline"); f.setFixedHeight(h); return f

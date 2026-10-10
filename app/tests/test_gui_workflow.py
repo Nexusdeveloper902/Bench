@@ -106,7 +106,7 @@ def check_rc(w):
 # ---- workflows ----
 def test_rc_built_with_mouse_matches_analytic(win):
     w = win; build_rc(w)
-    assert not [p for p in w.doc.validate() if p["severity"] == "error"] and "none" in w.problems_lbl.text()
+    assert not [p for p in w.doc.validate() if p["severity"] == "error"] and w.problems.count() == 0
     w.a_run.trigger()
     assert w.state == "completed" and w.status.text().startswith("SUCCESS"), w.status.text()
     pick(w, "V(C1)")
@@ -143,7 +143,7 @@ def test_run_reset_rerun_is_deterministic(win):
     first = viewer_xy(w)
     w.a_reset.trigger()
     assert w.result is None and w.state == "idle" and not w.ax.lines and w.probe.count() == 0
-    assert "idle" in w.state_lbl.text() and not w.slider.isEnabled()
+    assert "idle" in w.state_lbl.text().lower() and not w.slider.isEnabled()
     w.a_run.trigger()
     assert w.probe.currentText() == "V(C1)" and viewer_xy(w) == first   # pick survives reset, same numbers
     w.a_rerun.trigger()
@@ -180,7 +180,7 @@ def test_inline_validation_and_units(win):
     assert w.doc.parts["C1"]["params"]["C"] == "abc"
     assert any("BAD-PARAM" in w.problems.item(i).text() for i in range(w.problems.count()))
     select(w, "C1"); assert w.inspector.boxes["C"].property("invalid")
-    type_into(w.tstop, "-1"); assert "d02020" in w.tstop.styleSheet()
+    type_into(w.tstop, "-1"); assert w.tstop.property("invalid")
 
 
 def test_no_ground_shows_diagnostics_and_details(win):
@@ -190,7 +190,7 @@ def test_no_ground_shows_diagnostics_and_details(win):
     texts = [w.problems.item(i).text() for i in range(w.problems.count())]
     assert any("NO-GROUND" in t for t in texts)                       # shown before running
     w.a_run.trigger()
-    assert w.state == "blocked" and "blocked" in w.state_lbl.text() and w.status.text().startswith("BLOCKED")
+    assert w.state == "blocked" and "blocked" in w.state_lbl.text().lower() and w.status.text().startswith("BLOCKED")
     assert w.err.isVisible() and "No ground" in w.err.text() and not w.ax.lines and w.stats.text() == ""
     w.details_btn.click()
     assert w.details.isVisible() and "ValidationError" in w.details.toPlainText()

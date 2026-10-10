@@ -12,8 +12,13 @@ LED_OFF, LED_ON, LED_GLOW = "#5A5A5A", "#FF4620", "#FF8C3C"
 APP_BG, PANEL, PANEL_ALT, BORDER, BORDER_STRONG, DIVIDER = "#F4F6F8", "#FFFFFF", "#F8F9FB", "#D9DEE5", "#B8C0CC", "#E8EBEF"
 TEXT, TEXT_2, TEXT_MUTED, TEXT_DISABLED, DISABLED_BG = "#1F2933", "#52606D", "#8A94A0", "#A8B0BA", "#EEF1F4"
 PRIMARY, PRIMARY_HOVER, PRIMARY_SOFT, ON_PRIMARY = "#1A5FB4", "#174F96", "#E7F0FB", "#FFFFFF"
-# ---- run state
+# ---- run state (blocked shares the failed colour, as in the design)
 STATE_IDLE, STATE_RUNNING, STATE_COMPLETED, STATE_FAILED, STATE_STALE = "#666666", "#1A5FB4", "#1B6E1B", "#B00020", "#A05000"
+# state key -> (badge text, colour, hollow dot)
+STATES = {"idle": ("Idle", STATE_IDLE, False), "running": ("Running", STATE_RUNNING, True),
+          "completed": ("Completed", STATE_COMPLETED, False), "failed": ("Failed", STATE_FAILED, False),
+          "blocked": ("Blocked", STATE_FAILED, False), "stale": ("Out of date", STATE_STALE, False)}
+OK_BG = "#E4F4E4"
 # ---- feedback
 INFO_FG, INFO_BG = "#0B5CAD", "#E3EEFA"
 WARN_FG, WARN_BG, WARN_BORDER = "#8A4B00", "#FFF1DC", "#E0A000"
@@ -33,6 +38,7 @@ BODY_PX, SMALL_PX, CAPTION_PX, TITLE_PX = 13, 12, 11, 16
 XS, SM, MD, LG, XL = 4, 8, 12, 16, 24
 R_SM, R_MD, R_LG, R_XL, R_PILL = 4, 6, 8, 12, 999
 LIBRARY_W, INSPECTOR_W, CARD_H, CONTROL_H = 280, 320, 84, 32
+TOPBAR_H, STATUS_H, DOCK_H, PROBLEMS_W = 48, 24, 248, 250
 
 _QSS = Template("""
 * { font-family: "$FONT"; font-size: ${BODY_PX}px; color: $TEXT; }
@@ -135,6 +141,57 @@ QFrame#rowline { background: $DIVIDER; max-height: 1px; min-height: 1px; border:
 QFrame#tablehead { background: $PANEL_ALT; }
 QLabel#th { font-size: ${CAPTION_PX}px; font-weight: 600; color: $TEXT_2; }
 QLabel#emptyicon { background: $APP_BG; border: 1px solid $BORDER; border-radius: 28px; color: $TEXT_2; font-size: 22px; }
+QFrame#topbar { background: $PANEL; border-bottom: 1px solid $BORDER; }
+QLabel#logo { background: $PRIMARY; border-radius: 6px; }
+QToolButton#appbtn { border: 0; border-radius: ${R_MD}px; padding: 2px 6px 2px 0; font-size: ${TITLE_PX}px; font-weight: 600; }
+QToolButton#appbtn:hover, QToolButton#appbtn:pressed { background: $APP_BG; }
+QToolButton#appbtn::menu-indicator { image: none; width: 0; }
+QToolButton#iconbtn { border: 0; border-radius: ${R_MD}px; padding: 0; }
+QToolButton#iconbtn:hover { background: $PRIMARY_SOFT; }
+QToolButton#iconbtn:disabled { background: transparent; }
+QFrame#vline { background: $DIVIDER; max-width: 1px; min-width: 1px; border: 0; }
+QLabel#filename { font-weight: 500; }
+QLabel#chipbox { background: $PANEL_ALT; border: 1px solid $BORDER; border-radius: ${R_SM}px; padding: 0 10px; color: $TEXT_2; font-size: ${SMALL_PX}px; }
+QLabel#fieldlabel { color: $TEXT_2; }
+QLabel#fieldlabel:disabled { color: $TEXT_DISABLED; }
+QLineEdit#topfield { padding: 0 8px; min-height: 26px; max-height: 26px; min-width: 66px; max-width: 66px; }
+QLineEdit#topfield[invalid="true"] { border: 2px solid $ERR_BORDER; background: $INVALID_BG; padding: 0 7px; min-height: 24px; max-height: 24px; min-width: 66px; max-width: 66px; }
+QPushButton#simbtn { padding: 0 8px; min-width: 78px; max-width: 78px; min-height: 30px; max-height: 30px; }
+QPushButton#simbtn[compact="true"] { min-width: 54px; max-width: 54px; }
+QLineEdit#topfield[compact="true"] { min-width: 50px; max-width: 50px; }
+QPushButton[primary="true"]:disabled { background: $DISABLED_BG; color: $TEXT_DISABLED; border-color: $DISABLED_BG; }
+QLabel#notice { border-radius: ${R_SM}px; padding: 3px 10px; font-size: ${CAPTION_PX}px; border: 1px solid $ERR_BORDER; background: $ERR_BG; color: $ERR_FG; }
+QLabel#notice[kind="warn"] { border-color: $WARN_BORDER; background: $WARN_BG; color: $WARN_FG; }
+QLabel#tip { background: $TEXT; color: $ON_PRIMARY; border-radius: ${R_SM}px; padding: 4px 8px; font-size: ${SMALL_PX}px; }
+QFrame#floating { background: $PANEL; border: 1px solid $BORDER; border-radius: ${R_LG}px; }
+QFrame#floating QToolButton { border: 0; border-radius: ${R_MD}px; padding: 0; background: transparent; }
+QFrame#floating QToolButton:hover { background: $PRIMARY_SOFT; }
+QFrame#floating QLabel#zpct { font-size: ${SMALL_PX}px; font-weight: 600; background: transparent; }
+QFrame#floating QFrame#vline { background: $DIVIDER; }
+QFrame#hintcard { background: $PANEL; border: 1px solid $BORDER; border-radius: ${R_XL}px; }
+QFrame#hintcard QLabel { background: transparent; }
+QLabel#stepnum { border: 1.5px solid $PRIMARY; border-radius: 11px; color: $PRIMARY; font-size: ${CAPTION_PX}px; font-weight: 600; }
+QLabel#steptitle { font-weight: 600; }
+QLabel#kbd { font-size: ${CAPTION_PX}px; color: $TEXT_MUTED; }
+QWidget#results, QWidget#problems { background: $PANEL; }
+QLabel#panelhead { font-weight: 600; }
+QLabel#emptytitle { font-weight: 600; }
+QLabel#timelbl, QLabel#readout { font-family: "$MONO"; font-size: ${SMALL_PX}px; }
+QLabel#stats { font-size: ${CAPTION_PX}px; color: $TEXT_2; }
+QLabel#finding { color: $WARN_FG; font-size: ${SMALL_PX}px; }
+QPlainTextEdit#devtext { background: $TEXT; color: #E4E7EB; border: 0; border-radius: ${R_MD}px; padding: 4px; }
+QProgressBar { background: $DIVIDER; border: 0; border-radius: 2px; max-height: 4px; min-height: 4px; }
+QProgressBar::chunk { background: $PRIMARY; border-radius: 2px; }
+QListWidget#problemlist { border: 0; background: transparent; outline: 0; }
+QLabel#countpill { background: $ERR_FG; color: $ON_PRIMARY; border-radius: 9px; padding: 0 6px; font-size: ${CAPTION_PX}px; font-weight: 600; }
+QFrame#banner[kind="ok"] { border-color: $STATE_COMPLETED; background: $OK_BG; }
+QFrame#banner[kind="ok"] QLabel { color: $STATE_COMPLETED; }
+QSlider::groove:horizontal { height: 4px; background: $DIVIDER; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: $PRIMARY; border-radius: 2px; }
+QSlider::handle:horizontal { background: $PANEL; border: 2px solid $PRIMARY; width: 10px; height: 10px; margin: -6px 0; border-radius: 7px; }
+QSlider::sub-page:horizontal:disabled { background: $BORDER; }
+QSlider::handle:horizontal:disabled { border-color: $BORDER_STRONG; }
+QFrame#vsep { background: $BORDER; max-width: 1px; min-width: 1px; border: 0; }
 """)
 
 
