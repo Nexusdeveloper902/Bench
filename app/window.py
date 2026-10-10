@@ -119,7 +119,7 @@ class MainWindow(QMainWindow):
         bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
         bar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)   # narrow windows compact it (see resizeEvent)
         lay = QHBoxLayout(bar); lay.setContentsMargins(16, 0, 16, 0); lay.setSpacing(8)
-        app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Sim"); app.setIcon(QPixmap(logo_pixmap()))
+        app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Bench"); app.setIcon(QPixmap(logo_pixmap()))
         app.setIconSize(QSize(28, 28)); app.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         app.setPopupMode(QToolButton.InstantPopup); app.setToolTip("Menu: file, edit, simulation, view")
         menu = QMenu(app)
@@ -360,7 +360,7 @@ class MainWindow(QMainWindow):
 
     def _title(self):
         name, dirty = os.path.basename(self.path) if self.path else "untitled", self.dirty()
-        self.setWindowTitle(f"Sim - {name}{' *' if dirty else ''}")
+        self.setWindowTitle(f"Bench - {name}{' *' if dirty else ''}")
         self.file_lbl.setText(f"{name}{f' <span style=\"color:{theme.SEL}\">●</span>' if dirty else ''}")
         self.file_lbl.setToolTip(self.path or "Not saved yet")
 

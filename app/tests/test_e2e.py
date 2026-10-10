@@ -1,4 +1,4 @@
-"""End-to-end tests against the REAL simcore (no mocks)."""
+"""End-to-end tests against the REAL benchcore (no mocks)."""
 import math
 import pytest
 from app.model import Document
@@ -164,13 +164,13 @@ def test_tstep_gt_tstop():
 
 
 def test_nonexistent_observable_surfaces_error():
-    import simcore
+    import benchcore
     d = rc()
-    s = simcore.Simulation("t")
+    s = benchcore.Simulation("t")
     nl = d.netlist()
     s.build_circuit(nl["lines"]); s.configure(**d.config())
     s.observe("v(nope)")
-    with pytest.raises(simcore.SimError) as e:
+    with pytest.raises(benchcore.SimError) as e:
         s.run(); s.observable("v(nope)")
     assert "nope" in str(e.value)
 

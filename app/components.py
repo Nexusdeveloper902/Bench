@@ -1,4 +1,4 @@
-"""SI units + parameter metadata + rotation math. Pure Python: no Qt, no simcore.
+"""SI units + parameter metadata + rotation math. Pure Python: no Qt, no benchcore.
 
 Component definitions live in app/library/**/component.toml and are loaded by app.catalog; SPICE rendering is
 app.electrical. This module only holds what both of them (and the model) share."""

@@ -1,4 +1,4 @@
-"""Second-order and inductor dynamics through the REAL path: Document -> app.sim.run_document -> simcore ->
+"""Second-order and inductor dynamics through the REAL path: Document -> app.sim.run_document -> benchcore ->
 libngspice, compared with closed-form circuit theory. No mocks.
 
 Circuits are the step response of a 5 V DC source switched on at t=0 (the core always runs `.tran ... uic`, so all

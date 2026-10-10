@@ -1,7 +1,7 @@
-"""The only module that imports simcore: Document -> Simulation -> RunResult. No SPICE text is built here;
+"""The only module that imports benchcore: Document -> Simulation -> RunResult. No SPICE text is built here;
 netlist lines, models, .save lines and vector names come from app.electrical.build_netlist."""
 from dataclasses import dataclass, field
-import simcore
+import benchcore
 from .model import Document, ModelError
 
 
@@ -49,8 +49,8 @@ def _details(kind, msg, findings=(), diagnostics=(), deck=()):
     return "\n".join(out)
 
 
-SIM_ERRORS = (simcore.InvalidCircuitError, simcore.InvalidConfigError, simcore.ConvergenceError, simcore.SolverError,
-              simcore.BackendError, simcore.UnsupportedError, simcore.UnavailableError)   # not SimError itself: see R6
+SIM_ERRORS = (benchcore.InvalidCircuitError, benchcore.InvalidConfigError, benchcore.ConvergenceError, benchcore.SolverError,
+              benchcore.BackendError, benchcore.UnsupportedError, benchcore.UnavailableError)   # not SimError itself: see R6
 
 
 def _diff(series, a, b):
@@ -80,7 +80,7 @@ def run_document(doc: Document) -> RunResult:
     deck = nl["models"] + nl["lines"] + nl["saves"]
     findings = []
     try:
-        s = simcore.Simulation("app")
+        s = benchcore.Simulation("app")
         s.build_circuit(nl["lines"])
         for m in nl["models"]: s.add_model(m)
         for line in nl["saves"]: s.add(line)

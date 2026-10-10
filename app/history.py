@@ -1,4 +1,4 @@
-"""Undo/redo as Document.to_dict() snapshots. No Qt, no simcore. tstop/tstep are not history (typing there is
+"""Undo/redo as Document.to_dict() snapshots. No Qt, no benchcore. tstop/tstep are not history (typing there is
 never undone and undo never rewinds them)."""
 import copy
 from contextlib import contextmanager

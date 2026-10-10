@@ -1,4 +1,4 @@
-"""Diode and LED through the REAL path (Document -> app.sim -> simcore -> libngspice) vs an independent Shockley
+"""Diode and LED through the REAL path (Document -> app.sim -> benchcore -> libngspice) vs an independent Shockley
 oracle solved in the test by bisection, using exactly the model card the app emits.
 
 Oracle: ngspice's DC diode (no breakdown, BV = inf) is I = Is (exp(Vj / (N Vt)) - 1) + GMIN Vj with series Rs,

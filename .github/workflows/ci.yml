@@ -22,7 +22,7 @@ jobs:
             fonts-noto-core fonts-dejavu-core \
             build-essential bison flex libsuitesparse-dev libfftw3-dev
 
-      # simcore dlopen()s the hard-coded path /usr/lib/libngspice.so and the
+      # benchcore dlopen()s the hard-coded path /usr/lib/libngspice.so and the
       # tests depend on ngspice-47 behaviour; Ubuntu's apt ngspice is older.
       - name: Cache ngspice
         id: ngcache
@@ -52,7 +52,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: simcore
+          workspaces: benchcore
 
       - uses: actions/setup-python@v5
         with:
@@ -62,16 +62,16 @@ jobs:
         run: pip install PySide6 matplotlib pytest maturin
 
       - name: Rust tests
-        run: cd simcore && cargo test
+        run: cd benchcore && cargo test
 
-      - name: Build and install simcore wheel
+      - name: Build and install benchcore wheel
         run: |
-          cd simcore
+          cd benchcore
           maturin build --release
-          pip install --force-reinstall target/wheels/simcore-*.whl
+          pip install --force-reinstall target/wheels/benchcore-*.whl
 
-      - name: simcore Python tests
-        run: cd simcore && python -m pytest -q tests/python
+      - name: benchcore Python tests
+        run: cd benchcore && python -m pytest -q tests/python
 
       - name: App tests
         run: python -m pytest -q app/tests

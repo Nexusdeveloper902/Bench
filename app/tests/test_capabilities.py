@@ -129,8 +129,8 @@ def test_core_error_is_failed_not_blocked():
                                   "BackendError", "UnsupportedError", "UnavailableError"])
 def test_each_core_error_type_is_failed_with_its_name_and_keeps_excluded(extra_root, monkeypatch, name):
     """T11/N5: every typed core error maps to 'failed', names its type, and the unsupported part stays excluded."""
-    import simcore
-    exc = getattr(simcore, name)("injected fault")
+    import benchcore
+    exc = getattr(benchcore, name)("injected fault")
     class Faulty:                                   # the core run raises the injected error; everything before it is real
         def __init__(self, *a): pass
         def build_circuit(self, *a): pass
@@ -140,7 +140,7 @@ def test_each_core_error_type_is_failed_with_its_name_and_keeps_excluded(extra_r
         def observe(self, *a): pass
         def validate(self): return []
         def run(self): raise exc
-    monkeypatch.setattr(sim.simcore, "Simulation", Faulty)
+    monkeypatch.setattr(sim.benchcore, "Simulation", Faulty)
     d = led_with_board(extra_root, wired=False)
     r = run_document(d)
     assert r.status == "failed" and r.state == "failed" and r.ok is False

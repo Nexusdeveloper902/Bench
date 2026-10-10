@@ -1,4 +1,4 @@
-"""Circuit document: parts, wires, params, nets, netlist lines. Pure Python, no Qt, no simcore."""
+"""Circuit document: parts, wires, params, nets, netlist lines. Pure Python, no Qt, no benchcore."""
 import copy, json, math, os, re
 
 from .catalog import CATALOG, PIN_RE, get
