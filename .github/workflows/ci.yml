@@ -3,6 +3,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   NGSPICE_VERSION: "47"
   NGSPICE_PREFIX: /home/runner/ngspice47
@@ -12,7 +15,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: System packages (Qt offscreen, fonts, ngspice build deps)
         run: |
@@ -26,7 +29,7 @@ jobs:
       # tests depend on ngspice-47 behaviour; Ubuntu's apt ngspice is older.
       - name: Cache ngspice
         id: ngcache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ env.NGSPICE_PREFIX }}
           key: ngspice-${{ env.NGSPICE_VERSION }}-shared-${{ runner.os }}-v1
@@ -36,6 +39,7 @@ jobs:
         run: |
           curl -fsSL -o ngspice.tar.gz \
             "https://downloads.sourceforge.net/project/ngspice/ng-spice-rework/${NGSPICE_VERSION}/ngspice-${NGSPICE_VERSION}.tar.gz"
+          echo "894e649651f1838a14095e5a5439e7d3aa63e87ede14d283173fda4fcdef675f  ngspice.tar.gz" | sha256sum -c -
           mkdir ngsrc && tar -xzf ngspice.tar.gz -C ngsrc --strip-components=1
           cd ngsrc
           ./configure --prefix="$NGSPICE_PREFIX" --with-ngshared --without-x \
@@ -49,12 +53,12 @@ jobs:
           sudo ln -sf "$NGSPICE_PREFIX/lib/libngspice.so" /usr/lib/libngspice.so
           ls -l /usr/lib/libngspice.so
 
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: benchcore
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.14"
 
