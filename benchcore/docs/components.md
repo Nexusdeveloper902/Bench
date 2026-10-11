@@ -42,7 +42,11 @@ Multi-terminal arity (MALFORMED, error): Q takes 3 nodes + model, or up to 5
 when optional nodes precede the model (`Q1 c b e s model`, `Q1 c b e s tj model`);
 J takes 3 + model; M takes 4 + model, or up to 7 (SOI). Like ngspice, the model is
 the first token after the required nodes that names a `.model` card. A line too
-short for that is MALFORMED. A MALFORMED device carries no nodes, so it adds no
+short for that is MALFORMED. So is a line with more nodes than the model's level takes
+(checked only for models defined in the deck; verified against ngspice 47): Q with a
+Gummel-Poon model (level 1/2/default) takes at most 4 nodes, only VBIC (4, 9), HICUM (8)
+and Mextram (6) take the 5th thermal node; M takes at most 4 unless the level is SOI
+(10, 55-58, 60). A MALFORMED device carries no nodes, so it adds no
 DANGLING noise.
 An unwired or capacitor-only MOSFET gate is NO-DC-PATH (the gate has no DC
 edge); a BJT base or JFET gate is not, since ngspice conducts through its

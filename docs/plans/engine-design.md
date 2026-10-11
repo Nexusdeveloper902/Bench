@@ -32,9 +32,9 @@ ngspice, so it is not collected.
 | Letter | Nodes | Model token | MALFORMED when |
 |---|---|---|---|
 | D | 2 (a k) | `parts[3]` | unchanged (`parts.len() < 4`) |
-| Q | 3 (c b e) to 5 (+ substrate, thermal node) | `pos[n+1]` | `pos.len() < n + 2` |
+| Q | 3 (c b e) to 5 (+ substrate, thermal node; 5 only for level 4/6/8/9 models) | `pos[n+1]` | `pos.len() < n + 2` |
 | J | 3 (d g s) | `pos[4]` | `pos.len() < 5` |
-| M | 4 (d g s b) to 7 (SOI nodes) | `pos[n+1]` | `pos.len() < n + 2` |
+| M | 4 (d g s b) to 7 (SOI nodes; > 4 only for SOI-level models) | `pos[n+1]` | `pos.len() < n + 2` |
 | X | `pos.len()-2` (last positional = subckt name) | - | `pos.len() < 3`, or name in `subckts` and node count != its port count |
 
 Optional-node disambiguation (mirrors ngspice, which reads the required nodes and then takes the
@@ -120,8 +120,10 @@ as `D` does. No substrate field (YAGNI). Update the module doc line "(R, C, L, V
    "control terminal reachable only through own junctions" check, if it bites.
 7. `benchcore/docs/components.md` lists finding codes: add UNDEFINED-MODEL there (task 10).
 8. `experiments/exp-safety/validator.py` is a separate Python port; not kept in sync (throwaway).
-9. A Gummel-Poon (level 1) Q given a 5th (thermal) node passes the validator but ngspice rejects it
-   (only VBIC/HICUM have that node). Not checked: it would need model levels.
+9. The pre-pass also records each `.model` card's type and `level` (default 1). For models defined
+   in the deck, Q with > 4 nodes needs level 4/6/8/9 (VBIC/Mextram/HICUM) and M with > 4 nodes
+   needs an SOI level (10, 55-58, 60); otherwise MALFORMED (ngspice 47: "Too many nodes for this
+   model type" / "too many nodes connected to instance"). Included models are not checked.
 
 ## Task 3 (Rust) edit list
 1. `validate.rs`: pre-pass in `parse_netlist` after joining lines -> `models: HashSet<String>`,

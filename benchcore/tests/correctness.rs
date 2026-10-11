@@ -863,3 +863,41 @@ fn t47_model_local_to_subckt_is_undefined_at_top_level() {
     ]);
     assert!(has(&f, "UNDEFINED-MODEL"), "{:?}", f);
 }
+
+#[test]
+fn t48_thermal_node_only_on_models_that_take_one() {
+    let deck = |q: &str, model: &str| {
+        findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q, model])
+    };
+    let bad = |f: &[benchcore::validate::Finding]| {
+        f.iter().any(|x| x.code == "MALFORMED" && x.message.contains("at most 4 nodes"))
+    };
+    let q5 = "Q1 c b 0 0 tj m";
+    // GP (default level, level 1, level 2): 5 nodes rejected by ngspice ("Too many nodes")
+    for m in [".model m NPN(IS=1e-14)", ".model m NPN(LEVEL=1)", ".model m NPN LEVEL = 2", ".model m npn level=1"] {
+        let f = deck(q5, m);
+        assert!(bad(&f), "{}: {:?}", m, f);
+        assert!(f.iter().any(|x| x.message.contains("'m'")), "message names the model: {:?}", f);
+    }
+    // GP with 4 nodes is fine
+    assert!(!deck("Q1 c b 0 0 m", ".model m NPN(IS=1e-14)").iter().any(|x| x.severity == "error"));
+    // VBIC (4, 9) and HICUM L2 (8): 5th node accepted; level spelled any way, inside or outside parens
+    for m in [".model m NPN LEVEL=4", ".model m NPN(level = 4)", ".model m npn (is=1e-14 LEVEL = 8)", ".model m NPN\n+ LEVEL=9"] {
+        let lines: Vec<&str> = m.split('\n').collect();
+        let mut d = vec!["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5];
+        d.extend(lines);
+        let f = findings(&d);
+        assert!(!f.iter().any(|x| x.severity == "error"), "{}: {:?}", m, f);
+    }
+    // `+` continuation carrying the level, and the model card after the device (as above)
+    let f = findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5, ".model m NPN(IS=1e-14", "+ level = 1)"]);
+    assert!(bad(&f), "{:?}", f);
+    // model not defined in the deck (.include): stays permissive
+    let f = findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5, ".include x.lib"]);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    // MOSFET: non-SOI levels take 4 nodes (ngspice: "too many nodes connected to instance")
+    let m5 = |model: &str| findings(&["t", "Vdd d 0 5", "Vg g 0 2", "M1 d g 0 0 x m", "Rx x 0 1", model]);
+    assert!(bad(&m5(".model m NMOS(LEVEL=1)")));
+    assert!(bad(&m5(".model m NMOS")));
+    assert!(!m5(".model m NMOS LEVEL=10").iter().any(|x| x.severity == "error"));
+}

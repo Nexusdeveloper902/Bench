@@ -230,7 +230,8 @@ fn parse_netlist(lines: &[String]) -> Parsed {
         }
     }
     // pre-pass: .model / .subckt names (devices precede .model cards in a deck)
-    let mut models: HashSet<String> = HashSet::new();
+    // name -> (type word, level); type/level feed the max-node-count check for Q and M
+    let mut models: HashMap<String, (String, u32)> = HashMap::new();
     let mut subckts: HashMap<String, usize> = HashMap::new();
     let mut has_include = false;
     let mut depth = 0usize; // a .model inside a .subckt body is local to it in ngspice
@@ -244,7 +245,17 @@ fn parse_netlist(lines: &[String]) -> Parsed {
         }
         match tok[0].to_lowercase().as_str() {
             ".model" if depth == 0 => {
-                models.insert(tok[1].to_lowercase());
+                // `npn(is=1 level = 4)`, `npn level=4`: parens and '=' act as separators
+                let rest = tok[2..].join(" ").to_lowercase().replace(['(', ')', '='], " ");
+                let w: Vec<&str> = rest.split_whitespace().collect();
+                let level = w
+                    .iter()
+                    .position(|t| *t == "level")
+                    .and_then(|i| w.get(i + 1))
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .map_or(1, |v| v as u32);
+                let ty = w.first().map_or(String::new(), |t| t.to_string());
+                models.insert(tok[1].to_lowercase(), (ty, level));
             }
             ".subckt" => {
                 depth += 1;
@@ -259,7 +270,7 @@ fn parse_netlist(lines: &[String]) -> Parsed {
         }
     }
     let undefined_model = |name: &str, model: &str, nodes: &[String]| -> Option<Finding> {
-        if has_include || models.contains(&model.to_lowercase()) {
+        if has_include || models.contains_key(&model.to_lowercase()) {
             return None;
         }
         Some(finding(
@@ -448,12 +459,12 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                     _ => (3, 3),
                 };
                 let n = (min..=max)
-                    .find(|&k| pos.get(k + 1).is_some_and(|t| models.contains(t)))
+                    .find(|&k| pos.get(k + 1).is_some_and(|t| models.contains_key(t)))
                     .unwrap_or(min);
                 let mut nodes = vec![];
                 if pos.len() < n + 2 {
                     // only a short line is malformed: node and model names are separate namespaces
-                    let msg = match pos.iter().skip(1).find(|t| models.contains(*t)) {
+                    let msg = match pos.iter().skip(1).find(|t| models.contains_key(*t)) {
                         Some(m) => format!(
                             "{}: model name '{}' in a node position; {} needs {} nodes + model",
                             name, m, kind, n
@@ -462,8 +473,34 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                     };
                     errors.push(finding("MALFORMED", "error", msg, vec![], vec![name.clone()], "authoring"));
                 } else {
-                    nodes = pos[1..=n].to_vec();
-                    errors.extend(undefined_model(&name, &pos[n + 1], &nodes));
+                    // ngspice (47, probed): GP and other non-VBIC/HICUM/Mextram BJTs take at most 4
+                    // nodes; non-SOI MOSFET levels at most 4. Only checked for models defined here.
+                    let cap = match (kind, models.get(&pos[n + 1])) {
+                        ('Q', Some((ty, lv))) if ty == "npn" || ty == "pnp" => {
+                            Some(if [4, 6, 8, 9].contains(lv) { 5 } else { 4 })
+                        }
+                        ('M', Some((ty, lv))) if ty == "nmos" || ty == "pmos" => {
+                            Some(if [10, 55, 56, 57, 58, 60].contains(lv) { 7 } else { 4 })
+                        }
+                        _ => None,
+                    };
+                    if cap.is_some_and(|c| n > c) {
+                        let (_, lv) = &models[&pos[n + 1]];
+                        errors.push(finding(
+                            "MALFORMED",
+                            "error",
+                            format!(
+                                "{}: model '{}' (level {}) accepts at most {} nodes, got {} (ngspice: too many nodes)",
+                                name, pos[n + 1], lv, cap.unwrap(), n
+                            ),
+                            vec![],
+                            vec![name.clone()],
+                            "authoring",
+                        ));
+                    } else {
+                        nodes = pos[1..=n].to_vec();
+                        errors.extend(undefined_model(&name, &pos[n + 1], &nodes));
+                    }
                 }
                 devices.push(Device {
                     name,
