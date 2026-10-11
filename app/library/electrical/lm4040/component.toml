@@ -1,0 +1,63 @@
+format = 1
+id = "LM4040"
+version = 1
+name = "LM4040 precision shunt reference"
+description = "Two-terminal precision shunt (zener-like) reference with fixed voltage options 2.048-10 V: about 0.2 Ω dynamic impedance and 45 µA minimum operating current."
+designator = "D"
+category = "Electrical"
+subcategory = "Voltage references"
+aliases = ["LM4040", "LM4040-N", "shunt reference"]
+keywords = ["reference", "shunt", "precision", "LM4040", "zener"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Typical behaviour only: no initial tolerance grade, temperature coefficient or noise; the voltage options are the ones the LM4040-N family lists.",
+               "Below the minimum operating current the voltage falls as a 45 µA resistive load (VR / 45 µA) would; reverse (forward-biased) conduction is not modelled."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm4040-n.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "k"
+name = "K"
+at = [0, 20]
+description = "Cathode (+)"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [80, 20]
+description = "Anode (-)"
+
+[[params]]
+key = "vr"
+label = "Reverse breakdown voltage"
+unit = "V"
+kind = "choice"
+choices = ["2.048", "2.5", "3.0", "4.096", "5.0", "8.192", "10.0"]
+default = "2.5"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {k} {a} bench_lm4040 VR={vr}"
+defs = ["models:analog/shunt_ref.lib"]
+body = """
+.subckt bench_lm4040 k a params: VR=2.5
+* VR is specified at IR = 100 uA; ZK 0.18 ohm from the 2.5 mV change between 1 mA and 15 mA
+X1 k a k bench_shunt VREF0={VR-0.18*100u} SLOPE=0 ZK=0.18 IREF=0
+Rmin k a {VR/45u}
+.ends bench_lm4040
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_shunt wired as a two-terminal reference, fitted to the LM4040-N datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm4040-n.pdf"
+version = "TI SNOS633N, December 1991, revised August 2025 (2.5 V tables, grades C-E)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals (2.5 V option): VR at IR = 100 uA; IRMIN 45 uA; dVR/dIR 0.3 mV (IRMIN to 1 mA) and 2.5 mV (1 to 15 mA). The same structure is used for the other voltage options."

@@ -1,0 +1,137 @@
+format = 1
+id = "CD4066"
+version = 1
+name = "CD4066B quad bilateral switch"
+description = "Four independent CMOS bilateral analog switches, each closed while its control input is high (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog switches"
+aliases = ["CD4066", "CD4066B", "4066"]
+keywords = ["analog switch", "bilateral", "CMOS", "4066", "CD4000"]
+tags = ["cmos", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Constant on resistance RON (default: the 5 V typical; the datasheet gives 180 Ω at 10 V and 125 Ω at 15 V): no dependence on supply or signal voltage, no capacitance, charge injection or switching time.",
+               "Signals are not clamped to the supplies, and the control threshold is (VDD + VSS) / 2 with 50 mV hysteresis; the control inputs draw no current."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4066b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 200]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "SIG A"
+at = [0, 40]
+description = "Switch A in/out (pin 1)"
+
+[[pins]]
+id = "a2"
+name = "SIG A"
+at = [120, 40]
+description = "Switch A out/in (pin 2)"
+
+[[pins]]
+id = "b2"
+name = "SIG B"
+at = [120, 60]
+description = "Switch B out/in (pin 3)"
+
+[[pins]]
+id = "b1"
+name = "SIG B"
+at = [0, 60]
+description = "Switch B in/out (pin 4)"
+
+[[pins]]
+id = "cb"
+name = "CTRL B"
+at = [0, 140]
+description = "Control B (pin 5)"
+
+[[pins]]
+id = "cc"
+name = "CTRL C"
+at = [0, 160]
+description = "Control C (pin 6)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 200]
+description = "Negative supply / ground (pin 7)"
+
+[[pins]]
+id = "c1"
+name = "SIG C"
+at = [0, 80]
+description = "Switch C in/out (pin 8)"
+
+[[pins]]
+id = "c2"
+name = "SIG C"
+at = [120, 80]
+description = "Switch C out/in (pin 9)"
+
+[[pins]]
+id = "d2"
+name = "SIG D"
+at = [120, 100]
+description = "Switch D out/in (pin 10)"
+
+[[pins]]
+id = "d1"
+name = "SIG D"
+at = [0, 100]
+description = "Switch D in/out (pin 11)"
+
+[[pins]]
+id = "cd"
+name = "CTRL D"
+at = [0, 180]
+description = "Control D (pin 12)"
+
+[[pins]]
+id = "ca"
+name = "CTRL A"
+at = [0, 120]
+description = "Control A (pin 13)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "470"
+min = 0
+min_exclusive = true
+help = "Typical: 470 Ω at VDD = 5 V, 180 Ω at 10 V, 125 Ω at 15 V"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {a2} {b2} {b1} {cb} {cc} {vss} {c1} {c2} {d2} {d1} {cd} {ca} {vdd} bench_cd4066 RON={ron}"
+defs = ["models:analog/aswitch.lib"]
+body = """
+.subckt bench_cd4066 a1 a2 b2 b1 cb cc vss c1 c2 d2 d1 cd ca vdd params: RON=470
+XA a1 a2 ca vdd vss bench_asw_hi RON={RON}
+XB b1 b2 cb vdd vss bench_asw_hi RON={RON}
+XC c1 c2 cc vdd vss bench_asw_hi RON={RON}
+XD d1 d2 cd vdd vss bench_asw_hi RON={RON}
+.ends bench_cd4066
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; four bench_asw_hi switches, on resistance from the CD4066B datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4066b.pdf"
+version = "TI SCHS051J, November 1998, revised August 2024 (section 5.5)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "rON typical 470 ohm (VDD = 5 V), 180 ohm (10 V), 125 ohm (15 V), 25 C, RL = 10 kohm; off-state leakage +-0.1 uA max (ROFF 1 Gohm)."

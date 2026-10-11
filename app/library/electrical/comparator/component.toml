@@ -1,0 +1,108 @@
+format = 1
+id = "COMPARATOR"
+version = 1
+name = "Comparator (open collector)"
+description = "Generic voltage comparator with an open-collector output: the output sinks to ground through RON while the - input is above the + input, and floats otherwise (add a pull-up)."
+designator = "U"
+category = "Electrical"
+subcategory = "Comparators"
+aliases = ["voltage comparator", "open-collector comparator"]
+keywords = ["comparator", "open collector", "threshold", "hysteresis", "schmitt", "subcircuit"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["The input stage is referenced to ground, not to the supply pins: the common-mode range, input protection and output behaviour with the supply off are not modelled.",
+               "The output is an ideal switch with a constant on resistance (no saturation curve or current limit); the response time does not depend on the load.",
+               "Gain 200 V/mV; the response time falls from TOD5 at 5 mV overdrive to TD at large overdrive (TOD5 must be larger than TD)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp"
+name = "+"
+at = [0, 20]
+description = "Non-inverting input"
+
+[[pins]]
+id = "inn"
+name = "-"
+at = [0, 60]
+description = "Inverting input"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Open-collector output (needs a pull-up)"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply"
+
+[[pins]]
+id = "vee"
+name = "GND"
+at = [40, 80]
+description = "Ground / negative supply; the output switch returns here"
+
+[[params]]
+key = "vos"
+label = "Input offset"
+unit = "V"
+default = "0"
+
+[[params]]
+key = "ron"
+label = "Output on resistance"
+unit = "Ω"
+default = "35"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "td"
+label = "Response time (large overdrive)"
+unit = "s"
+default = "300n"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "tod5"
+label = "Response time (5 mV overdrive)"
+unit = "s"
+default = "1.3u"
+min = 0
+min_exclusive = true
+help = "Must be larger than the large-overdrive response time"
+
+[[params]]
+key = "iq"
+label = "Supply current"
+unit = "A"
+default = "0.4m"
+min = 0
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp} {inn} {vcc} {vee} {out} bench_comparator_oc VOS={vos} RON={ron} TD={td} TOD5={tod5} IQ={iq}"
+defs = ["models:analog/comparator.lib"]
+body = """
+.subckt bench_comparator_oc inp inn vcc gn out params: VOS=0 RON=35 TD=300n TOD5=1.3u IQ=0.4m
+X1 inp inn vcc gn out gn bench_comparator VOS={VOS} RON={RON} TD={TD} TOD5={TOD5} IQ={IQ}
+.ends bench_comparator_oc
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; comparator from a clamped transconductance stage, an RC delay and a voltage-controlled output switch"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Closed forms used by the tests: threshold at v(+) = v(-) + VOS; with positive feedback the two thresholds follow from the resistor network."

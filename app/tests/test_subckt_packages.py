@@ -427,7 +427,7 @@ def test_every_shipped_part_passes_the_static_validator():
         else:
             assert (status, errors, warnings, limits) == ("full", [], [], []), i
         assert sec.get("_status", "full") == ("limited" if i in {"MOV", "SAT_AMP"} else "full"), i   # stored for X parts only
-    assert len(seen) == 86 and set(REFS) <= seen and len(CATALOG.defs) == 92
+    assert len(seen) == 111 and set(REFS) <= seen and len(CATALOG.defs) == 117     # + 25 batch C parts, all `full`
 
 
 BRES = ".subckt bres a b params: R=1k\nB1 a b I=V(a,b)/{R}\n.ends bres\n"      # behavioural resistor

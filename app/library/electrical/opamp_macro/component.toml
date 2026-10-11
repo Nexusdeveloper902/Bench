@@ -1,0 +1,135 @@
+format = 1
+id = "OPAMP_MACRO"
+version = 1
+name = "Op-amp macromodel (supplies, slew rate, rails)"
+description = "Generic voltage-feedback op-amp with supply pins: open-loop gain, gain-bandwidth, slew rate, output swing to each rail, input offset, bias current, output resistance and quiescent current are parameters."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["op-amp macromodel", "generic op-amp"]
+keywords = ["op amp", "operational amplifier", "slew rate", "gbw", "rails", "saturation", "macromodel", "subcircuit"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
+               "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only.",
+               "One dominant pole (90° phase margin at any gain); no second pole, noise, offset drift, CMRR or PSRR; the slew limit is symmetric."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp"
+name = "+"
+at = [0, 20]
+description = "Non-inverting input"
+
+[[pins]]
+id = "inn"
+name = "-"
+at = [0, 60]
+description = "Inverting input"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply"
+
+[[pins]]
+id = "vee"
+name = "V-"
+at = [40, 80]
+description = "Negative supply (ground for single-supply use)"
+
+[[params]]
+key = "aol"
+label = "Open-loop gain"
+default = "100k"
+min = 1
+help = "DC open-loop voltage gain, V/V"
+
+[[params]]
+key = "gbw"
+label = "Gain-bandwidth"
+unit = "Hz"
+default = "1meg"
+min = 0
+min_exclusive = true
+help = "Unity-gain frequency of the open-loop response"
+
+[[params]]
+key = "sr"
+label = "Slew rate (V/s)"
+default = "500k"
+min = 0
+min_exclusive = true
+help = "Maximum output rate, V/s: 0.5 V/µs = 500k"
+
+[[params]]
+key = "vos"
+label = "Input offset"
+unit = "V"
+default = "0"
+help = "Offset voltage in series with the + input"
+
+[[params]]
+key = "ib"
+label = "Input bias current"
+unit = "A"
+default = "0"
+help = "Current into each input; negative for PNP inputs (current out of the pin)"
+
+[[params]]
+key = "rout"
+label = "Output resistance"
+unit = "Ω"
+default = "50"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "iq"
+label = "Supply current"
+unit = "A"
+default = "1m"
+min = 0
+help = "Quiescent current from V+ to V-"
+
+[[params]]
+key = "vdroph"
+label = "Swing loss to V+"
+unit = "V"
+default = "1.5"
+min = 0
+help = "Output stops this far below V+ (before the output resistance)"
+
+[[params]]
+key = "vdropl"
+label = "Swing loss to V-"
+unit = "V"
+default = "1.5"
+min = 0
+help = "Output stops this far above V-"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp} {inn} {vcc} {vee} {out} bench_opamp_macro AOL={aol} GBW={gbw} SR={sr} VOS={vos} IB={ib} ROUT={rout} IQ={iq} VDROPH={vdroph} VDROPL={vdropl}"
+defs = ["models:analog/opamp_macro.lib"]
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; textbook two-stage op-amp macromodel (clamped transconductance stage, integrator, rail clamps, output buffer)"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Closed forms used by the tests: SR = slew rate; small-signal unity-gain rise time 0.35/GBW; gain A/(1+A*beta) with A = AOL; output limits V+ - VDROPH and V- + VDROPL."

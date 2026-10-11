@@ -1,0 +1,126 @@
+format = 1
+id = "NE556"
+version = 1
+name = "NE556 dual timer"
+description = "Two independent 555 timers in one 14-pin package sharing VCC and GND."
+designator = "U"
+category = "Electrical"
+subcategory = "Timers"
+aliases = ["556", "NE556", "LM556", "dual 555"]
+keywords = ["556", "555", "dual timer", "astable", "monostable", "oscillator"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Two NE555 models (see NE555) sharing VCC and GND; no crosstalk between the halves.",
+               "RESET has only a 1 GΩ leak to GND, so an unwired RESET holds the timer in reset: tie it to VCC when unused (as the datasheet says)."]
+docs = ["https://www.ti.com/lit/ds/symlink/ne556.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 160]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "dis1"
+name = "1DISCH"
+at = [0, 120]
+description = "Discharge 1 (pin 1)"
+
+[[pins]]
+id = "thr1"
+name = "1THRES"
+at = [0, 60]
+description = "Threshold 1 (pin 2)"
+
+[[pins]]
+id = "ctrl1"
+name = "1CONT"
+at = [0, 80]
+description = "Control voltage 1 (pin 3)"
+
+[[pins]]
+id = "reset1"
+name = "1RESET"
+at = [0, 100]
+description = "Reset 1, active low (pin 4)"
+
+[[pins]]
+id = "out1"
+name = "1OUT"
+at = [0, 140]
+description = "Output 1 (pin 5)"
+
+[[pins]]
+id = "trig1"
+name = "1TRIG"
+at = [0, 40]
+description = "Trigger 1 (pin 6)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 160]
+description = "Ground (pin 7)"
+
+[[pins]]
+id = "trig2"
+name = "2TRIG"
+at = [120, 40]
+description = "Trigger 2 (pin 8)"
+
+[[pins]]
+id = "out2"
+name = "2OUT"
+at = [120, 140]
+description = "Output 2 (pin 9)"
+
+[[pins]]
+id = "reset2"
+name = "2RESET"
+at = [120, 100]
+description = "Reset 2, active low (pin 10)"
+
+[[pins]]
+id = "ctrl2"
+name = "2CONT"
+at = [120, 80]
+description = "Control voltage 2 (pin 11)"
+
+[[pins]]
+id = "thr2"
+name = "2THRES"
+at = [120, 60]
+description = "Threshold 2 (pin 12)"
+
+[[pins]]
+id = "dis2"
+name = "2DISCH"
+at = [120, 120]
+description = "Discharge 2 (pin 13)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Supply (pin 14)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {dis1} {thr1} {ctrl1} {reset1} {out1} {trig1} {gnd} {trig2} {out2} {reset2} {ctrl2} {thr2} {dis2} {vcc} bench_ne556"
+defs = ["models:analog/ne555.lib"]
+body = """
+.subckt bench_ne556 dis1 thr1 ctrl1 reset1 out1 trig1 gn trig2 out2 reset2 ctrl2 thr2 dis2 vcc
+XA gn trig1 out1 reset1 ctrl1 thr1 dis1 vcc bench_ne555
+XB gn trig2 out2 reset2 ctrl2 thr2 dis2 vcc bench_ne555
+.ends bench_ne556
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; two bench_ne555 instances"
+url = "https://www.ti.com/lit/ds/symlink/ne556.pdf"
+version = "TI SLFS023I, April 1978, revised March 2025"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Each half is the NE555 fit (TI SLFS022K values); pinout from the NE556 datasheet."

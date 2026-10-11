@@ -1,0 +1,54 @@
+* Linear regulator cores (project-authored: transistor pass element and current limit, ideal reference and error amp).
+* bench_linreg_pos in out refm ret: NPN Darlington pass element (collector = in) regulating v(out) - v(refm) to VREF.
+*   - Error amplifier: Gea (1 mS) into Rea (10 Mohm) || Cea: DC gain 10000, one pole at about 20 Hz (loop crossover about 200 kHz; it
+*     stays stable with or without an output capacitor). Its output ea is clamped between
+*     out - 0.6 V and (in - VHD) + 0.6 V: the upper clamp sets the dropout, VHD + 2 Vbe + I * RSC.
+*   - Eb buffers ea and drives the Darlington base through Rb; Dw keeps ea within 0.6 V of the base, so ea does not
+*     wind up while the current limit holds the base down. The error amplifier and buffer are referenced to node 0
+*     (an ideal internal reference): their small currents, the base current included, flow to ground, not to a pin.
+*   - Current limit: Qcl pulls the base down when I * RSC reaches about 0.65 V (no foldback, no thermal limit).
+*   - IQ flows from in to ret (bias current).
+*   78xx: refm = ret = GND pin. LM317 / adjustable LDO: refm = ADJ, ret = out (operating current returns to the output).
+* bench_linreg_neg: the same structure mirrored (PNP Darlington, collector = in, VREF negative).
+.subckt bench_linreg_pos in out refm ret params: VREF=5 VHD=0.9 IQ=4.2m RSC=0.3
+.model bench_lr_n1 NPN(Is=1e-14 Bf=100 Vaf=100)
+.model bench_lr_n2 NPN(Is=1e-12 Bf=100 Vaf=100 Rb=0.2 Re=0.02 Rc=0.05)
+.model bench_lr_d D(Is=1e-14)
+Iq in ret DC {IQ}
+Vhd in inx DC {VHD}
+Vref rf refm DC {VREF}
+Gea 0 ea rf out 1m
+Rea ea 0 10meg
+Cea ea 0 0.8n
+Dclu ea inx bench_lr_d
+Dcll out ea bench_lr_d
+Eb bd 0 ea 0 1
+Rb bd b 2k
+Dw ea b bench_lr_d
+Q1 in b m bench_lr_n1
+Q2 in m e bench_lr_n2
+Rbe m e 10k
+Rsc e out {RSC}
+Qcl b e out bench_lr_n1
+.ends bench_linreg_pos
+.subckt bench_linreg_neg in out refm ret params: VREF=-5 VHD=0.9 IQ=1.5m RSC=0.3
+.model bench_lr_p1 PNP(Is=1e-14 Bf=100 Vaf=100)
+.model bench_lr_p2 PNP(Is=1e-12 Bf=100 Vaf=100 Rb=0.2 Re=0.02 Rc=0.05)
+.model bench_lr_dn D(Is=1e-14)
+Iq ret in DC {IQ}
+Vhd inx in DC {VHD}
+Vref rf refm DC {VREF}
+Gea 0 ea rf out 1m
+Rea ea 0 10meg
+Cea ea 0 0.8n
+Dclu inx ea bench_lr_dn
+Dcll ea out bench_lr_dn
+Eb bd 0 ea 0 1
+Rb bd b 2k
+Dw b ea bench_lr_dn
+Q1 in b m bench_lr_p1
+Q2 in m e bench_lr_p2
+Rbe m e 10k
+Rsc out e {RSC}
+Qcl b e out bench_lr_p1
+.ends bench_linreg_neg

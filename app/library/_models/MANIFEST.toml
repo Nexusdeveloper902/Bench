@@ -57,3 +57,57 @@ license = "MIT"
 retrieved = "2026-10-11"
 sha256 = "6f05c99c193141fd7a04e3fe59952c8bb2702d7cbccc9f6345996448c0302221"
 changes = "none"
+
+[[file]]
+path = "analog/opamp_macro.lib"
+origin = "project"
+source = "Bench project; two-stage op-amp macromodel (clamped transconductance, integrator, rail clamps, output buffer) from linear E/G sources, diodes and passives"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "b4ac04a1ed7d982b6116430c2db741adf526e7965b66dfdcb6ca1d6414f6a979"
+changes = "none"
+
+[[file]]
+path = "analog/comparator.lib"
+origin = "project"
+source = "Bench project; open-collector comparator from a clamped transconductance stage, an RC delay and a voltage-controlled switch"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "da100021ee6d3fd6a8dd1ae3746bb218e49234658714b1933817e498c01c6417"
+changes = "none"
+
+[[file]]
+path = "analog/ne555.lib"
+origin = "project"
+source = "Bench project; behavioural 555 timer (resistor divider, switch comparators, switch latch, fitted output and discharge stages)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "ceaa6441158740246f8b84fe1e8d6b884d5aea9b39ec6d681a0d0c71a1469bc0"
+changes = "none"
+
+[[file]]
+path = "analog/shunt_ref.lib"
+origin = "project"
+source = "Bench project; shunt reference core (ideal reference with slope and dynamic-impedance terms, error amplifier, NPN output)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "7d7228b71ec5b8b15a5459e0361a7784a84c75105c6d0cbd461c494868805d74"
+changes = "none"
+
+[[file]]
+path = "analog/linreg.lib"
+origin = "project"
+source = "Bench project; linear regulator cores (Darlington pass element, current-limit transistor, ideal reference and single-pole error amplifier), positive and negative"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "0b75d4fd945a468e8badd4c8aa29a7e118d9e19e442cf44030e672fefec48fa8"
+changes = "none"
+
+[[file]]
+path = "analog/aswitch.lib"
+origin = "project"
+source = "Bench project; CMOS analog switch element (voltage-controlled switch with constant on resistance and a (VDD + VSS) / 2 threshold)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "9441749330c1238a28b1fac885a71f86cbd30f41607ee421f11a2b2d593b3d97"
+changes = "none"

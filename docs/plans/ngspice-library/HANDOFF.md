@@ -682,3 +682,93 @@ datasheet I read; the limitations say so. The LED colours are typical Vf ranges 
 - Reverse recovery of the power MOSFET body diodes and the BAT54 (below the model's resolution or not in the card).
 - AC analysis of anything (G17).
 - Temperature dependence, noise and thermal limits everywhere.
+
+## Task 7: library batch C, analog ICs (done, not committed)
+
+### Packages added (25; catalog 92 -> 117 definitions; all `sim:electrical`, all X parts, all MIT, all status `full`)
+Kinds: behavioral 23, project-subckt 2 (INAMP_3OA, ULN2003). Verification: analytic 5 (OPAMP_MACRO, INAMP_3OA, COMPARATOR,
+NE555, NE556), reference 20. Every body is built from R, C, V, I, D, Q, S and linear E/F/G/H/POLY sources, so the validator
+analyses all of it (no B sources, no `limited` part). Category Electrical (as OPAMP/OPAMP_DUAL); new subcategories Comparators,
+Timers, Voltage references, Regulators, Analog switches, Audio amplifiers, Drivers (op-amps stay in "Analog ICs").
+`ALL_CATEGORIES` is unchanged.
+
+| family | packages (id) | structure |
+|---|---|---|
+| op-amps | OPAMP_MACRO (generic: AOL, GBW, SR, VOS, IB, ROUT, IQ, VDROPH/L) | `bench_opamp_macro`: clamped G stage, integrator (SR exact), rail clamps, buffer |
+| op-amps | LM358, TL072, MCP6002 (duals), LM324 (quad, nests the macro 4x), LM741 | named fits of `bench_opamp_macro` |
+| in-amp | INAMP_3OA (gain 1 + 50k/RG) | three generic macros + matched resistors (no commercial fit) |
+| comparators | COMPARATOR (generic, open collector), LM393 (dual), LM311 (separate emitter pin, 15 ohm, 140 ns) | `bench_comparator`: clamped G stage, RC delay, S output switch |
+| timers | NE555, NE556 | `bench_ne555`: 3x5k divider, S-switch comparators and latch, fitted output/discharge |
+| references | TL431, LM4040 (2.048-10 V choice) | `bench_shunt`: ideal Vref + SLOPE*VKA + ZK*IK, error amp, NPN sink |
+| regulators | REG_78XX (5/8/10/12/15/24 V choice), REG_79XX (-5/-8/-12/-15), LM317, LM337, AMS1117 (1.5-5.0 V choice) | `bench_linreg_pos/neg`: Darlington pass, Qcl current limit, single-pole error amp |
+| switches | CD4066 (quad), CD4051 (8:1), CD4052 (dual 4:1), CD4053 (triple 2:1) | `bench_asw_hi/lo`: S switch + constant RON, (VDD+VSS)/2 threshold; muxes are switch trees (RON split per level) |
+| audio / driver | LM386 (gain 20/200 via pins 1-8), ULN2003 (7 Darlingtons, 2.7k/7.2k/3k, clamp diodes) | LM386: datasheet 150/1.35k/15k network; ULN2003: transistor level, inline nested subckt |
+
+- Shared files (6, `origin = project`, MIT, MANIFEST records with sha256): `_models/analog/opamp_macro.lib`, `comparator.lib`,
+  `ne555.lib`, `shunt_ref.lib`, `linreg.lib`, `aswitch.lib`. One parameterized 78xx and one 79xx package instead of per-voltage
+  packages (dropout, bias and current limit do not differ meaningfully across the voltage options in the datasheets).
+- 25 `symbol.svg` files (op-amp triangle for singles/comparators, zener-style for TL431/LM4040, pinned boxes for the rest). Pin
+  descriptions carry the DIP/TO-220 pin numbers.
+
+### Datasheets (all fetched and read; URL + literature number/revision in each `provenance`)
+| part | datasheet |
+|---|---|
+| LM358 / LM324 / LM741 / TL072 | TI SLOS068AB (Oct 2024) / SLOS066AE (Sep 2025) / SNOSC25D (Oct 2015) / SLOS080W (Jul 2025) |
+| MCP6002 | Microchip DS20001733L |
+| LM393 / LM311 | TI SLCS005AH (Apr 2025) / SLCS007K (Mar 2017) |
+| NE555 / NE556 | TI SLFS022K (Mar 2026) / SLFS023I (Mar 2025) |
+| TL431 / LM4040 | TI SLVS543S (May 2024) / SNOS633N (Aug 2025) |
+| uA78xx / uA79xx / LM317 / LM337 | TI SLVS056P (Jan 2015) / SLVS058H (Nov 2006) / SLVS044Z (Apr 2025) / SLVS047L (Jan 2015) |
+| AMS1117 | Advanced Monolithic Systems ds1117.pdf (no revision printed) |
+| CD4066B / CD4051B-53B / LM386 / ULN2003A | TI SCHS051J (Aug 2024) / SCHS047O (May 2026) / SNAS545D (Aug 2023) / SLRS027T (Mar 2025) |
+Every named part's first limitation reads "Behavioral fit to datasheet typicals, not a vendor macromodel." (ULN2003: "not a
+vendor SPICE model"). No vendor macromodel was used (G10: needs ngbehavior=ps; G19: no redistribution terms verified).
+Values that are assumptions (not in the datasheet) are listed in each package's limitations/notes: LM358/LM324 ROUT 50 ohm,
+LM741 GBW from the 0.3 us rise time, MCP6002 VOS 0, LM311 large-overdrive delay, LM317/LM337 dropout, LM337 ADJ-current direction.
+
+### Modelling notes and engine facts found
+- **Op-amp**: SR = G2 x 10 V / 1 nF exactly (stage 1 clamped at +-10 V); GBW from G1*R1*G2/(2 pi C2). Rail clamp sources are widened
+  by the clamp diode's drop at the full integrator current (`{VDROPx + N*Vt*ln(SR*1e-9/Is)}`), so a saturated output sits exactly
+  VDROP inside the rail. Output current comes from node 0, not the supply pins (limitation). **G20**: without the extra stage-1
+  pole (100 x GBW) the model rang numerically at tstep near 1/GBW and returned a wrong "success".
+- **Offset sign**: VOS is added to the + input (`Vos ip inp`), so the output offset is +VOS x noise gain.
+- **Regulators**: the error amplifier and base buffer are referenced to node 0. Referencing them to `ret` (= OUT for LM317) made the
+  Darlington a transconductor in the loop and oscillated with an output cap. A supply step overshoots up to about 0.6 V into large
+  output caps (limitation). Dropout fit: VHD 0.65 (78xx, 2 V at 1 A), -0.4 (79xx, 1.1 V), -0.5 (AMS1117, about 1.3 V floor at 0.8 A,
+  datasheet max; 1.1 typ not reachable with a Darlington pass).
+- **Shunt reference**: a slow internal pole (0.8 nF) left 2 mV of unsettled error at 100-200 us; 10 pF settles and stays stable
+  with 0-100 uF cathode caps.
+- **555**: latch priorities come from path resistances (RESET 1 ohm > set 10 > clear 100 > hold 1k). A subckt port named `gnd` is
+  node 0 (validator MALFORMED), so ports use `gn`. RESET has only a 1 G leak: a floating RESET holds the timer reset (limitation).
+- The S-switch comparators have 1 mV hysteresis; astable timing matches 1.44/((RA+2RB)C) within 3 % only when RA >> discharge
+  RON (19 ohm, fitted to 0.15 V at 8 mA): with RA = 1k the real-part effect lengthens the period about 2 %.
+
+### Tests
+- New `app/tests/test_library_batch_c.py`: **91 tests**, real ngspice through `Document` -> `run_document`:
+  load/kind/provenance/`full` status for all 25, catalog size, shared file emitted once; closed-loop gain G/(1+G/A) (6 gains); VOS and
+  IB closed forms; slew-limited steps (generic x2, TL072 20 V/us, LM741, LM358 0.3, MCP6002 0.6); unity-buffer 10-90 % rise =
+  ln9/(2 pi GBW) (2 GBWs); rail saturation; LM358/TL072/LM741/MCP6002 swing rows; LM324 quad with four gains (multi-instance) and
+  supply current; in-amp gain 1+50k/RG (3 RG); comparator threshold at VOS, Schmitt hysteresis with feedback (closed form),
+  LM393 1.3 us / 0.3 us response and VOL, LM311 at 50 mA and 140 ns; 555 astable (3 cases) and monostable 1.1RC (2), output levels
+  (5 datasheet rows), CONT override and RESET, two 555s cascaded (astable triggering monostable), 556 two astables; TL431 Vref,
+  ZKA, divider formula, off state; LM4040 (3 voltages); 78xx regulation/bias/dropout/current limit (5 V and 12 V), 79xx, LM317
+  (3 divider settings) and minimum load, LM337 (2), AMS1117; CD4066 on/off resistance and RON at 15 V, CD4051 all 8 addresses and
+  INH, CD4052/CD4053 selection; LM386 gain 20/200/resistor-set and 325 mW into 8 ohm; ULN2003 sinking loads, input current, clamp
+  diode catching an inductive kick.
+- Existing tests whose pinned counts changed (no assertion weakened):
+  - `test_catalog.py`: Electrical simulated set now includes `BATCH_C` (imported from the new file).
+  - `test_library_batch_b.py`: exact size 92 -> `>=` (batch C pins the exact 117).
+  - `test_library_ui.py`: nav counts 117 / 107 / 2 / 2, simulated-only 112 / 107 / 0 / 1.
+  - `test_subckt_packages.py`: 111 simulated parts, 117 definitions; all new parts `full`.
+  - `test_components.py` gained one contract row per new simulated part (no edit).
+  - `test_milestone_e2e.py` unchanged: the LM393/LM311 descriptions were reworded ("switching delay") because "esp" matched
+    "response" (G23).
+- Full suite `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`: **1041 passed** (925 + 91 new + 25 contract rows).
+  `python3 -m app.catalog`: 117 definitions, 0 errors, 0 warnings. No Rust change (no wheel rebuild, no cargo run).
+
+### Skipped (and why)
+- Switching regulators: no verifiable averaged/switch-level model (G21). Vendor PSpice macromodels (G10, G19).
+- Separate per-voltage 78xx/79xx/AMS1117 packages (one parameterized package each), LM2904/LM358B/TL074 variants (same fits or
+  different designs; aliases only where the datasheet is shared), AMS1117-ADJ (LM317 covers the adjustable structure).
+- Supply-dependent CD4066/405x RON (constant RON param, datasheet values in the help text), output current limits of op-amps and
+  comparators, foldback and thermal limits of regulators, LM311 strobe/balance and LM741 offset null pins (G22), AC behaviour (G17).

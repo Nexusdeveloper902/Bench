@@ -1,0 +1,27 @@
+* bench_shunt: shunt voltage regulator / reference core (project-authored; ideal reference and error amplifier,
+* NPN output transistor). Ports: k (cathode) a (anode) r (reference input).
+* The output transistor Q1 sinks cathode current until v(r) - v(a) equals the effective reference
+*   Vref = VREF0 + SLOPE * v(k, a) + ZK * Ik,
+* where SLOPE models the datasheet's dVref/dVKA and ZK its dynamic impedance (Ik is sensed by Vsk, a 0 V source).
+* Error amplifier: Gea (1 mS) into 10 Mohm || 10 pF (DC gain 10000, one pole at 1.6 kHz), output clamped to a - 0.6 V ..
+* a + 2.1 V; Eb buffers it into the base of Q1 through 1 kohm. IREF flows into r. The cathode cannot source
+* current (Q1 only sinks). VREF0, SLOPE (V/V), ZK (ohm), IREF (A).
+.subckt bench_shunt k a r params: VREF0=2.4965 SLOPE=-1.4m ZK=0.2 IREF=2u
+.model bench_sh_npn NPN(Is=1e-14 Bf=200 Vaf=100 Rc=0.5)
+.model bench_sh_d D(Is=1e-14)
+Iref r a DC {IREF}
+Rr r a 1e9
+Vr0 n1 a DC {VREF0}
+Eka n2 n1 k a {SLOPE}
+Hz vr n2 Vsk {ZK}
+Gea a ea r vr 1m
+Rea ea a 10meg
+Cea ea a 10p
+Vcl cl a DC 1.5
+Dcu ea cl bench_sh_d
+Dcl a ea bench_sh_d
+Eb bd a ea a 1
+Rb bd b 1k
+Vsk k kc DC 0
+Q1 kc b a bench_sh_npn
+.ends bench_shunt

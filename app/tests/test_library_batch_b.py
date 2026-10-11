@@ -90,7 +90,7 @@ def test_package_loads_validates_and_records_its_kind(id):
 
 
 def test_catalog_grew_by_exactly_these_parts():
-    assert set(NEW) <= set(CATALOG.defs) and len(NEW) == 35 and len(CATALOG.defs) == 57 + len(NEW)
+    assert set(NEW) <= set(CATALOG.defs) and len(NEW) == 35 and len(CATALOG.defs) >= 57 + len(NEW)     # batch C adds more (test_library_batch_c.py)
 
 
 def test_shared_model_files_have_matching_records_and_are_emitted_once():

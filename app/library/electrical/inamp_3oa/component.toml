@@ -1,0 +1,98 @@
+format = 1
+id = "INAMP_3OA"
+version = 1
+name = "Instrumentation amplifier (3 op-amp)"
+description = "Classic three-op-amp instrumentation amplifier: two input buffers with 25 kΩ feedback resistors and an external gain resistor RG between the RG pins (gain = 1 + 50 kΩ / RG), then a unity-gain difference stage referenced to REF."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["in-amp", "instrumentation amplifier", "INA"]
+keywords = ["instrumentation", "differential", "bridge", "gain resistor", "op amp", "subcircuit"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Built from three generic bench_opamp_macro amplifiers (GBW 1 MHz, 0.5 V/µs, 1.5 V swing loss) and ideal matched 25 kΩ / 10 kΩ resistors: CMRR is limited only by the op-amps' finite gain.",
+               "Not a fit to any commercial part (INA128, AD620 and similar use different internal values and current-feedback inputs).",
+               "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inn"
+name = "-IN"
+at = [0, 40]
+description = "Inverting input"
+
+[[pins]]
+id = "rg1"
+name = "RG"
+at = [0, 60]
+description = "Gain resistor, inverting side"
+
+[[pins]]
+id = "rg2"
+name = "RG"
+at = [0, 80]
+description = "Gain resistor, non-inverting side"
+
+[[pins]]
+id = "inp"
+name = "+IN"
+at = [0, 100]
+description = "Non-inverting input"
+
+[[pins]]
+id = "vee"
+name = "V-"
+at = [40, 120]
+description = "Negative supply"
+
+[[pins]]
+id = "ref"
+name = "REF"
+at = [80, 60]
+description = "Output reference"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inn} {rg1} {rg2} {inp} {vee} {ref} {out} {vcc} bench_inamp3"
+defs = ["models:analog/opamp_macro.lib"]
+body = """
+.subckt bench_inamp3 inn rg1 rg2 inp vee ref out vcc
+* input buffers: A1 drives o1, its inverting input is rg1; A2 drives o2 from rg2
+XA1 inn rg1 vcc vee o1 bench_opamp_macro
+XA2 inp rg2 vcc vee o2 bench_opamp_macro
+R1 o1 rg1 25k
+R2 o2 rg2 25k
+* unity-gain difference stage: out - ref = o2 - o1
+R3 o1 m 10k
+R4 m out 10k
+R5 o2 p 10k
+R6 p ref 10k
+XA3 p m vcc vee out bench_opamp_macro
+.ends bench_inamp3
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; textbook three-op-amp instrumentation amplifier nesting bench_opamp_macro"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Gain = 1 + 2 * 25 kohm / RG; output = gain * (v(+IN) - v(-IN)) + v(REF)."

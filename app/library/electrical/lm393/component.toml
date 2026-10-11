@@ -1,0 +1,90 @@
+format = 1
+id = "LM393"
+version = 1
+name = "LM393 dual comparator"
+description = "Dual single-supply comparator with open-collector outputs (8 pins), behavioural fit: 2 mV offset, about 140 mV low output at 4 mA, 1.3 µs switching delay at 5 mV overdrive, 0.3 µs for a TTL step."
+designator = "U"
+category = "Electrical"
+subcategory = "Comparators"
+aliases = ["LM393", "LM393N", "LM2903"]
+keywords = ["comparator", "dual", "open collector", "LM393"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "The input stage is referenced to ground, not to the supply pins: the common-mode range, input protection and output behaviour with the supply off are not modelled.",
+               "The output is an ideal switch with a constant on resistance (no saturation curve or current limit); the response time does not depend on the load."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm393.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "out1"
+name = "OUT1"
+at = [80, 40]
+description = "Open-collector output 1 (pin 1)"
+
+[[pins]]
+id = "in1n"
+name = "IN1-"
+at = [0, 60]
+description = "Inverting input 1 (pin 2)"
+
+[[pins]]
+id = "in1p"
+name = "IN1+"
+at = [0, 40]
+description = "Non-inverting input 1 (pin 3)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 120]
+description = "Ground (pin 4)"
+
+[[pins]]
+id = "in2p"
+name = "IN2+"
+at = [0, 80]
+description = "Non-inverting input 2 (pin 5)"
+
+[[pins]]
+id = "in2n"
+name = "IN2-"
+at = [0, 100]
+description = "Inverting input 2 (pin 6)"
+
+[[pins]]
+id = "out2"
+name = "OUT2"
+at = [80, 60]
+description = "Open-collector output 2 (pin 7)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [40, 0]
+description = "Supply (pin 8)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {out1} {in1n} {in1p} {gnd} {in2p} {in2n} {out2} {vcc} bench_lm393"
+defs = ["models:analog/comparator.lib"]
+body = """
+.subckt bench_lm393 out1 in1n in1p gn in2p in2n out2 vcc
+XA in1p in1n vcc gn out1 gn bench_comparator AVD=200k VOS=2m IB=-25n RON=35 TD=300n TOD5=1.3u IQ=225u
+XB in2p in2n vcc gn out2 gn bench_comparator AVD=200k VOS=2m IB=-25n RON=35 TD=300n TOD5=1.3u IQ=225u
+.ends bench_lm393
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; two bench_comparator instances with parameters fitted to the LM393 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm393.pdf"
+version = "TI SLCS005AH, October 1979, revised April 2025 (sections 5.8 and 5.11, LM393 without A suffix)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals at VCC = 5 V: VIO 2 mV; IIB -25 nA; AVD 200 V/mV; VOL 130-150 mV at IOL = 4 mA (RON 35 ohm); ICC 0.45 mA for both; response 1.3 us (100 mV step, 5 mV overdrive, 5.1 kohm to 5 V) and 0.3 us (TTL-level step)."

@@ -1,0 +1,68 @@
+format = 1
+id = "LM741"
+version = 1
+name = "LM741 op-amp"
+description = "Classic single bipolar op-amp on ±15 V, behavioural fit: 0.5 V/µs, about 1.2 MHz unity-gain bandwidth, ±14 V swing into 10 kΩ and ±13 V into 2 kΩ."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["LM741", "uA741", "741"]
+keywords = ["op amp", "741", "LM741", "operational amplifier", "dual supply"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "The offset-null pins (1, 5) and NC (8) are not part of the symbol; the 25 mA short-circuit limit and input common-mode limit (±13 V) are not modelled.",
+               "GBW 1.2 MHz is derived from the 0.3 µs unity-gain rise time (0.35 / tr); ROUT 200 Ω and the 0.73 V swing loss are fitted to the two swing rows, not measured values.",
+               "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
+               "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm741.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp"
+name = "+"
+at = [0, 20]
+description = "Non-inverting input (pin 3)"
+
+[[pins]]
+id = "inn"
+name = "-"
+at = [0, 60]
+description = "Inverting input (pin 2)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output (pin 6)"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply (pin 7)"
+
+[[pins]]
+id = "vee"
+name = "V-"
+at = [40, 80]
+description = "Negative supply (pin 4)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp} {inn} {vcc} {vee} {out} bench_opamp_macro AOL=200k GBW=1.2meg SR=0.5meg VOS=1m IB=80n ROUT=200 IQ=1.7m VDROPH=0.73 VDROPL=0.73"
+defs = ["models:analog/opamp_macro.lib"]
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_opamp_macro with parameters fitted to the LM741 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm741.pdf"
+version = "TI SNOSC25D, May 1998, revised October 2015 (section 6.5, LM741)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals at VS = +-15 V: VOS 1 mV; IB 80 nA; large-signal gain 200 V/mV; swing +-14 V (RL >= 10 kohm) and +-13 V (RL >= 2 kohm); SR 0.5 V/us; unity-gain rise time 0.3 us; supply current 1.7 mA. Fit: GBW = 0.35 / 0.3 us = 1.2 MHz; ROUT 200 ohm and VDROP 0.73 V reproduce both swing rows."

@@ -1,0 +1,162 @@
+format = 1
+id = "CD4052"
+version = 1
+name = "CD4052B dual 4-channel analog multiplexer"
+description = "Dual 4:1 CMOS analog multiplexer: address inputs A, B connect X(2B + A) to X COM and Y(2B + A) to Y COM; INH high opens every channel (16 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog switches"
+aliases = ["CD4052", "CD4052B", "4052", "74HC4052"]
+keywords = ["multiplexer", "mux", "analog switch", "dual 4 channel", "4052", "CD4000"]
+tags = ["cmos", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Constant on resistance RON (default: the 5 V typical; the datasheet gives 180 Ω at 10 V and 125 Ω at 15 V): no dependence on supply or signal voltage, no capacitance, charge injection or switching time.",
+               "Signals are not clamped to the supplies, and the control threshold is (VDD + VSS) / 2 with 50 mV hysteresis; the control inputs draw no current.",
+               "VEE (the analog negative supply) is only tied to VSS through 1 GΩ: signal levels below VSS are not limited, and the logic levels are referred to VDD and VSS only."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4051b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 200]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "y0"
+name = "Y0"
+at = [0, 120]
+description = "Y channel 0 (pin 1)"
+
+[[pins]]
+id = "y2"
+name = "Y2"
+at = [0, 160]
+description = "Y channel 2 (pin 2)"
+
+[[pins]]
+id = "ycom"
+name = "Y COM"
+at = [120, 60]
+description = "Y common (pin 3)"
+
+[[pins]]
+id = "y3"
+name = "Y3"
+at = [0, 180]
+description = "Y channel 3 (pin 4)"
+
+[[pins]]
+id = "y1"
+name = "Y1"
+at = [0, 140]
+description = "Y channel 1 (pin 5)"
+
+[[pins]]
+id = "inh"
+name = "INH"
+at = [120, 120]
+description = "Inhibit, high = all off (pin 6)"
+
+[[pins]]
+id = "vee"
+name = "VEE"
+at = [80, 200]
+description = "Analog negative supply (pin 7)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [40, 200]
+description = "Ground (pin 8)"
+
+[[pins]]
+id = "b"
+name = "B"
+at = [120, 100]
+description = "Address B, weight 2 (pin 9)"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [120, 80]
+description = "Address A, weight 1 (pin 10)"
+
+[[pins]]
+id = "x3"
+name = "X3"
+at = [0, 100]
+description = "X channel 3 (pin 11)"
+
+[[pins]]
+id = "x0"
+name = "X0"
+at = [0, 40]
+description = "X channel 0 (pin 12)"
+
+[[pins]]
+id = "xcom"
+name = "X COM"
+at = [120, 40]
+description = "X common (pin 13)"
+
+[[pins]]
+id = "x1"
+name = "X1"
+at = [0, 60]
+description = "X channel 1 (pin 14)"
+
+[[pins]]
+id = "x2"
+name = "X2"
+at = [0, 80]
+description = "X channel 2 (pin 15)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "470"
+min = 0
+min_exclusive = true
+help = "Typical: 470 Ω at VDD = 5 V, 180 Ω at 10 V, 125 Ω at 15 V"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {y0} {y2} {ycom} {y3} {y1} {inh} {vee} {vss} {b} {a} {x3} {x0} {xcom} {x1} {x2} {vdd} bench_cd4052 RON={ron}"
+defs = ["models:analog/aswitch.lib"]
+body = """
+.subckt bench_cd4052 y0 y2 ycom y3 y1 inh vee vss b a x3 x0 xcom x1 x2 vdd params: RON=470
+* per section: INH (on while low), then the B and A levels; each of the 3 switches in a path has RON/3
+XIX xcom xn inh vdd vss bench_asw_lo RON={RON/3}
+XBX0 xn xb0 b vdd vss bench_asw_lo RON={RON/3}
+XBX1 xn xb1 b vdd vss bench_asw_hi RON={RON/3}
+XAX0 xb0 x0 a vdd vss bench_asw_lo RON={RON/3}
+XAX1 xb0 x1 a vdd vss bench_asw_hi RON={RON/3}
+XAX2 xb1 x2 a vdd vss bench_asw_lo RON={RON/3}
+XAX3 xb1 x3 a vdd vss bench_asw_hi RON={RON/3}
+XIY ycom yn inh vdd vss bench_asw_lo RON={RON/3}
+XBY0 yn yb0 b vdd vss bench_asw_lo RON={RON/3}
+XBY1 yn yb1 b vdd vss bench_asw_hi RON={RON/3}
+XAY0 yb0 y0 a vdd vss bench_asw_lo RON={RON/3}
+XAY1 yb0 y1 a vdd vss bench_asw_hi RON={RON/3}
+XAY2 yb1 y2 a vdd vss bench_asw_lo RON={RON/3}
+XAY3 yb1 y3 a vdd vss bench_asw_hi RON={RON/3}
+Rvee vee vss 1e9
+.ends bench_cd4052
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; trees of bench_asw switches decoding the address, on resistance from the CD405xB datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4051b.pdf"
+version = "TI SCHS047O (CD4051B, CD4052B, CD4053B), August 1998, revised May 2026"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "rON typical 470 ohm (VDD = 5 V), 180 ohm (10 V), 125 ohm (15 V); truth table: INH low, channel = 2B + A in both sections."

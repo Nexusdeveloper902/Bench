@@ -1,0 +1,21 @@
+* CMOS analog switch elements (project-authored, simplified): a voltage-controlled switch with a constant on
+* resistance, controlled by a digital input against the logic threshold (VDD + VSS) / 2.
+* bench_asw_hi a b ctrl vdd vss: on while ctrl is above the threshold. bench_asw_lo: on while ctrl is below it.
+* RON: on resistance (ohm, constant: no dependence on supply or signal voltage). ROFF: off-state leak (ohm).
+* The switch passes any voltage (no clamping to the supply rails) and adds no charge injection or capacitance.
+* The control input draws no current; a 1 Gohm resistor to vss gives it a DC path.
+.model bench_asw_sw SW(VT=0 VH=0.05 RON=1m ROFF=1e12)
+.subckt bench_asw_hi a b ctrl vdd vss params: RON=470 ROFF=1e9
+Emid mid 0 POLY(2) vdd 0 vss 0 0 0.5 0.5
+Rctl ctrl vss 1e9
+S1 a x ctrl mid bench_asw_sw
+Ron x b {RON}
+Roff a b {ROFF}
+.ends bench_asw_hi
+.subckt bench_asw_lo a b ctrl vdd vss params: RON=470 ROFF=1e9
+Emid mid 0 POLY(2) vdd 0 vss 0 0 0.5 0.5
+Rctl ctrl vss 1e9
+S1 a x mid ctrl bench_asw_sw
+Ron x b {RON}
+Roff a b {ROFF}
+.ends bench_asw_lo
