@@ -1,0 +1,44 @@
+format = 1
+id = "Q_2N2222"
+version = 1
+name = "2N2222 NPN transistor"
+description = "General-purpose silicon NPN bipolar transistor with a fixed SPICE model (common-emitter gain of about 250 at low current)."
+designator = "Q"
+category = "Electrical"
+subcategory = "Semiconductors"
+aliases = ["2N2222", "NPN BJT"]
+keywords = ["transistor", "bjt", "npn", "amplifier", "switch", "bipolar", "silicon"]
+tags = ["semiconductor", "TO-18", "TO-92"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Fixed model of commonly published values, not a fit to one datasheet.",
+               "Temperature dependence and noise are not modelled.",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+icon = "icon.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} q2n2222"
+models = [".model q2n2222 NPN(Is=14.34f Xti=3 Eg=1.11 Vaf=74.03 Bf=255.9 Ne=1.307 Ise=14.34f Ikf=.2847 Xtb=1.5 Br=6.092 Nc=2 Isc=0 Ikr=0 Rc=1 Cjc=7.306p Mjc=.3416 Vjc=.75 Fc=.5 Cje=22.01p Mje=.377 Vje=.75 Tr=46.91n Tf=411.1p Itf=.6 Vtf=1.7 Xtf=3 Rb=10)"]
+current = "@{dev_lc}[ic]"

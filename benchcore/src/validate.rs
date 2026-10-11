@@ -188,6 +188,16 @@ fn short_edge(kind: char, dev: &Device) -> bool {
     }
 }
 
+/// Lower-cased tokens before the first `key=value` param (also `key = value`, spaced).
+fn positional(parts: &[&str]) -> Vec<String> {
+    parts
+        .iter()
+        .enumerate()
+        .take_while(|(i, t)| !t.contains('=') && !parts.get(i + 1).is_some_and(|n| n.starts_with('=')))
+        .map(|(_, t)| t.to_lowercase())
+        .collect()
+}
+
 struct Parsed {
     devices: Vec<Device>,
     b_exprs: Vec<(String, Vec<String>, String, bool)>, // name, pnodes, expr, is_v
@@ -219,6 +229,62 @@ fn parse_netlist(lines: &[String]) -> Parsed {
             joined.push(raw.clone());
         }
     }
+    // pre-pass: .model / .subckt names (devices precede .model cards in a deck)
+    // name -> (type word, level); type/level feed the max-node-count check for Q and M
+    let mut models: HashMap<String, (String, u32)> = HashMap::new();
+    let mut subckts: HashMap<String, usize> = HashMap::new();
+    let mut has_include = false;
+    let mut depth = 0usize; // a .model inside a .subckt body is local to it in ngspice
+    for raw in joined.iter() {
+        let tok: Vec<&str> = raw.split_whitespace().collect();
+        if tok.first().is_some_and(|t| t.eq_ignore_ascii_case(".ends")) {
+            depth = depth.saturating_sub(1);
+        }
+        if tok.len() < 2 {
+            continue;
+        }
+        match tok[0].to_lowercase().as_str() {
+            ".model" if depth == 0 => {
+                // `npn(is=1 level = 4)`, `npn level=4`: parens and '=' act as separators
+                let rest = tok[2..].join(" ").to_lowercase().replace(['(', ')', '='], " ");
+                let w: Vec<&str> = rest.split_whitespace().collect();
+                let level = w
+                    .iter()
+                    .position(|t| *t == "level")
+                    .and_then(|i| w.get(i + 1))
+                    .and_then(|v| v.parse::<f64>().ok())
+                    .map_or(1, |v| v as u32);
+                let ty = w.first().map_or(String::new(), |t| t.to_string());
+                models.insert(tok[1].to_lowercase(), (ty, level));
+            }
+            ".subckt" => {
+                depth += 1;
+                let ports = positional(&tok[2..])
+                    .iter()
+                    .take_while(|t| *t != "params:")
+                    .count();
+                subckts.insert(tok[1].to_lowercase(), ports);
+            }
+            ".include" | ".inc" | ".lib" => has_include = true,
+            _ => {}
+        }
+    }
+    let undefined_model = |name: &str, model: &str, nodes: &[String]| -> Option<Finding> {
+        if has_include || models.contains_key(&model.to_lowercase()) {
+            return None;
+        }
+        Some(finding(
+            "UNDEFINED-MODEL",
+            "error",
+            format!(
+                "{}: model '{}' has no .model card in this deck (ngspice aborts the run)",
+                name, model
+            ),
+            nodes.to_vec(),
+            vec![name.to_string()],
+            "authoring",
+        ))
+    };
     let mut in_control = false;
     let mut in_subckt = false;
     let mut seen: HashSet<String> = HashSet::new();
@@ -295,6 +361,8 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                         vec![name.clone()],
                         "authoring",
                     ));
+                } else if kind == 'D' {
+                    errors.extend(undefined_model(&name, parts[3], &nodes));
                 }
                 devices.push(Device {
                     name,
@@ -381,25 +449,59 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                     kind,
                 });
             }
-            'Q' | 'J' => {
-                let nodes = if parts.len() >= 4 {
-                    lower_nodes(&parts[1..4])
-                } else {
-                    vec![]
+            'Q' | 'J' | 'M' => {
+                let pos = positional(&parts);
+                // ngspice reads the required nodes, then takes the first token that names a
+                // model; tokens before it are optional nodes (Q: substrate, thermal; M: SOI).
+                let (min, max) = match kind {
+                    'Q' => (3, 5),
+                    'M' => (4, 7),
+                    _ => (3, 3),
                 };
-                devices.push(Device {
-                    name,
-                    nodes,
-                    raw: s.to_string(),
-                    kind,
-                });
-            }
-            'M' => {
-                let nodes = if parts.len() >= 5 {
-                    lower_nodes(&parts[1..5])
+                let n = (min..=max)
+                    .find(|&k| pos.get(k + 1).is_some_and(|t| models.contains_key(t)))
+                    .unwrap_or(min);
+                let mut nodes = vec![];
+                if pos.len() < n + 2 {
+                    // only a short line is malformed: node and model names are separate namespaces
+                    let msg = match pos.iter().skip(1).find(|t| models.contains_key(*t)) {
+                        Some(m) => format!(
+                            "{}: model name '{}' in a node position; {} needs {} nodes + model",
+                            name, m, kind, n
+                        ),
+                        None => format!("{}: {} needs {} nodes + model", name, kind, n),
+                    };
+                    errors.push(finding("MALFORMED", "error", msg, vec![], vec![name.clone()], "authoring"));
                 } else {
-                    vec![]
-                };
+                    // ngspice (47, probed): GP and other non-VBIC/HICUM/Mextram BJTs take at most 4
+                    // nodes; non-SOI MOSFET levels at most 4. Only checked for models defined here.
+                    let cap = match (kind, models.get(&pos[n + 1])) {
+                        ('Q', Some((ty, lv))) if ty == "npn" || ty == "pnp" => {
+                            Some(if [4, 6, 8, 9].contains(lv) { 5 } else { 4 })
+                        }
+                        ('M', Some((ty, lv))) if ty == "nmos" || ty == "pmos" => {
+                            Some(if [10, 55, 56, 57, 58, 60].contains(lv) { 7 } else { 4 })
+                        }
+                        _ => None,
+                    };
+                    if cap.is_some_and(|c| n > c) {
+                        let (_, lv) = &models[&pos[n + 1]];
+                        errors.push(finding(
+                            "MALFORMED",
+                            "error",
+                            format!(
+                                "{}: model '{}' (level {}) accepts at most {} nodes, got {} (ngspice: too many nodes)",
+                                name, pos[n + 1], lv, cap.unwrap(), n
+                            ),
+                            vec![],
+                            vec![name.clone()],
+                            "authoring",
+                        ));
+                    } else {
+                        nodes = pos[1..=n].to_vec();
+                        errors.extend(undefined_model(&name, &pos[n + 1], &nodes));
+                    }
+                }
                 devices.push(Device {
                     name,
                     nodes,
@@ -416,11 +518,37 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                 });
             }
             'X' => {
-                let nodes = if parts.len() >= 3 {
-                    lower_nodes(&parts[1..parts.len() - 1])
+                let pos = positional(&parts);
+                let mut nodes = vec![];
+                if pos.len() < 3 {
+                    errors.push(finding(
+                        "MALFORMED",
+                        "error",
+                        format!("{}: X needs nodes + subcircuit name", name),
+                        vec![],
+                        vec![name.clone()],
+                        "authoring",
+                    ));
                 } else {
-                    vec![]
-                };
+                    let n = pos.len() - 2;
+                    match subckts.get(&pos[pos.len() - 1]) {
+                        Some(&ports) if ports != n => errors.push(finding(
+                            "MALFORMED",
+                            "error",
+                            format!(
+                                "{}: subcircuit '{}' has {} ports, instance gives {} nodes",
+                                name,
+                                pos[pos.len() - 1],
+                                ports,
+                                n
+                            ),
+                            vec![],
+                            vec![name.clone()],
+                            "authoring",
+                        )),
+                        _ => nodes = pos[1..=n].to_vec(),
+                    }
+                }
                 devices.push(Device {
                     name,
                     nodes,
@@ -692,9 +820,13 @@ pub fn validate(lines: &[String]) -> Vec<Finding> {
     let mut adj: HashMap<String, Vec<(String, String)>> = HashMap::new();
     for d in devices {
         if dc_conductance(d.kind, d) && d.nodes.len() >= 2 {
-            if d.kind == 'Q' || d.kind == 'M' || d.kind == 'J' {
+            if matches!(d.kind, 'Q' | 'M' | 'J' | 'X') {
                 for i in 0..d.nodes.len() {
                     for j in (i + 1)..d.nodes.len() {
+                        // MOSFET gate (index 1) is insulated: no DC edge
+                        if d.kind == 'M' && (i == 1 || j == 1) {
+                            continue;
+                        }
                         let a = d.nodes[i].clone();
                         let b = d.nodes[j].clone();
                         adj.entry(a.clone()).or_default().push((b.clone(), d.name.clone()));
@@ -740,7 +872,7 @@ pub fn validate(lines: &[String]) -> Vec<Finding> {
                 "NO-DC-PATH",
                 "error",
                 format!(
-                    "node '{}' has no DC path to ground (capacitors/current-sources are open at DC)",
+                    "node '{}' has no DC path to ground (capacitors/current-sources/MOSFET gates are open at DC)",
                     n
                 ),
                 vec![n.clone()],

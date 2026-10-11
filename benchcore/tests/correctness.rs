@@ -737,3 +737,167 @@ fn t24_unknown_observable_is_error() {
         }
     }
 }
+
+// ---- multi-terminal device validation (docs/plans/engine-design.md, task 4) ----
+
+use benchcore::validate::validate;
+
+const NM: &str = ".model NM NMOS(LEVEL=1 VTO=1 KP=1m)";
+const Q22: &str = ".model q2n2222 NPN(IS=14.34f BF=255.9)";
+
+fn findings(lines: &[&str]) -> Vec<benchcore::validate::Finding> {
+    validate(&lines.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+}
+
+fn has(f: &[benchcore::validate::Finding], code: &str) -> bool {
+    f.iter().any(|x| x.code == code)
+}
+
+fn has_on(f: &[benchcore::validate::Finding], code: &str, node: &str) -> bool {
+    f.iter().any(|x| x.code == code && x.nodes.iter().any(|n| n == node))
+}
+
+#[test]
+fn t40_malformed_arity() {
+    // 2-node Q: model name sits in node position
+    let f = findings(&["t", "V1 c 0 5", "Q1 c 0 q2n2222", Q22]);
+    assert!(has(&f, "MALFORMED"), "{:?}", f);
+    assert!(!has_on(&f, "DANGLING", "q2n2222"), "{:?}", f);
+    // MOSFET with 3 nodes: model in node position
+    let f = findings(&["t", "V1 d 0 5", "Vg g 0 2", "M1 d g s NM W=2u L=1u", NM]);
+    assert!(has(&f, "MALFORMED"), "{:?}", f);
+    assert!(f.iter().any(|x| x.code == "MALFORMED" && x.message.contains("node position")), "{:?}", f);
+    // J with 2 nodes
+    assert!(has(&findings(&["t", "V1 d 0 5", "J1 d 0 jm", ".model jm NJF"]), "MALFORMED"));
+    // X with too few nodes for the subckt
+    let f = findings(&["t", "V1 n 0 5", "X1 n 0 0 foo", ".subckt foo a b", "R1 a b 1k", ".ends"]);
+    assert!(has(&f, "MALFORMED"), "{:?}", f);
+}
+
+#[test]
+fn t41_undefined_model() {
+    let q = ["t", "V1 c 0 5", "Vb b 0 1", "Q1 c b 0 qnope"];
+    assert!(has(&findings(&q), "UNDEFINED-MODEL"));
+    // .include may supply the card: check skipped
+    let mut inc = q.to_vec();
+    inc.push(".include x.lib");
+    assert!(!has(&findings(&inc), "UNDEFINED-MODEL"));
+    let f = findings(&["t", "V1 a 0 5", "D1 a 0 dnope"]);
+    assert!(has(&f, "UNDEFINED-MODEL"), "{:?}", f);
+    // card after the device: order independent
+    let f = findings(&["t", "V1 out 0 5", "R1 out a 1k", "D1 a 0 DLED", ".model DLED D(IS=1e-18)"]);
+    assert!(!has(&f, "UNDEFINED-MODEL") && !has(&f, "MALFORMED"), "{:?}", f);
+}
+
+#[test]
+fn t42_four_node_q_ok() {
+    for q in ["Q1 c b 0 0 q2n2222", "Q1 c b 0 q2n2222 2"] {
+        let f = findings(&["t", "V1 vcc 0 5", "Rc vcc c 1k", "Vb b 0 1", q, Q22]);
+        assert!(f.is_empty(), "{}: {:?}", q, f);
+    }
+}
+
+#[test]
+fn t43_mos_floating_gate() {
+    let base = ["t", "Vdd vdd 0 5", "Rd vdd d 10k", "M1 d g 0 0 NM", NM];
+    let f = findings(&base);
+    let g = f.iter().find(|x| x.code == "NO-DC-PATH").expect("NO-DC-PATH");
+    assert_eq!(g.nodes, vec!["g".to_string()]);
+    // a capacitor is no DC path
+    let mut c = base.to_vec();
+    c.push("C1 g 0 1p");
+    assert!(has_on(&findings(&c), "NO-DC-PATH", "g"));
+    // driven gate: clean
+    let mut v = base.to_vec();
+    v.push("Vg g 0 2");
+    assert!(findings(&v).is_empty(), "{:?}", findings(&v));
+    // floating bulk is not flagged
+    let f = findings(&["t", "Vdd vdd 0 5", "Rd vdd d 10k", "Vg g 0 2", "M1 d g 0 bb NM", NM]);
+    assert!(!has_on(&f, "NO-DC-PATH", "bb"), "{:?}", f);
+}
+
+#[test]
+fn t44_bjt_floating_base_only_dangling() {
+    let f = findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Q1 c b 0 q2n2222", Q22]);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    assert!(has_on(&f, "DANGLING", "b"), "{:?}", f);
+    assert!(!has(&f, "NO-DC-PATH"), "{:?}", f);
+}
+
+#[test]
+fn t45_subckt_port_not_no_dc_path() {
+    let f = findings(&[
+        "t", "V1 a 0 5", "V2 b 0 1", "X1 a b c foo3", "C1 c 0 1n",
+        ".subckt foo3 p q r", "R1 p q 1k", "R2 q r 1k", ".ends",
+    ]);
+    assert!(!has_on(&f, "NO-DC-PATH", "c"), "{:?}", f);
+}
+
+#[test]
+fn t46_optional_q_m_nodes_and_spaced_params() {
+    // ngspice 47 accepts all of these (verified with `ngspice -b`); no false errors
+    for deck in [
+        // VBIC with a thermal node: Q c b e s tj model
+        &["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Q1 c b 0 0 tj qv", ".model qv NPN LEVEL=4", "Rt tj 0 1k"][..],
+        // SOI MOSFET with a 5th node
+        &["t", "Vdd d 0 5", "Vg g 0 2", "M1 d g 0 0 0 soim", ".model soim NMOS LEVEL=10"][..],
+        // a node that shares a model's name is still a node
+        &["t", "Vcc nm 0 5", "Rc nm c 1k", "Vb b 0 0.7", "Q1 nm b 0 q2n2222", Q22, NM][..],
+    ] {
+        let f = findings(deck);
+        assert!(!f.iter().any(|x| x.severity == "error"), "{:?}: {:?}", deck, f);
+    }
+    // spaced `key = value` on an X line is a param, not the subckt name
+    let f = findings(&[
+        "t", "V1 a 0 5", "X1 a 0 foo r = 2k", ".subckt foo p q params: r=1k", "R1 p q {r}", ".ends",
+    ]);
+    assert!(!has(&f, "DANGLING"), "{:?}", f);
+}
+
+#[test]
+fn t47_model_local_to_subckt_is_undefined_at_top_level() {
+    // ngspice 47 aborts this deck: the card exists only inside the subckt body
+    let f = findings(&[
+        "t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Q1 c b 0 qin",
+        ".subckt s a b", ".model qin NPN", "R1 a b 1k", ".ends",
+    ]);
+    assert!(has(&f, "UNDEFINED-MODEL"), "{:?}", f);
+}
+
+#[test]
+fn t48_thermal_node_only_on_models_that_take_one() {
+    let deck = |q: &str, model: &str| {
+        findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q, model])
+    };
+    let bad = |f: &[benchcore::validate::Finding]| {
+        f.iter().any(|x| x.code == "MALFORMED" && x.message.contains("at most 4 nodes"))
+    };
+    let q5 = "Q1 c b 0 0 tj m";
+    // GP (default level, level 1, level 2): 5 nodes rejected by ngspice ("Too many nodes")
+    for m in [".model m NPN(IS=1e-14)", ".model m NPN(LEVEL=1)", ".model m NPN LEVEL = 2", ".model m npn level=1"] {
+        let f = deck(q5, m);
+        assert!(bad(&f), "{}: {:?}", m, f);
+        assert!(f.iter().any(|x| x.message.contains("'m'")), "message names the model: {:?}", f);
+    }
+    // GP with 4 nodes is fine
+    assert!(!deck("Q1 c b 0 0 m", ".model m NPN(IS=1e-14)").iter().any(|x| x.severity == "error"));
+    // VBIC (4, 9) and HICUM L2 (8): 5th node accepted; level spelled any way, inside or outside parens
+    for m in [".model m NPN LEVEL=4", ".model m NPN(level = 4)", ".model m npn (is=1e-14 LEVEL = 8)", ".model m NPN\n+ LEVEL=9"] {
+        let lines: Vec<&str> = m.split('\n').collect();
+        let mut d = vec!["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5];
+        d.extend(lines);
+        let f = findings(&d);
+        assert!(!f.iter().any(|x| x.severity == "error"), "{}: {:?}", m, f);
+    }
+    // `+` continuation carrying the level, and the model card after the device (as above)
+    let f = findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5, ".model m NPN(IS=1e-14", "+ level = 1)"]);
+    assert!(bad(&f), "{:?}", f);
+    // model not defined in the deck (.include): stays permissive
+    let f = findings(&["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Rt tj 0 1k", q5, ".include x.lib"]);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    // MOSFET: non-SOI levels take 4 nodes (ngspice: "too many nodes connected to instance")
+    let m5 = |model: &str| findings(&["t", "Vdd d 0 5", "Vg g 0 2", "M1 d g 0 0 x m", "Rx x 0 1", model]);
+    assert!(bad(&m5(".model m NMOS(LEVEL=1)")));
+    assert!(bad(&m5(".model m NMOS")));
+    assert!(!m5(".model m NMOS LEVEL=10").iter().any(|x| x.severity == "error"));
+}

@@ -63,7 +63,7 @@ def test_catalog_entry_contract(kind):
     if c.ground:
         assert "device" not in sec
     else:
-        lines, models = electrical.emit(sec, c.designator + "1", dict(zip(c.terminals, ["n1", "n2"])), vals)
+        lines, models = electrical.emit(sec, c.designator + "1", dict(zip(c.terminals, ["n1", "n2", "n3"])), vals)
         assert lines and all(l.upper().startswith(sec["device"]) for l in lines)
     for r in ROTATIONS:                          # rotation keeps terminals at distinct positions
         offs = [cat.terminal_offset(kind, t, r) for t in c.terminals]

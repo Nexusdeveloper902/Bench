@@ -125,11 +125,11 @@ python3 -m app.catalog ~/my-parts
 ```
 
 <details>
-<summary><b>Built-in library (16 parts)</b></summary>
+<summary><b>Built-in library (17 parts)</b></summary>
 
 | Category | Parts |
 |---|---|
-| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, switch, voltage source, current source, ground |
+| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, 2N2222 (NPN transistor), switch, voltage source, current source, ground |
 | Power | battery |
 | Microcontrollers | ESP32 DevKitC, Arduino Uno R3 |
 | Sensors | DHT22 |

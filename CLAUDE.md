@@ -15,8 +15,10 @@ experiments/coupling-proto/scripts/run_all.sh                    # prototype e01
 After changing Rust in `benchcore/`, rebuild and reinstall the wheel before running app tests:
 
 ```bash
-cd benchcore && maturin build && pip install --user --force-reinstall target/wheels/benchcore-*.whl
+cd benchcore && maturin build && pip install --user --force-reinstall --break-system-packages target/wheels/benchcore-*.whl
 ```
+
+`--break-system-packages` is for this machine only: its system Python is externally managed (PEP 668, `/usr/lib/python3.14/EXTERNALLY-MANAGED`), so pip refuses the install without it. A Python without that marker (a venv, CI) does not need it, which is why README.md omits it.
 
 ## Notes
 
