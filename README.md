@@ -104,7 +104,7 @@ flowchart LR
 | [`app/`](app) | PySide6 editor: canvas, library, inspector, results, theme |
 | [`app/library/`](app/library) | Built-in component packages, grouped by category |
 | [`benchcore/`](benchcore) | Rust kernel + electrical domain over libngspice, exposed to Python with PyO3 |
-| [`docs/`](docs) | Frontend design, persistence, testing, milestone and review reports |
+| [`docs/`](docs) | Frontend design, persistence, testing, component library list, milestone and review reports |
 | [`experiments/`](experiments) | Throwaway spikes, reference only |
 
 ## Adding components
@@ -125,19 +125,9 @@ Parts backed by a `.subckt` carry it inline or in files, with shared model files
 python3 -m app.catalog ~/my-parts
 ```
 
-<details>
-<summary><b>Built-in library (20 parts)</b></summary>
-
-| Category | Parts |
-|---|---|
-| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, 2N2222 (NPN transistor), switch, voltage source, current source, ground, op-amp, dual op-amp |
-| Power | battery |
-| Microcontrollers | ESP32 DevKitC, Arduino Uno R3 |
-| Sensors | DHT22, NTC thermistor |
-| Displays | SSD1306 (I²C) |
-| Audio | piezo buzzer |
-
-</details>
+The built-in library covers passives, sources, switches and relays, diodes, transistors, thyristors and analog ICs
+(op-amps, comparators, 555, regulators, references, analog switches). The full list, generated from the packages, is
+in [`docs/library.md`](docs/library.md).
 
 Full guide with worked examples: [`docs/adding-components.md`](docs/adding-components.md).
 

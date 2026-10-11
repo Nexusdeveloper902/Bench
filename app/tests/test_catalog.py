@@ -489,3 +489,9 @@ def test_multi_terminal_netlist_and_current_pin(extra_root):
     assert q["pins"] == [f"{q['part']}.e"]          # first node field of the template, not pins[0] (= c)
     assert m["pins"] == [f"{m['part']}.d"]
     assert not [s for s in nl["signals"] if s["kind"] == "across"]
+
+
+def test_library_doc_is_current():
+    """docs/library.md is generated; regenerate with `python3 -m app.catalog --markdown > docs/library.md`."""
+    doc = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "library.md")
+    assert open(doc).read() == catalog.library_markdown(catalog.reload(catalog.default_roots()).defs)
