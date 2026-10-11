@@ -97,6 +97,11 @@ def check(section, pins, params):
             bad("the node fields must be exactly the pin placeholders, once each, right after {dev} "
                 f"(here: {' '.join('{' + p + '}' for p in pids)}); a literal node or a pin elsewhere would connect "
                 "to nets that are not drawn", field)
+        elif letter in PINS and (tail.split() or [""])[0].lower() not in {
+                m.split()[1].lower() for m in section.get("models", []) if isinstance(m, str) and len(m.split()) > 1}:
+            # ngspice reads extra nodes (Q substrate, M SOI) until a token names a model
+            bad("the field after the node fields must be a model named in 'models'; anything else is read as "
+                "another node and connects to a net that is not drawn", field)
     models = section.get("models", [])
     if not isinstance(models, list): bad("must be a list of .model lines", "models")
     else:

@@ -832,3 +832,34 @@ fn t45_subckt_port_not_no_dc_path() {
     ]);
     assert!(!has_on(&f, "NO-DC-PATH", "c"), "{:?}", f);
 }
+
+#[test]
+fn t46_optional_q_m_nodes_and_spaced_params() {
+    // ngspice 47 accepts all of these (verified with `ngspice -b`); no false errors
+    for deck in [
+        // VBIC with a thermal node: Q c b e s tj model
+        &["t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Q1 c b 0 0 tj qv", ".model qv NPN LEVEL=4", "Rt tj 0 1k"][..],
+        // SOI MOSFET with a 5th node
+        &["t", "Vdd d 0 5", "Vg g 0 2", "M1 d g 0 0 0 soim", ".model soim NMOS LEVEL=10"][..],
+        // a node that shares a model's name is still a node
+        &["t", "Vcc nm 0 5", "Rc nm c 1k", "Vb b 0 0.7", "Q1 nm b 0 q2n2222", Q22, NM][..],
+    ] {
+        let f = findings(deck);
+        assert!(!f.iter().any(|x| x.severity == "error"), "{:?}: {:?}", deck, f);
+    }
+    // spaced `key = value` on an X line is a param, not the subckt name
+    let f = findings(&[
+        "t", "V1 a 0 5", "X1 a 0 foo r = 2k", ".subckt foo p q params: r=1k", "R1 p q {r}", ".ends",
+    ]);
+    assert!(!has(&f, "DANGLING"), "{:?}", f);
+}
+
+#[test]
+fn t47_model_local_to_subckt_is_undefined_at_top_level() {
+    // ngspice 47 aborts this deck: the card exists only inside the subckt body
+    let f = findings(&[
+        "t", "Vcc vcc 0 5", "Rc vcc c 1k", "Vb b 0 0.7", "Q1 c b 0 qin",
+        ".subckt s a b", ".model qin NPN", "R1 a b 1k", ".ends",
+    ]);
+    assert!(has(&f, "UNDEFINED-MODEL"), "{:?}", f);
+}

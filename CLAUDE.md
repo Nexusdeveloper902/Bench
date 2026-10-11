@@ -18,7 +18,7 @@ After changing Rust in `benchcore/`, rebuild and reinstall the wheel before runn
 cd benchcore && maturin build && pip install --user --force-reinstall --break-system-packages target/wheels/benchcore-*.whl
 ```
 
-The system Python is externally managed (PEP 668, `/usr/lib/python3.14/EXTERNALLY-MANAGED`), so pip refuses the install without `--break-system-packages`.
+`--break-system-packages` is for this machine only: its system Python is externally managed (PEP 668, `/usr/lib/python3.14/EXTERNALLY-MANAGED`), so pip refuses the install without it. A Python without that marker (a venv, CI) does not need it, which is why README.md omits it.
 
 ## Notes
 

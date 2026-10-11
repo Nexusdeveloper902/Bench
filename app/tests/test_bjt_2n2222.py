@@ -113,9 +113,10 @@ def test_wrong_wiring_all_pins_on_one_net_is_clear_not_a_crash():
     d = ce_doc()
     d.wires = [w for w in d.wires if "Q1.c" not in w and "Q1.e" not in w]
     d.connect("Q1.c", "R2.b"); d.connect("Q1.e", "Q1.c"); d.connect("Q1.b", "Q1.c")   # shorted C-B-E, off ground
-    res = run_document(d)
-    assert isinstance(res.ok, bool) and res.message and "Traceback" not in res.message
-    if not res.ok: assert res.message.startswith("[")                    # coded message, not a raw exception
+    assert d.netlist()["lines"][-1] == "Q1 n2 n2 n2 q2n2222"
+    res = run_document(d)                                                # a shorted device is legal SPICE: it runs
+    assert res.ok, res.message
+    assert abs(final(res, "I(Q1)")) < 1e-12 and final(res, "V(n2)") == pytest.approx(5.0, abs=1e-6)
 
 
 # ---------------------------------------------------------------- GUI: place, wire the three pins, run

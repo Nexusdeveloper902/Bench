@@ -24,24 +24,28 @@ Deck order: `Simulation._deck()` emits devices **before** `.model` lines, so mod
 must be collected in a pre-pass over the joined lines, not on the fly.
 
 ## 1. Node-count table (`parse_netlist`)
-"Positional tokens" = `parts` up to the first token containing `=` (params such as `W=2u`).
-`models` / `subckts` = pre-pass sets (lower-case) from every `.model <name>` and `.subckt <name> <ports..>`
-line in the deck (subckt bodies included; over-collecting can only suppress findings, never add one).
+"Positional tokens" = `parts` up to the first param (`W=2u`, or spaced `W = 2u`).
+`models` / `subckts` = pre-pass sets (lower-case) from every top-level `.model <name>` and every
+`.subckt <name> <ports..>` line in the deck. A `.model` inside a `.subckt` body is local to it in
+ngspice, so it is not collected.
 
 | Letter | Nodes | Model token | MALFORMED when |
 |---|---|---|---|
 | D | 2 (a k) | `parts[3]` | unchanged (`parts.len() < 4`) |
-| Q | 3 (c b e), or 4 (c b e s) | `pos[4]`, or `pos[5]` | `pos.len() < 5` |
+| Q | 3 (c b e) to 5 (+ substrate, thermal node) | `pos[n+1]` | `pos.len() < n + 2` |
 | J | 3 (d g s) | `pos[4]` | `pos.len() < 5` |
-| M | 4 (d g s b) | `pos[5]` | `pos.len() < 6` |
+| M | 4 (d g s b) to 7 (SOI nodes) | `pos[n+1]` | `pos.len() < n + 2` |
 | X | `pos.len()-2` (last positional = subckt name) | - | `pos.len() < 3`, or name in `subckts` and node count != its port count |
 
-Q substrate disambiguation (mirrors ngspice, which tries the 4th token as a model first):
-4 nodes iff `pos.len() >= 6 && !models.contains(pos[4]) && models.contains(pos[5])`; otherwise 3.
-With the model only in an `.include`d file this falls back to 3 nodes (substrate ignored, no false error).
+Optional-node disambiguation (mirrors ngspice, which reads the required nodes and then takes the
+first token that names a model): `n` = the smallest count from min to max whose next token is in
+`models`; otherwise min. With the model only in an `.include`d file this falls back to min nodes
+(optional nodes ignored, no false error).
 
-Extra MALFORMED: for Q/J/M, any node token that is in `models` ("model name 'nm' in a node
-position; M needs 4 nodes d g s b + model"). This catches `M1 d g s NM W=2u L=1u` and `Q1 c b q2 2`.
+On a short line (`pos.len() < n + 2`) the MALFORMED message names a model token found in a node
+position ("model name 'nm' in a node position; M needs 4 nodes + model"). This catches
+`M1 d g s NM W=2u L=1u`. A full-length line with a node that shares a model's name is not flagged:
+ngspice keeps node and model names apart.
 Message format follows the existing arms: `"{name}: Q needs 3 nodes (c b e) + model"`. Severity
 `error`, layer `authoring` (same as the R/C/L/D arms). On MALFORMED push the device with
 `nodes: vec![]` so a model name never becomes a DANGLING node (noise on an already-blocked deck).
@@ -76,8 +80,10 @@ driven only by an I-source is not "only current sources" (the M terminal is inci
 reports NO-DC-PATH, which is right. DANGLING counts nodes as parsed, so it improves for free
 once MALFORMED devices carry no nodes.
 
-## 4. `components.rs`
-No Rust caller uses `Component` today (grep `Component::` outside the file: none). Add, for plan parity:
+## 4. `components.rs` (not implemented)
+**Not done, on purpose:** no `Component::Q/J/M` variants were added. No Rust caller uses `Component`
+(grep `Component::` outside the file: none; see `docs/milestone/01-audit.md` R9), and the app emits
+SPICE lines from `app/electrical.py`. The proposal below is kept for reference only:
 ```rust
 Q { name: String, c: String, b: String, e: String, model: String },
 J { name: String, d: String, g: String, s: String, model: String },
@@ -105,14 +111,17 @@ as `D` does. No substrate field (YAGNI). Update the module doc line "(R, C, L, V
 1. `adder.rs::t32_mos_nand_truth_table`: every gate is driven by a PWL V source and every bulk
    reaches 0 or vdd through d/s, so the gate rule does not fire. Must stay green.
 2. Decks with D/Q/J/M whose card arrives via `.include`/`.lib`: protected by the skip rule.
-3. Decks that put the card only inside a `.subckt` body and use the device at top level: still
-   accepted (pre-pass collects all `.model` names); ngspice itself would reject it.
-4. Q with substrate and an included model: parsed as 3 nodes; substrate net may get a DANGLING warn.
+3. Decks that put the card only inside a `.subckt` body and use the device at top level:
+   UNDEFINED-MODEL, as ngspice rejects them too (the card is local to the subckt).
+4. Q/M with optional nodes and an included model: parsed with the minimum node count; an optional
+   node's net may get a DANGLING warn.
 5. App: unwired MOSFET gate now blocks Run with NO-DC-PATH (correct, previously a singular-matrix failure).
 6. Capacitor-only base nodes still run silently (base floats near 0.2 V). Upgrade: a per-device
    "control terminal reachable only through own junctions" check, if it bites.
 7. `benchcore/docs/components.md` lists finding codes: add UNDEFINED-MODEL there (task 10).
 8. `experiments/exp-safety/validator.py` is a separate Python port; not kept in sync (throwaway).
+9. A Gummel-Poon (level 1) Q given a 5th (thermal) node passes the validator but ngspice rejects it
+   (only VBIC/HICUM have that node). Not checked: it would need model levels.
 
 ## Task 3 (Rust) edit list
 1. `validate.rs`: pre-pass in `parse_netlist` after joining lines -> `models: HashSet<String>`,
@@ -120,7 +129,7 @@ as `D` does. No substrate field (YAGNI). Update the module doc line "(R, C, L, V
 2. Replace the `'Q' | 'J'`, `'M'`, `'X'` arms per section 1; add the model-in-node MALFORMED.
 3. UNDEFINED-MODEL per section 2 for D/Q/J/M (D arm: model = `parts[3]`).
 4. `adj` block: M gate exclusion, X into the all-pairs branch, NO-DC-PATH message tweak.
-5. `components.rs`: section 4.
+5. `components.rs`: section 4 (dropped).
 6. Rebuild + reinstall the wheel (CLAUDE.md command) before task 4/5 runs.
 
 ## Task 4 (tests) with assertions

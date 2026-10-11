@@ -397,7 +397,8 @@ def _multi(letter, pins, line, **elec):
     def m(d):
         d["pins"] = [{"id": p, "at": [0, 10 * i]} for i, p in enumerate(pins)]
         d["params"] = []
-        d["sim"]["electrical"] = {"device": letter, "line": line, **elec}
+        d["sim"]["electrical"] = {"device": letter, "line": line,
+                                  "models": [f".model {line.split()[-1]} NPN"], **elec}
     return m
 
 
@@ -431,6 +432,19 @@ def test_wrong_pin_count_rejected(extra_root, letter, pins, line, msg):
 ])
 def test_multi_terminal_node_check(extra_root, line):
     write_def(extra_root, "MT", mutate=_multi("Q", "cbe", line))
+    assert problems("DEF-SIM", "sim.electrical.line") and "MT" not in CATALOG.defs
+
+
+@pytest.mark.parametrize("letter,pins,line", [
+    ("Q", "cbe", "{dev} {c} {b} {e} n1 qm"),         # ngspice: n1 = substrate, a hidden link to drawn net n1
+    ("M", "dgsb", "{dev} {d} {g} {s} {b} n1 qm"),    # ngspice: n1 = SOI node
+    ("Q", "cbe", "{dev} {c} {b} {e} qother"),        # model not declared by this part
+])
+def test_multi_terminal_field_after_nodes_must_be_own_model(extra_root, letter, pins, line):
+    def m(d):
+        _multi(letter, pins, line)(d)
+        d["sim"]["electrical"]["models"] = [".model qm NPN"]
+    write_def(extra_root, "MT", mutate=m)
     assert problems("DEF-SIM", "sim.electrical.line") and "MT" not in CATALOG.defs
 
 

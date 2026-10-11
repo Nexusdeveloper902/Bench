@@ -11,7 +11,7 @@
 |---|------|-------|-----|
 | 1 | Spike: netlist `Q1 c b e 2n2222` through benchcore. Confirm validator findings, `.save @q1[ic]`, convergence | sonnet | Small and exploratory, but touches the engine |
 | 2 | Engine design: per-letter node-count table in `validate.rs` (Q=3, J=3, M=4, X=n), MALFORMED on wrong count; floating-node/DC-path rules for the base/gate | **opus** | Cross-cutting validation semantics; a wrong rule gives false errors or misses real ones |
-| 3 | Implement #2 in Rust + `components.rs` Q/J/M variants | sonnet | Mechanical once designed |
+| 3 | Implement #2 in Rust (`components.rs` Q/J/M variants dropped: the enum is unused, see engine-design.md section 4) | sonnet | Mechanical once designed |
 | 4 | Rust tests: `benchcore/tests` (parse, malformed, floating base) and python `test_api.py` (CE amp op point) | sonnet | Straightforward |
 | 5 | `app/electrical.py`: add `QJM` to `DEVICE_LETTERS`, node count = `len(pids)`, pin-order check for N nodes, per-letter pin counts, current signal on the right pin | sonnet | Small, well-bounded |
 | 6 | Canvas/symbol: BJT symbol SVG, 3-pin layout, hit-testing, wiring | sonnet | UI, verified by existing canvas tests |

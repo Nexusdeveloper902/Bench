@@ -38,16 +38,19 @@ its gate (the second node) has no DC edge; C/I/G/Bi/F open; X optimistic +
 warn. First line is the title and is skipped; `+` continuations joined;
 `.control` and `.subckt` bodies skipped.
 
-Multi-terminal arity (MALFORMED, error): Q takes 3 nodes + model, or 4 when a
-substrate node precedes the model (`Q1 c b e s model`); J takes 3 + model; M
-takes 4 + model. A model name in a node position is MALFORMED too. A MALFORMED
-device carries no nodes, so it adds no DANGLING noise.
+Multi-terminal arity (MALFORMED, error): Q takes 3 nodes + model, or up to 5
+when optional nodes precede the model (`Q1 c b e s model`, `Q1 c b e s tj model`);
+J takes 3 + model; M takes 4 + model, or up to 7 (SOI). Like ngspice, the model is
+the first token after the required nodes that names a `.model` card. A line too
+short for that is MALFORMED. A MALFORMED device carries no nodes, so it adds no
+DANGLING noise.
 An unwired or capacitor-only MOSFET gate is NO-DC-PATH (the gate has no DC
 edge); a BJT base or JFET gate is not, since ngspice conducts through its
 junctions.
 
 UNDEFINED-MODEL (error): a D, Q, J or M device whose model name has no `.model`
-card in the deck (ngspice aborts the run). Skipped for the whole deck when any
+card in the deck (ngspice aborts the run). A card inside a `.subckt` body does
+not count: it is local to that subckt. Skipped for the whole deck when any
 line is `.include`, `.inc` or `.lib`; X is not checked.
 
 ## What is NOT in v1

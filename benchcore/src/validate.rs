@@ -188,6 +188,16 @@ fn short_edge(kind: char, dev: &Device) -> bool {
     }
 }
 
+/// Lower-cased tokens before the first `key=value` param (also `key = value`, spaced).
+fn positional(parts: &[&str]) -> Vec<String> {
+    parts
+        .iter()
+        .enumerate()
+        .take_while(|(i, t)| !t.contains('=') && !parts.get(i + 1).is_some_and(|n| n.starts_with('=')))
+        .map(|(_, t)| t.to_lowercase())
+        .collect()
+}
+
 struct Parsed {
     devices: Vec<Device>,
     b_exprs: Vec<(String, Vec<String>, String, bool)>, // name, pnodes, expr, is_v
@@ -223,19 +233,24 @@ fn parse_netlist(lines: &[String]) -> Parsed {
     let mut models: HashSet<String> = HashSet::new();
     let mut subckts: HashMap<String, usize> = HashMap::new();
     let mut has_include = false;
+    let mut depth = 0usize; // a .model inside a .subckt body is local to it in ngspice
     for raw in joined.iter() {
         let tok: Vec<&str> = raw.split_whitespace().collect();
+        if tok.first().is_some_and(|t| t.eq_ignore_ascii_case(".ends")) {
+            depth = depth.saturating_sub(1);
+        }
         if tok.len() < 2 {
             continue;
         }
         match tok[0].to_lowercase().as_str() {
-            ".model" => {
+            ".model" if depth == 0 => {
                 models.insert(tok[1].to_lowercase());
             }
             ".subckt" => {
-                let ports = tok[2..]
+                depth += 1;
+                let ports = positional(&tok[2..])
                     .iter()
-                    .take_while(|t| !t.contains('=') && !t.eq_ignore_ascii_case("params:"))
+                    .take_while(|t| *t != "params:")
                     .count();
                 subckts.insert(tok[1].to_lowercase(), ports);
             }
@@ -424,40 +439,28 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                 });
             }
             'Q' | 'J' | 'M' => {
-                let pos: Vec<String> = parts
-                    .iter()
-                    .take_while(|t| !t.contains('='))
-                    .map(|t| t.to_lowercase())
-                    .collect();
-                let n = match kind {
-                    'M' => 4,
-                    // ngspice tries the 4th token as a model first: 4 nodes iff it is not one
-                    'Q' if pos.len() >= 6 && !models.contains(&pos[4]) && models.contains(&pos[5]) => 4,
-                    _ => 3,
+                let pos = positional(&parts);
+                // ngspice reads the required nodes, then takes the first token that names a
+                // model; tokens before it are optional nodes (Q: substrate, thermal; M: SOI).
+                let (min, max) = match kind {
+                    'Q' => (3, 5),
+                    'M' => (4, 7),
+                    _ => (3, 3),
                 };
-                let model_in_node = pos.iter().skip(1).take(n).find(|t| models.contains(*t));
+                let n = (min..=max)
+                    .find(|&k| pos.get(k + 1).is_some_and(|t| models.contains(t)))
+                    .unwrap_or(min);
                 let mut nodes = vec![];
-                if let Some(m) = model_in_node {
-                    errors.push(finding(
-                        "MALFORMED",
-                        "error",
-                        format!(
+                if pos.len() < n + 2 {
+                    // only a short line is malformed: node and model names are separate namespaces
+                    let msg = match pos.iter().skip(1).find(|t| models.contains(*t)) {
+                        Some(m) => format!(
                             "{}: model name '{}' in a node position; {} needs {} nodes + model",
                             name, m, kind, n
                         ),
-                        vec![],
-                        vec![name.clone()],
-                        "authoring",
-                    ));
-                } else if pos.len() < n + 2 {
-                    errors.push(finding(
-                        "MALFORMED",
-                        "error",
-                        format!("{}: {} needs {} nodes + model", name, kind, n),
-                        vec![],
-                        vec![name.clone()],
-                        "authoring",
-                    ));
+                        None => format!("{}: {} needs {} nodes + model", name, kind, n),
+                    };
+                    errors.push(finding("MALFORMED", "error", msg, vec![], vec![name.clone()], "authoring"));
                 } else {
                     nodes = pos[1..=n].to_vec();
                     errors.extend(undefined_model(&name, &pos[n + 1], &nodes));
@@ -478,11 +481,7 @@ fn parse_netlist(lines: &[String]) -> Parsed {
                 });
             }
             'X' => {
-                let pos: Vec<String> = parts
-                    .iter()
-                    .take_while(|t| !t.contains('='))
-                    .map(|t| t.to_lowercase())
-                    .collect();
+                let pos = positional(&parts);
                 let mut nodes = vec![];
                 if pos.len() < 3 {
                     errors.push(finding(

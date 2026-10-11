@@ -162,9 +162,9 @@ Transistors have three or four terminals. The letters and pin counts the validat
 | J | 3 | `{d} {g} {s}` | exactly `@{dev_lc}[id]` |
 | M | 4 | `{d} {g} {s} {b}` | exactly `@{dev_lc}[id]` |
 
-The shipped 2N2222 (`app/library/electrical/q_2n2222/component.toml`), the NPN transistor, is the example:
+The shipped 2N2222 (`app/library/electrical/q_2n2222/component.toml`), the NPN transistor, is the example (an excerpt, so the doc-example test, which loads every `toml` block as a full part, skips it):
 
-```toml
+```
 [sim.electrical]
 device = "Q"                        # 3 pins; a 4th pin would be the substrate
 line = "{dev} {c} {b} {e} q2n2222"  # node fields are exactly the pins, once each, in SPICE order
@@ -174,6 +174,7 @@ current = "@{dev_lc}[ic]"           # the collector current, attributed to the f
 
 Rules that apply only to these parts:
 
+- The field right after the node fields must be a model named in this part's `models`. ngspice reads extra tokens there as optional nodes (Q substrate, M SOI nodes), so a literal such as `0` or `n1` would connect to a net that is not drawn.
 - The node fields fix the SPICE order. The validator checks that they are the pins, once each; it does not check the order, so get the order right in the template.
 - The current is attributed to the pin in the first node field (collector for Q, drain for J and M). Q, J and M accept only the exact current forms above.
 - Only two-terminal parts get `V(Part)`. A transistor shows its node voltages and its current, and no across voltage.
