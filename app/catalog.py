@@ -137,9 +137,10 @@ def _svg_problem(path):
     return "has no viewBox with 4 numbers"
 
 
-def load_definition(path):
+def load_definition(path, root=None, cache=None):
     """Read and validate one component.toml -> (Definition | None, [diagnostic]). Any error diagnostic rejects it;
-    warnings (DEF-ASSET) keep it with a fallback."""
+    warnings (DEF-ASSET) keep it with a fallback. root: the library root it was found under (shared `models:` files
+    resolve under <root>/_models/); cache: a dict shared by one catalog load (definition files are read once)."""
     path = Path(path)
     out, ident = [], [None]
 
@@ -333,8 +334,11 @@ def load_definition(path):
     for d in sim:
         if f"sim:{d}" not in caps: bad("DEF-CAPABILITY", f"[sim.{d}] needs the capability 'sim:{d}' (or remove the section)", f"sim.{d}")
         elif d in SIM_DOMAINS:
-            for x in SIM_DOMAINS[d](sim[d], tuple(pins), tuple(params)):
+            where = {"dir": path.parent, "root": root, "cache": {} if cache is None else cache}
+            for x in SIM_DOMAINS[d](sim[d], tuple(pins), tuple(params), where):
                 out.append({**x, "file": str(path), "id": ident[0]})
+            if d == "electrical" and (note := electrical.status_note(sim[d])):
+                limits = [*limits, note]
     if not any(c.startswith("sim:") for c in caps) and not limits:
         bad("DEF-CAPABILITY", "a part without a sim:* capability needs at least one limitations entry saying what is not modelled", "limitations")
     for k in ("indicator", "show_current"):
@@ -388,6 +392,7 @@ def reload(roots=None):
     roots = [Path(r) for r in (default_roots() if roots is None else roots)]
     defs, problems, origin, fixed, shadowed = {}, [], {}, {}, {}   # fixed: placeholder-free model name -> (body, definition id)
     loaded = set()          # resolved package files: a root listed twice, or nested in another, is read once
+    cache = {}              # definition files and _models/MANIFEST.toml, read once per load
     for root in roots:
         if not root.is_dir():
             problems.append({"code": "DEF-PARSE", "severity": "warning", "file": str(root), "field": "", "id": None,
@@ -401,7 +406,7 @@ def reload(roots=None):
         for f in sorted(root.rglob("component.toml")):
             if (real := f.resolve()) in loaded: continue
             loaded.add(real)
-            d, diags = load_definition(f)
+            d, diags = load_definition(f, root, cache)
             problems += diags
             if d is None: continue
             if d.id in defs:
@@ -412,10 +417,11 @@ def reload(roots=None):
                 continue
             mine = electrical.fixed_models(d.sim.get("electrical", {}))
             if clash := next((k for k, body in mine.items() if fixed.get(k, (body,))[0] != body), None):
+                what = f".subckt name '{clash[1]}'" if isinstance(clash, tuple) else f"model name '{clash}'"
                 problems.append({"code": "DEF-SIM", "severity": "error", "file": str(f), "field": "sim.electrical.models",
-                                 "id": d.id, "message": f"model name '{clash}' is also used by {fixed[clash][1]} with "
-                                 "different parameters, and model names are global to the netlist; rename it or add "
-                                 "{dev_lc} to the name"})
+                                 "id": d.id, "message": f"{what} is also defined by {fixed[clash][1]} with a different "
+                                 "definition, and these names are global to the netlist (ngspice keeps the first); "
+                                 "rename it, share one file, or add {dev_lc} to a model name"})
                 continue
             fixed.update({k: (body, d.id) for k, body in mine.items()})
             defs[d.id], origin[d.id] = d, f

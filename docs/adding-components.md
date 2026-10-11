@@ -58,7 +58,7 @@ box = [0, 0, 60, 30]                # [x, y, w, h] in part-local units; required
 show_current = true                 # needs sim.electrical.current below
 
 [sim.electrical]
-device = "D"                        # SPICE letter: one of R C L D V I Q J M (see "Multi-terminal parts")
+device = "D"                        # SPICE letter from the device table (see "Device letters")
 line = "{dev} {a} {k} d1n4148"      # {dev} is the instance name; {a} and {k} are pin ids
 models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]   # model names are global to the netlist (see rules below)
 current = "@{dev_lc}[id]"           # the vector shown when show_current is on
@@ -137,13 +137,17 @@ An electrical part is data only; `app/electrical.py` checks it (`DEF-SIM`) and r
 
 | key | rule |
 |---|---|
-| `device` | one SPICE letter of `R C L D V I Q J M`. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
+| `device` | one SPICE letter from the device table below. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
 | `line` | a string, or `{select = "<choice param>", <every choice> = "..."}`. It must start with `{dev} ` and be one line. |
-| node fields | the part has the pin count its letter needs (two, except Q, J and M: see below), and the fields after `{dev}` are exactly those pin placeholders, once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
+| node fields | the part has the pin count its letter needs (see the table below), and the fields after `{dev}` are exactly those pin placeholders, once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
 | placeholders | plain identifiers only: `{dev}`, `{dev_lc}`, pin ids, and params that apply to that branch (a plain line: params without `when`). Numbers arrive as `repr(float)`, choices as text. |
-| `models` | `.model <name> <TYPE>(...)` lines. Placeholders: `{dev}`, `{dev_lc}`, params without `when`. |
-| `current` | `@{dev_lc}[id]` style or `i({dev_lc})`: the vector shown by `show_current` and `indicator`. |
+| `models` | `.model <name> <TYPE>(...)` lines. Placeholders: `{dev}`, `{dev_lc}`, params without `when`. For a letter with model types in the table, the type and `level` of the card the line names must be in the table (write `level` as a number). |
+| `current` | exactly the vector the table lists for the letter (a wrong `.save @dev[x]` can crash ngspice); the vector shown by `show_current` and `indicator`. |
 | `ground = true` | instead of `device`/`line`: a reference node; exactly one pin, no other key. |
+| `defs`, `body` | definition text (`.subckt` / `.model`): see "Subcircuit parts". Required for `X`; a model-backed letter may take its card from them instead of `models`. |
+| `model_kind` | what backs the part: `primitive`, `model`, `third-party-model`, `project-subckt`, `third-party-subckt`, `behavioral`, `equivalent`. Required for `X` (one of the last four). |
+| `verification` | how its behaviour was checked: `analytic`, `reference`, `smoke` or `none` (default). |
+| `provenance` | table of strings: `source`, `url`, `version`, `license`, `attribution`, `retrieved`, `changes`, `notes`. Required, with `license`, when `model_kind` is `third-party-*` and any text comes from the package itself (`body`, a package-local `defs` file or `models`). |
 
 **Model names are global.** ngspice has one model namespace per deck, and a name matches case-insensitively. Two
 definitions that use the same fixed name (for example `dled`) must carry the same body: otherwise the later definition
@@ -151,16 +155,36 @@ is rejected at catalog load (`DEF-SIM`), and a name whose body differs between i
 ("model 'x' gets different parameters in different ... parts"). A model that depends on parameters, or that you
 do not want to share, needs `{dev_lc}` in its name (`dmod_{dev_lc}`).
 
-## Multi-terminal parts (Q, J, M)
+## Device letters
 
-Transistors have three or four terminals. The letters and pin counts the validator accepts (`DEF-SIM`, `app/electrical.py`):
+The letters a part may use, their pin counts and the one `current` each allows (`DEF-SIM`, `DEVICES` in
+`app/electrical.py`; the core validator has the same rows for every letter, `DEVICES` in `benchcore/src/validate.rs`).
+Model types and levels are the ones ngspice 47 on this build actually has (probed one level at a time).
 
-| letter | pins | node fields, SPICE order | current |
-|---|---|---|---|
-| R C L D V I | 2 | `{a} {b}` | `@{dev_lc}[id]` style or `i({dev_lc})` |
-| Q | 3 or 4 | `{c} {b} {e}` (+ `{s}` substrate) | exactly `@{dev_lc}[ic]` |
-| J | 3 | `{d} {g} {s}` | exactly `@{dev_lc}[id]` |
-| M | 4 | `{d} {g} {s} {b}` | exactly `@{dev_lc}[id]` |
+| letter | kind | pins | node fields, SPICE order | after the nodes | model types (levels) | current |
+|---|---|---|---|---|---|---|
+| R | primitive | 2 | `{a} {b}` | value | - | `@{dev_lc}[i]` |
+| C, L | primitive | 2 | `{a} {b}` | value | - | `@{dev_lc}[i]` |
+| V | primitive | 2 | `{p} {n}` | source spec (`DC`, `PULSE`, `SIN`, `PWL`, ...) | - | `i({dev_lc})` |
+| I | primitive | 2 | `{p} {n}` | source spec | - | `@{dev_lc}[c]` |
+| B | primitive | 2 | `{p} {n}` | `V=` or `I=` expression (no pins in it) | - | `@{dev_lc}[i]` |
+| E, G | primitive | 4 | `{o+} {o-} {c+} {c-}` | gain (E: V/V, G: A/V) | - | `@{dev_lc}[i]` |
+| T | primitive | 4 | `{p1+} {p1-} {p2+} {p2-}` | `Z0=` `TD=` | - | none |
+| D | model-backed | 2 | `{a} {k}` | own model | `D` (1, 3) | `@{dev_lc}[id]` |
+| S | model-backed | 4 | `{n+} {n-} {nc+} {nc-}` | own model | `SW` | `@{dev_lc}[i]` |
+| Q | model-backed | 3 or 4 | `{c} {b} {e}` (+ `{s}` substrate) | own model | `NPN`, `PNP` (1, 2, 4, 8, 9) | `@{dev_lc}[ic]` |
+| J | model-backed | 3 | `{d} {g} {s}` | own model | `NJF`, `PJF` (1, 2) | `@{dev_lc}[id]` |
+| M | model-backed | 4 | `{d} {g} {s} {b}` | own model | `NMOS`, `PMOS` (1-6, 8, 9, 10, 14, 49, 54-58, 68, 73) | `@{dev_lc}[id]` |
+| M (VDMOS) | model-backed | 3 | `{d} {g} {s}` | own model | `VDMOS` | `@{dev_lc}[id]` |
+| Z | model-backed | 3 | `{d} {g} {s}` | own model | `NMF`, `PMF` (1-6) | `@{dev_lc}[cd]` |
+| X | subcircuit-backed | the `.subckt`'s port count | the ports, in `.subckt` order | subckt name, then `NAME=value` params | - | none |
+
+Not available here, and refused by the validator with `UNSUPPORTED`: D level 2; Q levels 3, 5, 6 (Mextram), 7, 10+;
+J level 3+; M levels 7, 60 (SOI3: aborts the process) and the others missing above; Z level 7+; PSpice `VSWITCH`,
+`ISWITCH`, `LPNP`; E/G `LAPLACE`; `if()`, `limit()`, `table()` in expressions; N (OSDI). K, F, H, W, O, U, Y, P and
+A reference other elements by name or need bracketed ports, so they belong in subcircuit bodies (see "Subcircuit
+parts"), not top-level parts. Bench pins ngspice's compatibility mode off (`unset ngbehavior` before every circuit), so PSpice and
+LTspice syntax is not translated, whatever a `.spiceinit` says.
 
 The shipped 2N2222 (`app/library/electrical/q_2n2222/component.toml`), the NPN transistor, is the example (an excerpt, so the doc-example test, which loads every `toml` block as a full part, skips it):
 
@@ -172,13 +196,157 @@ models = [".model q2n2222 NPN(Is=14.34f Xti=3 ...)"]   # abbreviated; the shippe
 current = "@{dev_lc}[ic]"           # the collector current, attributed to the first node field's pin (c)
 ```
 
-Rules that apply only to these parts:
+Rules for parts with an own model (D, S, Q, J, M, Z):
 
 - The field right after the node fields must be a model named in this part's `models`. ngspice reads extra tokens there as optional nodes (Q substrate, M SOI nodes), so a literal such as `0` or `n1` would connect to a net that is not drawn.
 - The node fields fix the SPICE order. The validator checks that they are the pins, once each; it does not check the order, so get the order right in the template.
-- The current is attributed to the pin in the first node field (collector for Q, drain for J and M). Q, J and M accept only the exact current forms above.
-- Only two-terminal parts get `V(Part)`. A transistor shows its node voltages and its current, and no across voltage.
+- The current is attributed to the pin in the first node field (collector for Q, drain for J, M and Z). Every letter accepts only the exact current form in the table.
+- A 3-pin M needs a `VDMOS` card, and a `VDMOS` card needs 3 pins (a 4th node silently changes the result in ngspice).
+- Only two-terminal parts get `V(Part)`. A transistor or a 4-pin source shows its node voltages and its current, and no across voltage.
 - The MOSFET gate (the second node field of M) has no DC path. A gate that is unwired, or driven only through a capacitor or a current source, is `NO-DC-PATH` and blocks the run. Drive it through a resistor or a voltage source. A BJT base or JFET gate is not checked this way: ngspice solves it through its junctions, and an unwired pin gets a `DANGLING` warning.
+
+## Subcircuit parts
+
+A part with `device = "X"` instantiates a `.subckt`. Its definition is ngspice text that the package carries, in
+`body` (inline) or in files listed in `defs`. The shipped references are `OPAMP` (shared file),
+`OPAMP_DUAL` (inline body nesting the shared file) and `NTC_THERMISTOR` (package-local file).
+
+### Example 3: subcircuit part with an inline body
+
+```toml
+format = 1
+id = "TAP_DIVIDER"
+version = 1
+name = "Tapped divider"
+description = "Two-resistor divider with a ratio parameter, as a subcircuit."
+designator = "U"
+category = "Electrical"
+subcategory = "Passives"
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+
+[[pins]]
+id = "top"
+at = [0, 0]
+
+[[pins]]
+id = "tap"
+at = [40, 20]
+
+[[params]]
+key = "rtot"
+label = "Total resistance"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ratio"
+label = "Tap ratio"
+default = "0.5"
+min = 0
+min_exclusive = true
+max = 0.999
+
+[presentation]
+box = [0, 0, 40, 40]
+
+[sim.electrical]
+device = "X"
+line = "{dev} {top} {tap} tapdiv RTOT={rtot} K={ratio}"   # node field i -> port i: top -> hi, tap -> mid
+body = """
+* the lower resistor goes to ground (node 0 is global inside a body)
+.subckt tapdiv hi mid params: RTOT=10k K=0.5
+R1 hi mid {RTOT*(1-K)}
+R2 mid 0 {RTOT*K}
+.ends tapdiv
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+```
+
+### Example 4: definition files (excerpts of the shipped OPAMP and NTC_THERMISTOR)
+
+```
+[sim.electrical]                    # app/library/electrical/opamp/component.toml
+device = "X"
+line = "{dev} {inp} {inn} {out} bench_opamp A={aol} GBW={gbw}"   # ROUT is not passed: the .subckt default (1) applies
+defs = ["models:generic/opamp.lib"] # app/library/_models/generic/opamp.lib + its MANIFEST.toml record
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical]                    # app/library/sensors/ntc_thermistor/component.toml
+device = "X"
+line = "{dev} {a} {b} bench_ntc R25={r25} B={beta} T={temp}"
+defs = ["ntc.lib"]                  # package-local: app/library/sensors/ntc_thermistor/ntc.lib
+model_kind = "project-subckt"
+
+[sim.electrical.provenance]
+source = "Bench project; the beta equation of an NTC thermistor"
+license = "MIT"
+```
+
+### Rules
+
+- **Pins to ports.** The node fields of `line` are the `.subckt` ports in order: the first node field connects to the
+  first port, and so on. Their count must equal the port count (`DEF-SIM`). Every pin appears once (the general node
+  rule). The catalog does not compare pin ids with port names, so get the order right; a pin that the model does not
+  use still needs a port (tie it inside the body, for example with a 1 GΩ resistor to `0`).
+- **Subckt name.** The field after the node fields must name a top-level `.subckt` of this part's `defs` or `body`,
+  literally (no placeholder).
+- **Params.** After the name come `NAME=value` tokens without spaces and without `params:`; values are usually
+  `{param}` placeholders (numbers arrive as `repr(float)`). Every `NAME` must be declared on that `.subckt` line
+  (`params: NAME=default` or `NAME=default`), case-insensitively. ngspice silently ignores an unknown instance
+  parameter, so the catalog rejects it. A declared parameter left out of `line` takes the `.subckt` default.
+- **Files.** `defs` is a list. An entry is either package-relative (`"ntc.lib"`, must stay inside the package
+  directory) or `"models:<path>"`, resolved under `<library root>/_models/` of the root the package was found in
+  (`app/library/_models/` for built-in parts; `<root>/_models/` for a `SIM_COMPONENT_PATH` root). Paths never depend
+  on the working directory. Files are UTF-8, read once per catalog load and identified by their sha256.
+- **Shared files need provenance.** Each file under `_models/` has one `[[file]]` record in `_models/MANIFEST.toml`:
+  `path` (relative to `_models/`), `origin` (`project` or `third-party`), `source`, `license` (SPDX id, or
+  `LicenseRef-<name>` with the text in `_models/LICENSES/<name>.txt`), `sha256` of the file as shipped, and for
+  third-party files `url`; optional `version`, `attribution`, `retrieved`, `changes`. A missing or incomplete record,
+  or a stale `sha256`, rejects every package that uses the file. Editing a shared file means updating its record.
+- **Allowed text.** Comment lines (`*`), inline comments (`;`, ` $ `, ` // `), `+` continuations, `.subckt` ...
+  `.ends` blocks (nested blocks are local to their parent) and `.model` cards. `.param` and `.func` only inside a
+  body. Any other directive (`.include`, `.lib`, `.control`, `.option`, analyses, `.end`, `.global`, `.save`) and
+  element lines outside a body are `DEF-SIM`: packages are untrusted input, and the deck must stay self-contained.
+- **Dependency order.** Text is never formatted (its `{...}` are ngspice expressions). An X line inside a body must
+  name a `.subckt` defined in the same text or in a `defs` entry listed before it, so list dependencies first; the
+  inline `body` comes after every `defs` file. A unit that uses a name it does not define is `DEF-SIM`, and so is an
+  X line in a body whose node count differs from the ports of a `.subckt` the catalog knows.
+- **One definition per deck.** Each unit (file or body) is emitted once per netlist, after the devices, framed by
+  `* bench-def <root-relative path> <sha256 prefix>`, however many parts use it, in first-use order (so a unit's
+  dependencies always come before it). Ten op-amps share one `.subckt bench_opamp`; parameters differ per instance.
+- **Global names.** `.subckt` names and top-level `.model` names are global to the netlist and case-insensitive, and
+  ngspice keeps the first definition of a name (a different second one is ignored, for `.model` silently). Within a
+  part, one name defined twice is `DEF-SIM`; across the catalog a name may be defined only by one unit (the same file
+  or identical text), otherwise the later package is rejected. Prefix project names (`bench_`).
+- **Body validation.** At load the catalog runs the core's static validator (`benchcore.validate`, the one every run
+  deck goes through) on a probe deck: the part's instance with default params, each pin on its own net with a 1 GΩ
+  resistor to `0`, its `models`, then its definition text. Every body the instance reaches, nested ones included, is
+  checked: element syntax and pin counts, `.model` and `.subckt` references (a definition nested in a body is local
+  to it), port counts, instance params, every `{param}` and function name, duplicates, recursion, and connectivity
+  with internal nodes named `xu1.n2` (each internal node needs a DC path to a port or to `0`; a body needs no ground
+  of its own). Errors reject the package (`DEF-SIM`, message `CODE: ...`); other warnings (for example `DANGLING` on an
+  unused port) are `DEF-SIM` warnings. The part gets a status:
+  - `full`: everything was analysed. Nothing is added to its limitations.
+  - `limited`: no error, but some construct is left to ngspice; its limitations get one line naming each one, as
+    "Static validation is limited; Bench's validator left these to ngspice: .subckt s: B1: behavioural B not analysed
+    ...". Constructs: B sources and E/G `VALUE=`/`vol=`/`cur=`/`TABLE` expressions, XSPICE `A` devices, T/O/U/Y/P
+    lines, a `.model` whose `level` is not a literal number, a directive other than `.model`/`.param`/`.func` in a
+    body.
+  - `failed`: errors; the package is rejected.
+
+  To reach `full`, build from R, C, L, linear E/F/G/H, `POLY` sources, K, S/W switches, and D/Q/J/M/Z with literal
+  levels, and declare every param the body reads. To keep a `limited` part honest, say in `limitations` what the
+  unanalysed construct models and how it was verified (`verification`), since only ngspice checks it. Neither status
+  proves the model is electrically right: that is what `verification` and the tests are for.
+- **No current.** An X part has no `current`, and only a 2-pin X part gets `V(Part)`. Internal nodes are named by
+  ngspice as `<instance>.<node>` (`xu1.n2`, nested `xu1.xa.n2`).
+- **Dialect.** ngspice syntax only: Bench pins the compatibility mode off, so PSpice `IF()`/`LIMIT()`/`VSWITCH` and
+  LTspice-only syntax fail. Vendor PSpice macromodels need a translation first.
 
 ## Presentation
 
@@ -236,7 +404,8 @@ definition. Warnings keep it with a fallback.
 | `DEF-PIN` | error | bad or duplicate pin id, bad `at`, two pins at one position |
 | `DEF-PARAM` | error | bad unit, choice or bounds; default that does not parse; clashing key |
 | `DEF-CAPABILITY` | error | capabilities inconsistent with pins, `[sim.*]` sections or `limitations` |
-| `DEF-SIM` | error | an electrical section that the template check rejects, or a fixed model name already used with a different body by an earlier definition |
+| `DEF-SIM` | error | an electrical section that the template check rejects; definition text that is unreadable, outside its directory, without a provenance record, malformed at header level or with an unresolved dependency; a body error found by the static validator (`CODE: message`, see "Body validation"); a fixed model name or a `.subckt` name already defined differently by an earlier definition |
+| `DEF-SIM` | warning | a static-validator warning on the part's definition text (for example `DANGLING` on a port the body never uses) |
 | `DEF-ASSET` | warning | symbol, icon or doc file missing or not a usable SVG |
 | `DEF-LINK` | warning | a symbolic link to a directory inside a root: it is not followed, so the package behind it is not loaded |
 

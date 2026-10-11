@@ -1,0 +1,5 @@
+* bench_ntc: NTC thermistor, beta equation R(T) = R25 * exp(B * (1/T - 1/298.15 K)).
+* T is the body temperature in degrees Celsius, a static stimulus (no self-heating).
+.subckt bench_ntc a b params: R25=10k B=3950 T=25
+R1 a b {R25*exp(B*(1/(T+273.15)-1/298.15))}
+.ends bench_ntc

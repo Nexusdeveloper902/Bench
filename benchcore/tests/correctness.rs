@@ -901,3 +901,450 @@ fn t48_thermal_node_only_on_models_that_take_one() {
     assert!(bad(&m5(".model m NMOS")));
     assert!(!m5(".model m NMOS LEVEL=10").iter().any(|x| x.severity == "error"));
 }
+
+// ---- engine robustness (docs/plans/ngspice-library/DESIGN.md 4.5) ----
+
+fn tran(lines: &[&str], obs: &[&str]) -> Result<benchcore::SimResult, benchcore::SimError> {
+    let mut deck: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    deck.push(".tran 1u 20u 0 1u uic".to_string());
+    deck.push(".end".to_string());
+    run_simulation(SimRequest {
+        netlist: deck,
+        observables: obs.iter().map(|s| s.to_string()).collect(),
+        stops: vec![],
+    })
+}
+
+fn divider_ok() {
+    let r = tran(&["div", "V1 a 0 DC 4", "R1 a b 1k", "R2 b 0 3k"], &["v(b)"]).expect("valid deck after recovery");
+    let last = r.series["v(b)"].last().unwrap().1;
+    assert!((last - 3.0).abs() < 1e-6, "divider {} vs 3V", last);
+}
+
+/// L7: an undefined `{param}` makes ngspice call the exit callback and refuse
+/// every later circuit. The run must fail as BackendFailure naming the reason,
+/// and the next valid deck in the same process must succeed (library reloaded).
+/// LAPLACE is the same class. Both go through the raw adapter: since task 4 the
+/// validator stops both before the engine (UNDEFINED-PARAM, UNSUPPORTED).
+#[test]
+fn t60_poisoned_engine_recovers() {
+    match tran(&["poison", "V1 a 0 DC 1", "R1 a 0 {nope}"], &["v(a)"]) {
+        Err(benchcore::SimError::InvalidCircuit { code, message }) => {
+            assert!(code == "UNDEFINED-PARAM" && message.contains("'nope'"), "{} {}", code, message)
+        }
+        other => panic!("the static gate must refuse an undefined param, got {:?}", other.map(|r| r.npts)),
+    }
+    let e = poison_raw(&["poison", "V1 a 0 DC 1", "R1 a 0 {nope}"]);
+    assert!(e.to_lowercase().contains("nope"), "reason must be named: {}", e);
+    divider_ok();
+    divider_ok();
+    poison_raw(&["lap", "V1 a 0 DC 1", "R1 a 0 1k", "E1 b 0 a 0 LAPLACE {V(a)} = {1/(1+s)}", "R2 b 0 1k"]);
+    divider_ok();
+}
+
+/// Run a deck through the raw adapter (no validator) and return the abort message; it must say "reloaded".
+fn poison_raw(lines: &[&str]) -> String {
+    use benchcore::ngspice as ng;
+    let _op = ng::op_lock();
+    ng::ensure_init().unwrap();
+    ng::teardown();
+    let mut deck: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    deck.extend([".tran 1u 20u 0 1u uic".to_string(), ".end".to_string()]);
+    let e = ng::do_circ(&deck).expect_err("the deck must abort ngspice");
+    assert!(e.contains("reloaded"), "{}", e);
+    ng::teardown();
+    e
+}
+
+/// XSPICE code models are loaded again by the reload (spinit runs on init).
+#[test]
+fn t61_xspice_works_after_reload() {
+    poison_raw(&["poison", "V1 a 0 DC 1", "R1 a 0 {nope2}"]);
+    let r = tran(
+        &[
+            "inv", "V1 a 0 DC 3.3", "R1 a 0 1k",
+            "A1 [a] [d] adc", ".model adc adc_bridge(in_low=1 in_high=2)",
+            "A2 d o inv", ".model inv d_inverter",
+            "A3 [o] [y] dac", ".model dac dac_bridge(out_low=0 out_high=3.3)", "R2 y 0 1k",
+        ],
+        &["v(y)"],
+    )
+    .expect("xspice after reload");
+    let last = r.series["v(y)"].last().unwrap().1;
+    assert!(last.abs() < 1e-3, "inverter of 3.3V must be ~0, got {}", last);
+}
+
+/// L6: ngspice prints these errors but returns rc 0 and an empty or stale
+/// plot. Each must be an error, never Ok, and a valid run must follow.
+#[test]
+fn t62_silent_parse_failures_are_errors() {
+    use benchcore::ngspice as ng;
+    // through the raw adapter: the validator would reject some of these first
+    for (deck, why) in [
+        (vec!["us", "V1 a 0 1", "R1 a 0 1k", "X1 a 0 nosuch"], "unknown subckt"),
+        (vec!["pm", "V1 a 0 1", "R1 a 0 1k", "X1 a 0 0 s", ".subckt s p q", "R1 p q 1k", ".ends"], "parameters for subcircuit"),
+        (vec!["fn", "V1 a 0 1", "R1 a 0 1k", "R2 a"], "instance line, ignored"),
+    ] {
+        let mut lines: Vec<String> = deck.iter().map(|s| s.to_string()).collect();
+        lines.push(".tran 1u 20u 0 1u uic".to_string());
+        lines.push(".end".to_string());
+        {
+            let _op = ng::op_lock();
+            ng::ensure_init().unwrap();
+            ng::teardown();
+            assert_eq!(ng::do_circ(&lines).unwrap(), 0, "{}: ngspice itself returns rc 0", why);
+            let (log, _) = ng::take_logs();
+            assert!(log.iter().any(|l| l.to_lowercase().contains(why)), "{}: {:?}", why, log);
+            ng::teardown();
+        }
+        // and through the kernel (the validator must not be the only gate)
+        let r = run_simulation(SimRequest { netlist: lines, observables: vec!["v(a)".to_string()], stops: vec![] });
+        assert!(r.is_err(), "{} must fail, got {:?}", why, r.map(|r| r.npts));
+    }
+    divider_ok();
+}
+
+/// An unknown subckt used to return Ok with 0 points: now SolverFailure (or a
+/// static rejection), on both the plain and the paused path.
+#[test]
+fn t63_unknown_subckt_is_err_on_both_paths() {
+    for stops in [vec![], vec![5e-6]] {
+        let r = run_simulation(SimRequest {
+            netlist: ["us", "V1 a 0 1", "R1 a 0 1k", "X1 a 0 nosuch", ".tran 1u 20u 0 1u uic", ".end"]
+                .iter().map(|s| s.to_string()).collect(),
+            observables: vec!["v(a)".to_string()],
+            stops,
+        });
+        assert!(r.is_err(), "got {:?}", r.map(|r| r.npts));
+    }
+}
+
+// ---- device definition table (validate.rs DEVICES / LEVELS) ----
+
+const T20: &str = ".tran 1u 20u 0 1u uic";
+
+/// Every letter in the table: a valid deck passes the validator without errors AND runs through the
+/// real engine to a hand-calculated value. Original letters (R C L D V I Q J M) double as regression
+/// tests; the value proves the validator's node reading matches what ngspice actually built.
+#[test]
+fn t64_every_letter_runs_to_hand_value() {
+    // (label, deck body, observable, expected, abs tol, use max |v| instead of the last value)
+    let cases: Vec<(&str, Vec<&str>, &str, f64, f64, bool)> = vec![
+        ("R divider", vec!["V1 a 0 DC 4", "R1 a b 1k", "R2 b 0 3k"], "v(b)", 3.0, 1e-6, false),
+        ("C charged", vec!["V1 a 0 DC 1", "R1 a b 1", "C1 b 0 1n"], "v(b)", 1.0, 1e-6, false),
+        ("L short at DC", vec!["V1 a 0 DC 1", "R1 a b 1k", "L1 b 0 1u"], "i(v1)", -1e-3, 1e-8, false),
+        ("K transformer k=0.99", vec!["V1 a 0 SIN(0 1 100k)", "R0 a p 1", "L1 p 0 1m", "L2 c 0 1m", "R3 c 0 1meg", "K1 L1 L2 0.99"], "v(c)", 0.99, 0.06, true),
+        ("V+I", vec!["I1 0 b DC 1m", "R2 b 0 1k"], "v(b)", 1.0, 1e-6, false),
+        ("D Vf", vec!["V1 a 0 DC 5", "R1 a b 1k", "D1 b 0 dd", ".model dd D(IS=1e-14)"], "v(b)", 0.6929, 0.005, false),
+        ("D level 3", vec!["V1 a 0 DC 5", "R1 a b 1k", "D1 b 0 dd", ".model dd D(IS=1e-14 level=3)"], "v(b)", 0.6929, 0.005, false),
+        ("B 3*V(a)", vec!["V1 a 0 DC 2", "R1 a 0 1k", "B1 b 0 V=3*V(a)", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E linear", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 a 0 3", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E gain=", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 a 0 gain=3", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E VALUE", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 VALUE={3*V(a)}", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E vol=", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 vol='3*V(a)'", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E TABLE", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 TABLE {V(a)} = (0,0) (4,12)", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("E POLY(1)", vec!["V1 a 0 DC 2", "R1 a 0 1k", "E1 b 0 POLY(1) a 0 0 3", "R2 b 0 1k"], "v(b)", 6.0, 1e-6, false),
+        ("G linear", vec!["V1 a 0 DC 2", "R1 a 0 1k", "G1 b 0 a 0 1m", "R2 b 0 1k"], "v(b)", -2.0, 1e-6, false),
+        ("G cur=", vec!["V1 a 0 DC 2", "R1 a 0 1k", "G1 b 0 cur='1m*V(a)'", "R2 b 0 1k"], "v(b)", -2.0, 1e-6, false),
+        ("F", vec!["V1 a 0 DC 2", "V2 c 0 0", "R3 a c 1k", "F1 b 0 V2 2", "R2 b 0 1k"], "v(b)", -4.0, 1e-6, false),
+        ("H", vec!["V1 a 0 DC 2", "V2 c 0 0", "R3 a c 1k", "H1 b 0 V2 500", "R2 b 0 1k"], "v(b)", 1.0, 1e-6, false),
+        ("H POLY(1)", vec!["V1 a 0 DC 2", "V2 c 0 0", "R3 a c 1k", "H1 b 0 POLY(1) V2 0 500", "R2 b 0 1k"], "v(b)", 1.0, 1e-6, false),
+        ("S on", vec!["V1 a 0 DC 2", "V3 c 0 DC 2", "S1 a b c 0 sw", "R2 b 0 1k", ".model sw SW(vt=1 ron=1 roff=1meg)"], "v(b)", 2.0 * 1000.0 / 1001.0, 1e-6, false),
+        ("S off", vec!["V1 a 0 DC 2", "V3 c 0 DC 0", "S1 a b c 0 sw", "R2 b 0 1k", ".model sw SW(vt=1 ron=1 roff=1meg)"], "v(b)", 2.0 * 1000.0 / 1_001_000.0, 1e-7, false),
+        ("W on", vec!["V1 a 0 DC 2", "V2 c 0 0", "R3 a c 1k", "W1 a b V2 csw", "R2 b 0 1k", ".model csw CSW(it=1m ron=1 roff=1meg)"], "v(b)", 2.0 * 1000.0 / 1001.0, 1e-6, false),
+        ("T matched", vec!["V1 a 0 DC 2", "T1 a 0 b 0 Z0=50 TD=1n", "R2 b 0 50"], "v(b)", 2.0, 1e-6, false),
+        ("O lossless", vec!["V1 a 0 DC 2", "O1 a 0 b 0 lt", "R2 b 0 50", ".model lt LTRA(R=0 L=250n C=100p len=1)"], "v(b)", 2.0, 1e-6, false),
+        ("U urc", vec!["V1 a 0 DC 2", "U1 a b 0 ur L=1m", "R2 b 0 1k", ".model ur URC(K=1.2 fmax=1G rperl=10 cperl=1p)"], "v(b)", 2.0, 1e-3, false),
+        ("Y txl", vec!["V1 a 0 DC 2", "Y1 a 0 b 0 ty", "R2 b 0 50", ".model ty txl R=0.1 L=1n G=0 C=1p length=1"], "v(b)", 2.0, 0.02, false),
+        ("P cpl", vec!["V1 a 0 DC 2", "P1 a 0 b 0 cp", "R2 b 0 50", ".model cp CPL R=0.1 L=1n G=0 C=1p length=1"], "v(b)", 2.0, 0.02, false),
+        ("Q 2N2222 CE", vec!["Vcc vcc 0 DC 5", "Rb vcc b 430k", "Rc vcc c 1k", "Q1 c b 0 q2n2222", Q22], "v(c)", 5.0 - 255.9 * (5.0 - 0.65) / 430e3 * 1e3, 0.25, false),
+        ("J NJF Idss", vec!["V1 a 0 DC 10", "R1 a d 5k", "J1 d 0 0 jm", ".model jm NJF(Beta=1e-4 Vto=-2)"], "v(d)", 8.0, 0.01, false),
+        ("M level 1 sat", vec!["V1 a 0 DC 10", "Vg g 0 DC 3", "R1 a d 5k", "M1 d g 0 0 nm W=100u L=10u", ".model nm NMOS(level=1 Vto=1 Kp=2e-5)"], "v(d)", 8.0, 0.01, false),
+        // VDMOS: Kp/2 (Vgs-Vto)^2 = 0.2 mA; its subthreshold smoothing leaves 0.2 % at Vov = 2 V (1 % tol)
+        ("M VDMOS sat", vec!["V1 a 0 DC 100", "Vg g 0 DC 3", "R1 a d 10", "M1 d g 0 vd", ".model vd VDMOS(Vto=1 Kp=1e-4 lambda=0)", ".save all @m1[id]"], "@m1[id]", 2e-4, 2e-6, false),
+        ("Z Statz sat", vec!["V1 a 0 DC 10", "R1 a d 1k", "Z1 d 0 0 mz", ".model mz NMF(level=1 vto=-2 beta=2.5m b=0.3 alpha=2 lambda=0)"], "v(d)", 10.0 - 2.5e-3 * 4.0 / 1.6 * 1e3, 1e-4, false),
+        ("A inverter", vec![
+            "V1 a 0 DC 0", "R1 a 0 1k", "A1 [a] [d] adc", ".model adc adc_bridge(in_low=1 in_high=2)",
+            "A2 d o inv", ".model inv d_inverter", "A3 [o] [y] dac", ".model dac dac_bridge(out_low=0 out_high=3.3)", "R2 y 0 1k",
+        ], "v(y)", 3.3, 1e-3, false),
+        ("X", vec!["V1 a 0 DC 4", "X1 a b div", "R3 b 0 1meg", ".subckt div p q", "R1 p q 1k", "R2 q 0 3k", ".ends"], "v(b)", 3.0, 0.01, false),
+    ];
+    for (label, body, obs, want, tol, use_max) in cases {
+        let mut deck = vec!["t"];
+        deck.extend(body.iter());
+        let f = findings(&deck);
+        let errs: Vec<_> = f.iter().filter(|x| x.severity == "error").collect();
+        assert!(errs.is_empty(), "{}: validator rejects a deck ngspice runs: {:?}", label, errs);
+        let mut lines: Vec<String> = deck.iter().map(|s| s.to_string()).collect();
+        lines.push(if label.starts_with('K') { ".tran 0.1u 20u 0 0.1u uic" } else { T20 }.to_string());
+        lines.push(".end".to_string());
+        let r = run_simulation(SimRequest { netlist: lines, observables: vec![obs.to_string()], stops: vec![] })
+            .unwrap_or_else(|e| panic!("{}: {:?}", label, e));
+        let s = &r.series[obs];
+        let got = if use_max { s.iter().map(|(_, y)| y.abs()).fold(0.0, f64::max) } else { s.last().unwrap().1 };
+        assert!((got - want).abs() <= tol, "{}: {} = {} vs {} (tol {})", label, obs, got, want, tol);
+    }
+}
+
+/// Each letter's malformed and unsupported forms are refused statically with the right code.
+#[test]
+fn t65_malformed_and_unsupported_per_letter() {
+    let base = ["t", "V1 a 0 DC 2", "R1 a 0 1k", "V2 c 0 0", "R3 a c 1k"];
+    let cases: Vec<(&str, Vec<&str>, &str)> = vec![
+        ("R no value", vec!["R2 a 0"], "MALFORMED"),
+        ("C no value", vec!["C1 a"], "MALFORMED"),
+        ("K no factor", vec!["L1 a 0 1m", "L2 a 0 1m", "K1 L1 L2"], "MALFORMED"),
+        ("V one node", vec!["V9 a"], "MALFORMED"),
+        ("D no model", vec!["D1 a 0"], "MALFORMED"),
+        ("D undefined", vec!["D1 a 0 dz"], "UNDEFINED-MODEL"),
+        ("D level 2", vec!["D1 a 0 dd", ".model dd D(level=2)"], "UNSUPPORTED"),
+        ("D wrong type", vec!["D1 a 0 dd", ".model dd NPN"], "MALFORMED"),
+        ("Q level 6 Mextram", vec!["Q1 a c 0 qm", ".model qm NPN(level=6)"], "UNSUPPORTED"),
+        ("Q level 3", vec!["Q1 a c 0 qm", ".model qm NPN level=3"], "UNSUPPORTED"),
+        ("Q LPNP", vec!["Q1 a c 0 qm", ".model qm LPNP"], "UNSUPPORTED"),
+        ("Q diode model", vec!["Q1 a c 0 qm", ".model qm D"], "MALFORMED"),
+        ("J level 3", vec!["J1 a 0 0 jm", ".model jm NJF(level=3)"], "UNSUPPORTED"),
+        ("M level 7", vec!["M1 a c 0 0 nm", ".model nm NMOS(level=7)"], "UNSUPPORTED"),
+        ("M level 60 aborts", vec!["M1 a c 0 0 0 0 nm", ".model nm NMOS(level=60)"], "UNSUPPORTED"),
+        ("M NMOS 3 nodes", vec!["M1 a c 0 nm", ".model nm NMOS"], "MALFORMED"),
+        ("M VDMOS 4 nodes", vec!["M1 a c 0 0 vd", ".model vd VDMOS"], "MALFORMED"),
+        ("M VDMOS thermal 3 nodes", vec!["M1 a c 0 vd thermal", ".model vd VDMOS"], "MALFORMED"),
+        ("Z level 7", vec!["Z1 a 0 0 mz", ".model mz NMF(level=7)"], "UNSUPPORTED"),
+        ("Z JFET model", vec!["Z1 a 0 0 mz", ".model mz NJF"], "MALFORMED"),
+        ("B if()", vec!["B1 b 0 V=if(V(a)>1, 1, 0)", "R2 b 0 1k"], "UNSUPPORTED"),
+        ("B limit()", vec!["B1 b 0 V=limit(V(a), 0, 1)", "R2 b 0 1k"], "UNSUPPORTED"),
+        ("R table()", vec!["R2 a 0 R={table(V(a), 0, 1, 1, 2)}"], "UNSUPPORTED"),
+        ("E LAPLACE", vec!["E1 b 0 LAPLACE {V(a)} = {1/(1+s)}", "R2 b 0 1k"], "UNSUPPORTED"),
+        ("E 3 nodes", vec!["E1 b 0 a 3", "R2 b 0 1k"], "MALFORMED"),
+        ("E POLY(2) short", vec!["E1 b 0 POLY(2) a 0 0 3", "R2 b 0 1k"], "MALFORMED"),
+        ("G no gain", vec!["G1 b 0 a 0", "R2 b 0 1k"], "MALFORMED"),
+        ("F no gain", vec!["F1 b 0 V2", "R2 b 0 1k"], "MALFORMED"),
+        ("S 3 nodes", vec!["S1 a b c sw", "R2 b 0 1k", ".model sw SW"], "MALFORMED"),
+        ("S VSWITCH", vec!["S1 a b c 0 sw", "R2 b 0 1k", ".model sw VSWITCH(ron=1)"], "UNSUPPORTED"),
+        ("W undefined", vec!["W1 a b V2 cz", "R2 b 0 1k"], "UNDEFINED-MODEL"),
+        ("W SW model", vec!["W1 a b V2 sw", "R2 b 0 1k", ".model sw SW"], "MALFORMED"),
+        ("T 3 nodes", vec!["T1 a 0 b Z0=50 TD=1n", "R2 b 0 50"], "MALFORMED"),
+        ("U wrong model", vec!["U1 a b 0 ur", "R2 b 0 1k", ".model ur LTRA"], "MALFORMED"),
+        ("A undefined", vec!["A1 [a] [d] nomodel"], "UNDEFINED-MODEL"),
+        ("N OSDI", vec!["N1 a 0 vamod"], "UNSUPPORTED"),
+    ];
+    for (label, extra, code) in cases {
+        let mut deck = base.to_vec();
+        deck.extend(extra.iter());
+        let f = findings(&deck);
+        assert!(f.iter().any(|x| x.code == code && x.severity == "error"), "{}: want {}, got {:?}", label, code, f);
+    }
+}
+
+/// DC edges come from the table: switch pairs conduct, control inputs do not; T ports conduct;
+/// XSPICE digital nodes are not reported floating; nested .subckt bodies are depth-correct (L4).
+#[test]
+fn t66_dc_edges_and_nested_bodies() {
+    // S: b reaches ground only through the switch pair -> fine; control node driven by a capacitor -> floating
+    let f = findings(&["t", "V1 a 0 2", "S1 a b c 0 sw", "R2 b 0 1k", "C1 c 0 1n", ".model sw SW"]);
+    assert!(!has_on(&f, "NO-DC-PATH", "b") && has_on(&f, "NO-DC-PATH", "c"), "{:?}", f);
+    // G output is a current source: a node driven only by G is ISRC-OPEN
+    let f = findings(&["t", "V1 a 0 2", "R1 a 0 1k", "G1 b 0 a 0 1m"]);
+    assert!(has_on(&f, "ISRC-OPEN", "b"), "{:?}", f);
+    // E output pair conducts, its control pair does not
+    let f = findings(&["t", "V1 a 0 2", "R1 a 0 1k", "E1 b 0 c 0 2", "R2 b 0 1k", "C1 c 0 1n"]);
+    assert!(!has_on(&f, "NO-DC-PATH", "b") && has_on(&f, "NO-DC-PATH", "c"), "{:?}", f);
+    // T: the far port reaches ground through the line
+    let f = findings(&["t", "V1 a 0 2", "T1 a 0 b 0 Z0=50 TD=1n", "C2 b 0 1p"]);
+    assert!(!has(&f, "NO-DC-PATH"), "{:?}", f);
+    assert!(f.iter().any(|x| x.code == "LIMITED-ANALYSIS" && x.severity == "warn" && x.devices == ["T1"]), "{:?}", f);
+    // XSPICE: the digital node between two A devices is not a false NO-DC-PATH
+    let f = findings(&[
+        "t", "V1 a 0 0", "R1 a 0 1k", "A1 [a] [d] adc", "A2 d o inv", "A3 [o] [y] dac", "R2 y 0 1k",
+        ".model adc adc_bridge", ".model inv d_inverter", ".model dac dac_bridge",
+    ]);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    // %vd(a 0) port syntax: nodes a and 0, the model is the last token
+    let f = findings(&["t", "V1 a 0 1", "R1 a 0 1k", "A1 %vd(a 0) %vd(b 0) g1", ".model g1 gain(gain=3)", "R2 b 0 1k"]);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    // L4: a nested .ends no longer exposes the rest of the outer body as top level. Since task 4 the body is
+    // analysed per instance: its floating capacitor island is x1.zz / x1.yy (ngspice: singular matrix, probed)
+    let f = findings(&[
+        "t", "V1 a 0 1", "X1 a 0 outer",
+        ".subckt outer p q", ".subckt inner c d", "R1 c d 1k", ".ends", "Cfloat zz yy 1n", "R9 p q 1k", ".ends",
+    ]);
+    assert!(!has_on(&f, "NO-DC-PATH", "zz") && !has_on(&f, "NO-DC-PATH", "yy"), "nested body leaked to top level: {:?}", f);
+    let z = f.iter().find(|x| x.code == "NO-DC-PATH" && x.nodes == ["x1.zz"]).expect("internal island reported");
+    assert_eq!((z.scope.as_str(), z.devices.as_slice()), ("x1", &["c.x1.cfloat".to_string()][..]));
+}
+
+/// t20 relies on the engine refusing an unknown XSPICE code model; with A accepted statically the
+/// refusal must come from the engine and name the cause.
+#[test]
+fn t67_unknown_code_model_fails_in_engine() {
+    let e = tran(&["a", "V1 a 0 DC 5", "R1 a 0 1k", "A1 a 0 mycode", ".model mycode xspice()"], &["v(a)"])
+        .expect_err("unknown code model");
+    let msg = format!("{:?}", e).to_lowercase();
+    assert!(msg.contains("unknown model type") || msg.contains("not parsed") || msg.contains("error"), "{}", msg);
+}
+
+/// Task 3: the deck shape the app emits for subcircuit-backed packages (top-level X instances, definitions once
+/// after the devices, `* bench-def` frames, a nested X whose body uses a top-level card, a subckt default and an
+/// instance override) passes the static gate and runs to the divider values; internal nodes are per instance.
+#[test]
+fn t68_app_shaped_subckt_deck() {
+    let deck = [
+        "app", "V1 a 0 DC 10",
+        "XU1 a b rp", "R1 b 0 1k",                    // RA default 1k: v(b) = 5
+        "XU2 a c rp RA=3000.0", "R2 c 0 1k",          // override 3k: v(c) = 2.5
+        "XU3 a d pair", "R3 d 0 1meg",                // two diodes in series, then 1 MΩ
+        "* bench-def _models/x/dm.lib 0123abcd", ".model bench_dm D(Is=1e-14)",
+        "* bench-def pkg/component.toml#body 89abcdef",
+        ".subckt rp p q params: RA=1k", "R1 p m {RA/2}", "R2 m q {RA/2}", ".ends rp",
+        ".subckt pair a k", "X1 a m half", "X2 m k half", ".ends pair",
+        ".subckt half a k", "D1 a k bench_dm", ".ends half",
+    ];
+    let f = findings(&deck);
+    assert!(!f.iter().any(|x| x.severity == "error"), "{:?}", f);
+    let r = tran(&deck, &["v(b)", "v(c)", "v(d)", "v(xu1.m)", "v(xu2.m)", "v(xu3.m)"]).expect("app-shaped deck runs");
+    let last = |k: &str| r.series[k].last().unwrap().1;
+    assert!((last("v(b)") - 5.0).abs() < 1e-6 && (last("v(c)") - 2.5).abs() < 1e-6, "{} {}", last("v(b)"), last("v(c)"));
+    assert!((last("v(xu1.m)") - 7.5).abs() < 1e-6 && (last("v(xu2.m)") - 6.25).abs() < 1e-6);
+    let (vd, i) = (10.0 - last("v(d)"), last("v(d)") / 1e6);   // two identical junctions share the drop
+    let vj = 0.025865 * (i / 1e-14 + 1.0).ln();                  // Shockley, Vt at 27 C
+    assert!((vd / 2.0 - vj).abs() < 1e-3 && (last("v(xu3.m)") - (10.0 - vd / 2.0)).abs() < 1e-6, "{} {} {}", vd, vj, last("v(xu3.m)"));
+}
+
+// ---- subcircuit-aware validator (task 4, docs/plans/ngspice-library/DESIGN.md 4.6) ----
+
+fn last(r: &benchcore::SimResult, k: &str) -> f64 {
+    r.series[k].last().unwrap().1
+}
+
+/// Decks with nested, local and multi-instance subcircuits that the validator accepts (no error) simulate in
+/// ngspice to hand values: acceptance is not a false negative on what ngspice runs.
+#[test]
+fn t69_accepted_subckt_decks_simulate() {
+    let cases: Vec<(&str, Vec<&str>, &str, f64, f64)> = vec![
+        // two instances of a definition whose body uses a .subckt local to it, which reads RT dynamically
+        ("nested local def, override instance", vec![
+            "V1 a 0 DC 4", "X1 a b outer", "X2 a c outer RT=3k", "R3 b 0 1k", "R4 c 0 1k",
+            ".subckt outer p q params: RT=1k", "X1 p q half", ".subckt half r s", "R1 r s {RT}", ".ends", ".ends",
+        ], "v(c)", 1.0, 1e-9),
+        ("nested local def, default instance", vec![
+            "V1 a 0 DC 4", "X1 a b outer", "X2 a c outer RT=3k", "R3 b 0 1k", "R4 c 0 1k",
+            ".subckt outer p q params: RT=1k", "X1 p q half", ".subckt half r s", "R1 r s {RT}", ".ends", ".ends",
+        ], "v(b)", 2.0, 1e-9),
+        ("gnd inside the body is the only ground", vec!["V1 a b DC 1", "R2 a b 1k", "X1 b s", ".subckt s p", "R1 p gnd 1k", ".ends"], "v(a)", 1.0, 1e-9),
+        ("differential input, no internal ground", vec![
+            "V1 a 0 DC 1", "V2 c 0 DC 0.5", "X1 a c o amp", "R3 o 0 1k", ".subckt amp inp inn out", "Rin inp inn 1meg",
+            "E1 out 0 inp inn 10", ".ends",
+        ], "v(o)", 5.0, 1e-9),
+        ("local .model shadows the global card", vec![
+            "V1 a 0 DC 5", "R0 a b 1k", "X1 b s", ".model dl D(is=1e-20)", ".subckt s p", ".model dl D(is=1e-14)", "D1 p 0 dl", ".ends",
+        ], "v(b)", 0.6929, 0.005),
+        ("B I= conductance on an internal node", vec![
+            "V1 a 0 DC 2", "X1 a b s", "R2 b 0 1k", ".subckt s p q", "B1 p m I=V(p,m)/1k", "R1 m q 1k", ".ends",
+        ], "v(b)", 2.0 / 3.0, 1e-6),
+        ("continuations and comments in a body", vec![
+            "V1 a 0 DC 4", "X1 a b s RA=3k ; override", "R2 b 0 1k", ".subckt s p q", "+ params: RA=1k", "R1 p q $ series",
+            "* comment between", "+ {RA} // value", ".ends",
+        ], "v(b)", 1.0, 1e-9),
+    ];
+    for (label, body, obs, want, tol) in cases {
+        let mut deck = vec!["t"];
+        deck.extend(body.iter());
+        let errs: Vec<_> = findings(&deck).into_iter().filter(|x| x.severity == "error").collect();
+        assert!(errs.is_empty(), "{}: validator rejects a deck ngspice runs: {:?}", label, errs);
+        let r = tran(&deck, &[obs]).unwrap_or_else(|e| panic!("{}: {:?}", label, e));
+        assert!((last(&r, obs) - want).abs() <= tol, "{}: {} = {} vs {}", label, obs, last(&r, obs), want);
+    }
+    // a transformer whose windings share no galvanic path, each grounded through the ports outside
+    let deck = [
+        "t", "V1 a 0 SIN(0 1 100k)", "R0 a p 1", "X1 p 0 s1 0 xf", "R1 s1 0 1k",
+        ".subckt xf p q s t", "L1 p q 1m", "L2 s t 1m", "K1 L1 L2 0.99", ".ends",
+    ];
+    assert!(!findings(&deck).iter().any(|x| x.severity == "error"), "{:?}", findings(&deck));
+    let mut lines: Vec<String> = deck.iter().map(|s| s.to_string()).collect();
+    lines.extend([".tran 0.1u 20u 0 0.1u uic".to_string(), ".end".to_string()]);
+    let r = run_simulation(SimRequest { netlist: lines, observables: vec!["v(s1)".into()], stops: vec![] }).expect("transformer runs");
+    let peak = r.series["v(s1)"].iter().map(|(_, y)| y.abs()).fold(0.0, f64::max);
+    assert!((peak - 0.99).abs() < 0.06, "secondary peak {}", peak);
+}
+
+/// What ngspice does with a deck when nothing stops it: fails (an error line or an abort), or runs and computes
+/// something other than what the deck says (silent).
+enum Ngspice {
+    Fails(&'static str),
+    /// `got`: what ngspice computes; `written`: what the deck's text (one plausible reading of it) asks for.
+    Silent { obs: &'static str, got: f64, written: f64 },
+}
+
+/// Run through the raw adapter (no validator) -> (last value of `obs`, ngspice's log and abort text, lower case).
+fn raw(lines: &[&str], obs: &str) -> (Option<f64>, String) {
+    use benchcore::ngspice as ng;
+    let _op = ng::op_lock();
+    ng::ensure_init().unwrap();
+    ng::teardown();
+    let mut deck: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    deck.extend([".tran 1u 20u 0 1u uic".to_string(), ".end".to_string()]);
+    let mut text = String::new();
+    match ng::do_circ(&deck).and_then(|_| ng::do_command("run")) {
+        Err(e) => text.push_str(&e),
+        Ok(_) => {}
+    }
+    let (series, _) = ng::read_series(&[obs.to_string()]);
+    let (log, _) = ng::take_logs();
+    text.push_str(&log.join("\n"));
+    ng::teardown();
+    (series.get(obs).and_then(|v| v.last().copied()), text.to_lowercase())
+}
+
+/// Every deck the validator rejects is one ngspice misbehaves on, run without the validator. Not run here:
+/// K coupling a resistor, which the validator rejects as MALFORMED because ngspice 47 segfaults on it
+/// (probed in a subprocess, exit -11).
+#[test]
+fn t70_rejected_decks_are_ones_ngspice_misbehaves_on() {
+    let d = ["V1 a 0 DC 4", "R0 a b 1k"];
+    let cases: Vec<(&str, Vec<&str>, &str, Ngspice)> = vec![
+        ("undefined subckt", vec!["X1 b nosuch", "R3 b 0 3k"], "UNDEFINED-SUBCKT", Ngspice::Fails("unknown subckt")),
+        ("model from a nested definition", vec!["X1 b outer", ".subckt outer p", "D1 p 0 dl", ".subckt inner q", ".model dl D", "R1 q 0 1k", ".ends", ".ends"],
+         "UNDEFINED-MODEL", Ngspice::Fails("could not find a valid modelname")),
+        ("undefined param in a body", vec!["X1 b s", ".subckt s p", "R1 p 0 {nope}", ".ends"], "UNDEFINED-PARAM", Ngspice::Fails("undefined parameter")),
+        ("unknown function in a body", vec!["X1 b s", ".subckt s p", "R1 p 0 1k", "B1 p 0 I=foo(V(p))", ".ends"], "UNDEFINED-PARAM", Ngspice::Fails("no such function")),
+        ("recursion", vec!["X1 b s", ".subckt s p", "X2 p s", "R1 p 0 1k", ".ends"], "SUBCKT-RECURSION", Ngspice::Fails("unknown subckt")),
+        ("K names a missing inductor", vec!["X1 b s", ".subckt s p", "L1 p 0 1m", "K1 L1 L9 0.9", ".ends"], "UNDEFINED-ELEMENT", Ngspice::Fails("non-existent inductor")),
+        ("F controlled by a top-level source", vec!["R3 b 0 3k", "X1 b s", ".subckt s p", "F1 p 0 V1 0.001", ".ends"], "UNDEFINED-ELEMENT", Ngspice::Fails("unknown controlling source")),
+        ("duplicate element in a body", vec!["X1 b s", ".subckt s p", "R1 p 0 1k", "R1 p 0 2k", ".ends"], "DUP-NAME", Ngspice::Fails("error")),
+        ("missing .ends", vec!["X1 b s", ".subckt s p", "R1 p 0 1k"], "SUBCKT-UNBALANCED", Ngspice::Fails("ends")),
+        ("isolated winding inside", vec!["R3 b 0 3k", "X1 b xf", ".subckt xf p", "L1 p 0 1m", "L2 m n 1m", "R1 m n 1k", "K1 L1 L2 0.99", ".ends"],
+         "NO-DC-PATH", Ngspice::Fails("singular matrix")),
+        ("floating capacitor island inside", vec!["R3 b 0 3k", "X1 b s", ".subckt s p", "R1 p 0 1k", "C1 m n 1n", ".ends"], "NO-DC-PATH", Ngspice::Fails("singular matrix")),
+        // silent: ngspice runs and computes something else than the text says
+        ("unknown instance param (RB for RA)", vec!["X1 b s RB=3k", "R3 b 0 3k", ".subckt s p params: RA=1k", "R1 p 0 {RA}", ".ends"],
+         "UNKNOWN-INSTANCE-PARAM", Ngspice::Silent { obs: "v(b)", got: 4.0 * 750.0 / 1750.0, written: 4.0 * 1500.0 / 2500.0 }),
+        ("port named 0", vec!["X1 b q s", "R3 q 0 1k", ".subckt s p 0", "R1 p 0 1k", ".ends"],
+         "MALFORMED", Ngspice::Silent { obs: "v(q)", got: 0.0, written: 4.0 * 1e3 / 3e3 }),
+        ("duplicate port (b and q both on p)", vec!["X1 b q s", "R3 q 0 1k", ".subckt s p p", "R1 p 0 1k", ".ends"],
+         "DUP-NAME", Ngspice::Silent { obs: "v(b)", got: 2.0, written: 4.0 * 500.0 / 1500.0 }),
+        ("redefined .subckt", vec!["X1 b s", ".subckt s p", "R1 p 0 1k", ".ends", ".subckt s p", "R1 p 0 3k", ".ends"],
+         "DUP-SUBCKT", Ngspice::Silent { obs: "v(b)", got: 2.0, written: 3.0 }),          // the first body wins
+        ("redefined .model", vec!["D1 b 0 dd", ".model dd D(is=1e-14)", ".model dd D(is=1e-20)"],
+         "DUP-MODEL", Ngspice::Silent { obs: "v(b)", got: 0.6929, written: 1.02 }),       // the first card wins
+        ("parameter declared twice", vec!["X1 b s", ".subckt s p params: r=1k r=3k", "R1 p 0 {r}", ".ends"],
+         "DUP-NAME", Ngspice::Silent { obs: "v(b)", got: 3.0, written: 2.0 }),            // the last one wins
+    ];
+    for (label, body, code, ng) in cases {
+        let mut deck = vec!["t"];
+        deck.extend(d.iter());
+        deck.extend(body.iter());
+        let f = findings(&deck);
+        assert!(f.iter().any(|x| x.code == code && x.severity == "error"), "{}: want {}, got {:?}", label, code, f);
+        let (val, log) = raw(&deck, match ng { Ngspice::Silent { obs, .. } => obs, _ => "v(b)" });
+        match ng {
+            Ngspice::Fails(why) => assert!(log.contains(why), "{}: ngspice did not fail with '{}': {:?} {}", label, why, val, log),
+            Ngspice::Silent { obs, got, written } => {
+                let v = val.unwrap_or_else(|| panic!("{}: ngspice did not run: {}", label, log));
+                assert!(!log.contains("error"), "{}: ngspice reported it after all: {}", label, log);
+                assert!((v - got).abs() < 0.01, "{}: {} = {}, expected ngspice's {}", label, obs, v, got);
+                assert!((got - written).abs() > 0.1, "{}: not a silent misreading", label);
+            }
+        }
+    }
+    divider_ok();
+}

@@ -83,11 +83,11 @@ def test_simulated_only_toggle_and_empty_category(win):
     shown = ids(win)
     assert 0 < len(shown) < n_all and all(CATALOG.defs[i].simulated for i in shown)
     assert all(c.badge.text() == "Simulated" for c in lib.cards.values())
-    click_widget(lib.navs["Sensors"])                      # the only sensor is interface-only
-    assert ids(win) == [] and lib.empty.isVisible() and "No simulated components in Sensors" in lib.empty_title.text()
+    click_widget(lib.navs["Microcontrollers"])             # every microcontroller is interface-only
+    assert ids(win) == [] and lib.empty.isVisible() and "No simulated components in Microcontrollers" in lib.empty_title.text()
     assert "hidden" in lib.empty_text.text() and lib.empty_btn.text() == "Show all"
     click_widget(lib.empty_btn)
-    assert not lib.toggle.isChecked() and ids(win) and all(CATALOG.defs[i].category == "Sensors" for i in ids(win))
+    assert not lib.toggle.isChecked() and ids(win) and all(CATALOG.defs[i].category == "Microcontrollers" for i in ids(win))
 
 
 def test_card_content_and_readiness_badges(win):
@@ -333,9 +333,9 @@ def test_nav_counts_follow_toggle_and_query(win):
     """T3: seeded counts are hard-coded (not the function the UI itself calls); the toggle and the query change them."""
     lib = win.library
     n = lambda k: lib.navs[k].count.text()
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("17", "11", "2", "1")
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("20", "13", "2", "2")
     click_widget(lib.toggle)
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("12", "11", "0", "0")
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("15", "13", "0", "1")
     click_widget(lib.toggle)
     type_search(win, "esp")
     assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")

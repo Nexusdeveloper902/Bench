@@ -3,12 +3,18 @@
 //! Covers exactly the validated surface: init / circ / command / vector read /
 //! current-plot query / all-vectors count. No bg threads, no Sync callbacks in
 //! v1. Sequential single-handle discipline: one process-wide Mutex guards every
-//! lib call; the handle type is !Send + !Sync. Library is never unloaded.
+//! lib call; the handle type is !Send + !Sync.
+//!
+//! Recovery: when ngspice calls the controlled-exit callback ("cannot recover
+//! and awaits to be reset or detached"; e.g. an undefined `{param}` or E/G
+//! LAPLACE), the call that triggered it returns Err and the library is
+//! unloaded (dlclose); the next call loads and initialises a fresh copy.
 
 use libloading::{Library, Symbol};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_double, c_int, c_void};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 const LIB_PATH: &str = "/usr/lib/libngspice.so";
@@ -72,6 +78,8 @@ static SIM: OnceLock<Mutex<SimState>> = OnceLock::new();
 static OP: OnceLock<Mutex<()>> = OnceLock::new();
 // Callback logs live separately so callbacks never contend with SIM.
 static LOGS: OnceLock<Mutex<(Vec<String>, Vec<String>)>> = OnceLock::new();
+// Set by the controlled-exit callback; consumed after every circ/command.
+static EXITED: AtomicBool = AtomicBool::new(false);
 
 fn sim() -> &'static Mutex<SimState> {
     SIM.get_or_init(|| Mutex::new(SimState { lib: None, inited: false }))
@@ -124,6 +132,7 @@ unsafe extern "C" fn cb_exit(
     _id: c_int,
     _ud: *mut c_void,
 ) -> c_int {
+    EXITED.store(true, Ordering::SeqCst);
     0
 }
 
@@ -146,7 +155,6 @@ fn load_lib() -> Result<(), String> {
     }
     unsafe {
         let lib = Library::new(LIB_PATH).map_err(|e| format!("dlopen {}: {}", LIB_PATH, e))?;
-        // Never unload: leak the handle so callbacks/static state stay valid.
         let l: Lib = Lib {
             init: *lib
                 .get::<unsafe extern "C" fn(
@@ -192,27 +200,57 @@ fn load_lib() -> Result<(), String> {
             cb_bg,
             std::ptr::null_mut(),
         );
+        EXITED.store(false, Ordering::SeqCst);
         if rc != 0 {
             return Err(format!("ngSpice_Init rc={}", rc));
         }
-        // Leak the Library itself (mem::forget via Option dance): keep inside
-        // SimState but never Drop it -- process-lifetime singleton.
+        // Kept until ngspice asks to be detached (`after_call`).
         st.lib = Some(l);
         st.inited = true;
-        // Prevent Library Drop from ever running: SimState lives in a
-        // OnceLock statics and is never destroyed before process exit.
         Ok(())
+    }
+}
+
+fn clear_logs() {
+    if let Ok(mut lg) = logs().lock() {
+        lg.0.clear();
+        lg.1.clear();
     }
 }
 
 /// Ensure init (idempotent). Clears per-run logs.
 pub fn ensure_init() -> Result<(), String> {
     load_lib()?;
-    if let Ok(mut lg) = logs().lock() {
-        lg.0.clear();
-        lg.1.clear();
-    }
+    clear_logs();
     Ok(())
+}
+
+/// ngspice's own error lines from the current log (`stderr Error...` and the
+/// lines that explain a failed parse), prefix stripped, at most `max`.
+pub fn error_lines(max: usize) -> Vec<String> {
+    let (log, _) = take_logs();
+    log.iter()
+        .filter_map(|l| l.strip_prefix("stderr "))
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.to_lowercase().starts_with("warning: vector"))
+        .take(max)
+        .map(str::to_string)
+        .collect()
+}
+
+/// After every circ/command: if ngspice fired the controlled-exit callback,
+/// unload the library (the next call reloads it) and report the failure.
+fn after_call(st: &mut SimState) -> Result<(), String> {
+    if !EXITED.swap(false, Ordering::SeqCst) {
+        return Ok(());
+    }
+    st.lib = None; // dlclose: a poisoned library never serves another run
+    st.inited = false;
+    let why = error_lines(4);
+    Err(format!(
+        "ngspice aborted and was reloaded: {}",
+        if why.is_empty() { "no error text".to_string() } else { why.join(" | ") }
+    ))
 }
 
 pub fn do_circ(lines: &[String]) -> Result<i32, String> {
@@ -222,7 +260,7 @@ pub fn do_circ(lines: &[String]) -> Result<i32, String> {
             return Err("netlist line contains interior NUL (refused: deck would mutate)".to_string());
         }
     }
-    let st = sim().lock().map_err(|e| format!("sim lock poisoned: {}", e))?;
+    let mut st = sim().lock().map_err(|e| format!("sim lock poisoned: {}", e))?;
     let lib = st.lib.as_ref().ok_or("lib not loaded")?;
     let cstrs: Vec<CString> = lines
         .iter()
@@ -230,16 +268,24 @@ pub fn do_circ(lines: &[String]) -> Result<i32, String> {
         .collect();
     let mut ptrs: Vec<*const c_char> = cstrs.iter().map(|c| c.as_ptr()).collect();
     ptrs.push(std::ptr::null());
-    let rc = unsafe { (lib.circ)(ptrs.as_ptr()) };
+    // Pin the compatibility mode: a ./.spiceinit or ~/.spiceinit read at init
+    // may set ngbehavior (ps/lt/...), which changes how the deck is parsed.
+    let unset = CString::new("unset ngbehavior").unwrap();
+    let rc = unsafe {
+        (lib.command)(unset.as_ptr());
+        (lib.circ)(ptrs.as_ptr())
+    };
+    after_call(&mut st)?;
     Ok(rc)
 }
 
 pub fn do_command(cmd: &str) -> Result<i32, String> {
     load_lib()?;
-    let st = sim().lock().map_err(|e| format!("sim lock poisoned: {}", e))?;
+    let mut st = sim().lock().map_err(|e| format!("sim lock poisoned: {}", e))?;
     let lib = st.lib.as_ref().ok_or("lib not loaded")?;
     let c = CString::new(cmd).map_err(|e| format!("bad command: {}", e))?;
     let rc = unsafe { (lib.command)(c.as_ptr()) };
+    after_call(&mut st)?;
     Ok(rc)
 }
 
@@ -371,4 +417,5 @@ pub fn teardown() {
     let _ = do_command("stop clear");
     let _ = do_command("destroy all");
     let _ = do_command("delete all");
+    clear_logs(); // teardown chatter is not part of the next run's log
 }

@@ -73,3 +73,84 @@ def test_ce_amp_operating_point():
 def test_unsaved_device_current_raises():
     with pytest.raises(InvalidConfigError, match="@q1\\[ic\\]"):
         ce_amp(save=False).run()
+
+
+# ---- engine robustness (docs/plans/ngspice-library/DESIGN.md 4.5) ----
+from benchcore import BackendError, InvalidCircuitError, SolverError
+
+
+def divider():
+    s = Simulation("div").build_circuit(["V1 a 0 DC 4", "R1 a b 1k", "R2 b 0 3k"])
+    s.configure(tstep=1e-6, tstop=2e-5).observe("v(b)").run()
+    return s.observable("v(b)")[-1][1]
+
+
+def test_poisoned_engine_recovers():
+    """L7: a deck that makes libngspice abort used to leave it refusing every later circuit in the process.
+    Task 4 changed the trigger deliberately: an undefined {param} no longer reaches the engine (the validator refuses
+    it, UNDEFINED-PARAM), so the abort comes from a missing .include file, which the validator lets through."""
+    undefined = Simulation("undef").build_circuit(["V1 a 0 DC 1", "R1 a 0 {nope}"]).configure(tstep=1e-6, tstop=2e-5)
+    with pytest.raises(InvalidCircuitError, match=r"UNDEFINED-PARAM.*'nope'"):
+        undefined.observe("v(a)").run()
+    bad = Simulation("poison").build_circuit(["V1 a 0 DC 1", "R1 a 0 1k", ".include /nonexistent/bench_missing.lib"])
+    bad.configure(tstep=1e-6, tstop=2e-5).observe("v(a)")
+    with pytest.raises(BackendError, match="(?i)reloaded.*bench_missing"):
+        bad.run()
+    assert divider() == pytest.approx(3.0, abs=1e-6)
+    with pytest.raises(BackendError):
+        bad.run()
+    assert divider() == pytest.approx(3.0, abs=1e-6)
+
+
+def test_unknown_subckt_is_an_error_not_an_empty_success(tmp_path):
+    """L6: ngspice prints 'unknown subckt' but returns rc 0 and no data; that used to be ok with 0 points.
+    Updated deliberately in task 4: the static UNDEFINED-SUBCKT check now refuses it before the engine (this test
+    expected the runtime SolverError). The runtime scan stays as a second gate: correctness.rs t62 drives the raw
+    adapter, and an .include (which may supply the definition) still reaches the engine and fails there."""
+    s = Simulation("us").build_circuit(["V1 a 0 DC 1", "R1 a 0 1k", "X1 a 0 nosuch"])
+    with pytest.raises(InvalidCircuitError, match=r"UNDEFINED-SUBCKT.*'nosuch'"):
+        s.configure(tstep=1e-6, tstop=2e-5).observe("v(a)").run()
+    assert [(f["code"], f["class"], f["scope"]) for f in s.validate() if f["severity"] == "error"] == [
+        ("UNDEFINED-SUBCKT", "dependency", "")]
+    (tmp_path / "empty.lib").write_text("* defines nothing\n")
+    inc = Simulation("inc").build_circuit(["V1 a 0 DC 1", "R1 a 0 1k", "X1 a 0 nosuch", f".include {tmp_path}/empty.lib"])
+    inc.configure(tstep=1e-6, tstop=2e-5).observe("v(a)")
+    assert [(f["code"], f["class"]) for f in inc.validate()] == [("OPAQUE-X", "limited")]
+    with pytest.raises(SolverError, match="unknown subckt"):
+        inc.run()
+    assert divider() == pytest.approx(3.0, abs=1e-6)
+
+
+SPICEINIT_PROBE = """
+import benchcore
+s = benchcore.Simulation("tc").build_circuit(["V1 b 0 DC 1", "R1 b 0 1k TC=0.01,0"])
+s.configure(tstep=1e-6, tstop=2e-5).observe("v(b)")
+try:
+    s.run(); print("RAN", s.observable("v(b)")[-1][1])
+except benchcore.SolverError as e:
+    print("REFUSED", e)
+"""
+
+
+def test_spiceinit_cannot_change_the_compat_mode(tmp_path):
+    """L13: libngspice runs ./.spiceinit at init. `TC=a,b` parses only in PSpice mode (psa: v(b) = 1, verified with
+    the pin removed), so a .spiceinit that selects psa must not make this deck run: Bench pins the mode."""
+    import subprocess, sys
+    (tmp_path / ".spiceinit").write_text("set ngbehavior=psa\n")
+    out = subprocess.run([sys.executable, "-c", SPICEINIT_PROBE], cwd=tmp_path, capture_output=True, text=True, timeout=60)
+    assert out.stdout.startswith("REFUSED"), out.stdout + out.stderr
+
+
+def test_validate_reports_class_and_scope_through_nested_subcircuits():
+    """Task 4: findings carry `class` (syntax, dependency, connectivity, unsupported, limited, value) and `scope` ("" top
+    level, ".subckt <name>" a definition, "x1.xa" an instance path); benchcore.validate needs no simulation session."""
+    deck = ["t", "V1 a 0 DC 1", "X1 a outer", "X2 a outer",
+            ".subckt outer p", "XA p inner", "A1 [p] [d] adc", ".model adc adc_bridge", ".subckt inner q",
+            "R1 q 0 1k", "C1 m n 1n", "D1 q 0 nomodel", ".ends", ".ends", ".tran 1u 10u uic", ".end"]
+    got = sorted((f["code"], f["class"], f["scope"], f["severity"]) for f in benchcore.validate(deck)
+                 if f["code"] != "DANGLING")                            # (x1.d, x1.xa.m, ...: single-terminal nodes)
+    assert got == sorted([
+        ("LIMITED-ANALYSIS", "limited", ".subckt outer", "warn"),               # once per definition, not per instance
+        ("UNDEFINED-MODEL", "dependency", ".subckt outer/inner", "error"),
+        *[("NO-DC-PATH", "connectivity", f"{x}.xa", "error") for x in ("x1", "x2") for _ in "mn"],
+    ]), got

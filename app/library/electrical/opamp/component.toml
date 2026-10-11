@@ -1,0 +1,62 @@
+format = 1
+id = "OPAMP"
+version = 1
+name = "Op-amp (ideal, single pole)"
+description = "Generic voltage-feedback op-amp: finite open-loop gain, one dominant pole set by the gain-bandwidth product, 1 Ω output resistance. Output referenced to ground."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["operational amplifier", "opamp"]
+keywords = ["amplifier", "op amp", "feedback", "gbw", "subcircuit"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["No supply pins: the output is not limited by rails and never saturates.",
+               "No slew-rate limit, input offset, bias current, noise or supply current.",
+               "Single pole only: phase margin is always 90°, so no ringing from a second pole."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp"
+name = "+"
+at = [0, 20]
+description = "Non-inverting input"
+
+[[pins]]
+id = "inn"
+name = "-"
+at = [0, 60]
+description = "Inverting input"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output (referenced to ground)"
+
+[[params]]
+key = "aol"
+label = "Open-loop gain"
+default = "100k"
+min = 1
+help = "DC open-loop voltage gain, V/V (100k = 100 dB)"
+
+[[params]]
+key = "gbw"
+label = "Gain-bandwidth"
+unit = "Hz"
+default = "1meg"
+min = 0
+min_exclusive = true
+help = "Gain-bandwidth product; the open-loop pole is at GBW / gain"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp} {inn} {out} bench_opamp A={aol} GBW={gbw}"   # node fields = ports inp inn out, in order
+defs = ["models:generic/opamp.lib"]
+model_kind = "project-subckt"
+verification = "analytic"

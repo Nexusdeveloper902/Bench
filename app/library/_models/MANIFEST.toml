@@ -1,0 +1,14 @@
+# Provenance of every shared definition file under app/library/_models/ (one [[file]] per file).
+# Keys: path (relative to _models/), origin ("project" | "third-party"), source, url (required for third-party),
+# version, license (SPDX id, or LicenseRef-<name> with LICENSES/<name>.txt), attribution, retrieved (YYYY-MM-DD),
+# sha256 (of the file as shipped), changes (what differs from upstream). The catalog rejects a package that uses a
+# models: file whose record is missing, incomplete or has a stale sha256.
+
+[[file]]
+path = "generic/opamp.lib"
+origin = "project"
+source = "Bench project; textbook single-pole op-amp (VCVS gain stage, RC pole, unity buffer, output resistance)"
+license = "MIT"
+retrieved = "2026-10-10"
+sha256 = "eddf6c18b9c12c5903b5d6be87e17a7c4f3b34e3c4ea0713e503b1d544553d43"
+changes = "none"

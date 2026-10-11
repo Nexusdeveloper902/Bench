@@ -78,12 +78,16 @@ fn py_run_simulation<'py>(
     Ok(d)
 }
 
-/// validate(netlist) -> list of {code, severity, message, nodes, devices, layer}.
+/// validate(netlist) -> list of {code, class, severity, message, nodes, devices, layer, scope}.
+/// class: syntax | dependency | connectivity | unsupported | limited | value. scope: "" top level,
+/// ".subckt <name>" a definition, or an instance path such as "x1.xa".
 #[pyfunction(name = "validate")]
 fn py_validate<'py>(py: Python<'py>, netlist: Vec<String>) -> PyResult<Bound<'py, PyList>> {
     let out = PyList::empty(py);
     for f in validate::validate(&netlist) {
         let d = PyDict::new(py);
+        d.set_item("class", validate::class_of(&f.code))?;
+        d.set_item("scope", f.scope)?;
         d.set_item("code", f.code)?;
         d.set_item("severity", f.severity)?;
         d.set_item("message", f.message)?;

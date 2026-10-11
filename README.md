@@ -118,21 +118,22 @@ app/library/electrical/d_1n4148/
 └── icon.svg         # library icon (optional)
 ```
 
-Set `SIM_COMPONENT_PATH` to extra directories to load your own packages, then validate:
+Parts backed by a `.subckt` carry it inline or in files, with shared model files in `app/library/_models/`
+(see [`docs/adding-components.md`](docs/adding-components.md)). Set `SIM_COMPONENT_PATH` to extra directories to load your own packages, then validate:
 
 ```bash
 python3 -m app.catalog ~/my-parts
 ```
 
 <details>
-<summary><b>Built-in library (17 parts)</b></summary>
+<summary><b>Built-in library (20 parts)</b></summary>
 
 | Category | Parts |
 |---|---|
-| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, 2N2222 (NPN transistor), switch, voltage source, current source, ground |
+| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, 2N2222 (NPN transistor), switch, voltage source, current source, ground, op-amp, dual op-amp |
 | Power | battery |
 | Microcontrollers | ESP32 DevKitC, Arduino Uno R3 |
-| Sensors | DHT22 |
+| Sensors | DHT22, NTC thermistor |
 | Displays | SSD1306 (I²C) |
 | Audio | piezo buzzer |
 

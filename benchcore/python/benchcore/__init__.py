@@ -27,6 +27,7 @@ from ._benchcore import (
 
 __all__ = [
     "Simulation",
+    "validate",
     "SimError",
     "InvalidCircuitError",
     "InvalidConfigError",
@@ -38,6 +39,10 @@ __all__ = [
 ]
 
 SimError = Exception
+
+# validate(deck) -> [finding dict]: the static checks every run applies, on a whole deck (title line first), with no
+# simulation session (the catalog validates package definition text with it).
+validate = _k.validate
 
 
 class Simulation:

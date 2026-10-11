@@ -1,0 +1,14 @@
+* bench_opamp: single-pole voltage-feedback op-amp (project-authored, textbook topology).
+* Ports: inp inn out. Output referenced to ground (no supply pins, no rails).
+* A: DC open-loop gain (V/V). GBW: gain-bandwidth product (Hz); the pole sits at GBW/A.
+* ROUT: output resistance (ohm). 1 Tohm from each input to ground keeps an input that is
+* driven only through a capacitor solvable; it is negligible against any real source.
+.subckt bench_opamp inp inn out params: A=100k GBW=1meg ROUT=1
+Rinp inp 0 1e12
+Rinn inn 0 1e12
+Egain n1 0 inp inn {A}
+Rpole n1 n2 1k
+Cpole n2 0 {A/(6.283185307179586*GBW*1k)}
+Ebuf n3 0 n2 0 1
+Rout n3 out {ROUT}
+.ends bench_opamp

@@ -176,24 +176,47 @@ fn scan_loud_failure(log: &[String]) -> Option<String> {
         "not parsed",
         "mif-error",
         "unable to find definition",
+        // parse problems ngspice reports but still returns rc 0 for (L6)
+        "unknown subckt",
+        "parameters for subcircuit type",
+        "instance line, ignored",
+        "unknown model type",
         "failed",
     ];
     // "failed" alone is broad; require it alongside solver context is handled
     // by ordering: specific patterns first, generic last, benign lines (e.g.
     // "0 warnings") don't contain these tokens.
+    let clean = |line: &str| {
+        let t = line.trim();
+        t.strip_prefix("stderr ").or_else(|| t.strip_prefix("stdout ")).unwrap_or(t).to_string()
+    };
     for line in log {
         let l = line.to_lowercase();
+        // every ngspice `Error...` line on stderr is a failure, whatever the rc
+        if l.starts_with("stderr error") {
+            return Some(clean(line));
+        }
         for p in &pats {
             if l.contains(p) {
                 // skip obviously benign mentions
                 if l.contains("0 failed") || l.contains("no failed") {
                     continue;
                 }
-                return Some(line.trim().to_string());
+                return Some(clean(line));
             }
         }
     }
     None
+}
+
+/// `msg: <first ngspice error lines>` (L12: the reason lives in the log).
+fn with_reason(msg: String) -> String {
+    let why = ngspice::error_lines(3);
+    if why.is_empty() {
+        msg
+    } else {
+        format!("{}: {}", msg, why.join(" | "))
+    }
 }
 
 fn nonfinite_or_short(time: &[f64], series: &HashMap<String, Vec<f64>>) -> bool {
@@ -254,13 +277,13 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
     let rc = ngspice::do_circ(lines).map_err(|e| SimError::BackendFailure { message: e })?;
     if rc != 0 {
         return Err(SimError::BackendFailure {
-            message: format!("circ rc={}", rc),
+            message: with_reason(format!("circ rc={}", rc)),
         });
     }
     let rc = ngspice::do_command("run").map_err(|e| SimError::BackendFailure { message: e })?;
     if rc != 0 {
         return Err(SimError::BackendFailure {
-            message: format!("run rc={}", rc),
+            message: with_reason(format!("run rc={}", rc)),
         });
     }
     let wall = t0.elapsed().as_secs_f64() * 1e3;
@@ -278,6 +301,13 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
     }
     let _ = rc;
     let (series, t) = read_all(obs);
+    // a transient that produced no time grid never succeeded (L6)
+    if t.is_empty() && parse_tstop(lines).is_some() {
+        return Err(SimError::SolverFailure {
+            message: "transient analysis produced no data points".to_string(),
+            log_hint: log.join("\n"),
+        });
+    }
     check_observables(&series, &t)?;
     let flat_full: HashMap<String, Vec<f64>> = series
         .iter()

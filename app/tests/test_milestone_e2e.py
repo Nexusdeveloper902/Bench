@@ -134,10 +134,10 @@ def test_2_search_and_category_filter_through_the_ui(win):
     assert set(ids(win)) == {"D", "D_1N4148", "LED"} and lib.navs["Electrical"].property("selected")
     click_widget(lib.navs["Sensors"])                          # no sensor matches "diode": empty state says why
     assert ids(win) == [] and lib.empty.isVisible() and "diode" in lib.empty_title.text()
-    type_search(win, "temperature")                            # the sensor is found inside its category
-    assert ids(win) == ["DHT22"]
+    type_search(win, "temperature")                            # the sensors are found inside their category
+    assert sorted(ids(win)) == ["DHT22", "NTC_THERMISTOR"]
     click_widget(lib.navs[None])                               # All: still the same query
-    assert ids(win) == ["DHT22"] and lib.navs[None].property("selected")
+    assert sorted(ids(win)) == ["DHT22", "NTC_THERMISTOR"] and lib.navs[None].property("selected")
     type_search(win, "esp")                                    # alias-free name search across categories
     assert ids(win) == [ESP]
     type_search(win, "zzz")
