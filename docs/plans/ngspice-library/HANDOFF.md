@@ -579,3 +579,106 @@ the validator.
 - Dielectric absorption (film), electrolytic polarity and reverse bias, MOV energy and ageing, and reed bounce or
   magnet fields: not modelled, and the limitations say so.
 - Maintained (latching) pushbutton: not in batch A.
+
+## Task 6: library batch B, semiconductors (done, not committed)
+
+### Packages added (35; catalog 57 -> 92 definitions; all `sim:electrical`, all MIT)
+Kinds: model 27, project-subckt 2, equivalent 6. Verification: reference 22, analytic 9, smoke 4. Every X part validates
+as `full` (no limited findings); the 27 `model` parts are single D/Q/J/M elements. Category Electrical, new subcategories
+Diodes, Bipolar transistors, MOSFETs, JFETs, Thyristors and IGBT (the existing "Semiconductors" search is unchanged).
+`ALL_CATEGORIES` is unchanged.
+
+| family | packages (id) | element | kind / verification |
+|---|---|---|---|
+| diodes | D_GENERIC (Is, N, Rs, Cjo, Vj, M, Tt, BV, IBV) | D | model / analytic |
+| diodes | D_1N400X (BV param), D_UF4007, D_1N5819, D_BAT54 | D | model / reference |
+| diodes | ZENER (VZ, IZT, ZZ) | X | project-subckt / reference |
+| diodes | TVS_UNI, TVS_BI (VRWM, VC, IPP) | X | equivalent / analytic |
+| diodes | VARACTOR (Cjo, Vj, M, Rs, BV), LED_COLOR (ir, red, yellow, green, blue, white) | D | model / analytic |
+| BJT | Q_NPN, Q_PNP (generic) | Q | model / analytic |
+| BJT | Q_2N3904, Q_2N3906, Q_BC547B, Q_BC557B, Q_TIP31C, Q_TIP32C, Q_2N3055 | Q | model / reference |
+| BJT | Q_TIP120 (Darlington with the internal 8 k / 120 ohm resistors and damper diode) | X | project-subckt / reference |
+| MOSFET | NMOS, PMOS (generic level 1, 4 pins, W/L params) | M | model / analytic |
+| MOSFET | M_2N7000, M_BS170, M_BSS138, M_IRF540N, M_IRF9540N, M_IRLZ44N (VDMOS, 3 nodes) | M | model / reference |
+| JFET | J_J201, J_2N5457, J_2N5460 | J | model / reference |
+| thyristor | SCR, TRIAC, DIAC (VBO), IGBT (VGETH, ISAT, RON) | X | equivalent / smoke |
+
+- Shared model files (2, `origin = project`, MIT, sha256 in MANIFEST): `_models/semiconductors/led.lib` (one D model per colour)
+  and `_models/semiconductors/scr.lib` (`bench_scr`, shared by SCR, TRIAC and DIAC; TRIAC and DIAC add their own `body`).
+- 35 `symbol.svg` files. The named cards are inline `models` in each `component.toml`.
+- Not added, with reasons: 1N914 (same datasheet as the 1N4148 that exists), maintained-switch style duplicates, level-3 generic
+  MOSFETs (many short-channel parameters nobody could verify), phototransistor and photodiode (batch 9, G18).
+
+### Model data and licensing (read this before trusting a named part)
+No vendor SPICE card was copied. I could not verify redistribution terms for any manufacturer, LTspice or OrCad card
+(onsemi blocked downloads; Fairchild, Diodes, Nexperia, Vishay and Infineon model terms were not found or not permissive), so every
+named part is a **project-authored parameter set fitted to the datasheet values** listed in its `provenance.notes`, with the exact
+datasheet URL and revision in `provenance.url` / `provenance.version` and "not a vendor SPICE model" in its limitations.
+Assumptions that are not in the datasheet (Early voltage 100 V, JFET lambda 0.01, Ikf, Tf where fT is only a minimum) are listed in
+each package's limitations. The ngspice examples (Modified BSD) have no 2N/BC/TIP/1N cards; the VDMOS examples there (IRFP240, IRF7233)
+are not the requested parts and were not used.
+
+| part(s) | datasheet read (URL in provenance) | license of shipped card |
+|---|---|---|
+| D_1N400X | Vishay 88503 rev 29-Apr-2020 | MIT (project fit) |
+| D_1N5819 | Vishay 88525 rev 01-Jul-2020 | MIT |
+| D_UF4007 | Vishay 88755 rev 06-Apr-2020 | MIT |
+| D_BAT54 | STMicroelectronics BAT54 (copy at CERN) | MIT |
+| ZENER | Vishay 85816 rev 2.7 (1N4728A-1N4761A table) | MIT |
+| Q_2N3904 / Q_2N3906 | onsemi 2N3904 rev 9 (UCSB copy) / ST 2N3906 | MIT |
+| Q_BC547B / Q_BC557B | Philips BC546-548 (2004) / Fairchild BC556-560 | MIT |
+| Q_TIP31C / Q_TIP32C / Q_TIP120 | Fairchild TIP31, TIP32 (rev A 2000), TIP120 (rev A1 2001) | MIT |
+| Q_2N3055 | Multicomp 2N3055 (2012) | MIT |
+| M_2N7000 / M_BS170 / M_BSS138 | Zetex issue 2 / onsemi BS170 rev 5 / Diodes DS30144 rev 25-2 | MIT |
+| M_IRF540N / M_IRF9540N / M_IRLZ44N | Infineon datasheets, rev 2.1 (2026) | MIT |
+| J_J201 / J_2N5457 / J_2N5460 | Central J201 / Fairchild 2N5457-9 rev G / Central 2N5460-62 | MIT |
+| TVS_*, SCR, TRIAC, DIAC, IGBT, VARACTOR, LED_COLOR, generics | none (textbook structures; ngspice docs URL only) | MIT |
+The TVS default (SMAJ12A class: 12 V, 19.9 V at 20.1 A) and the DIAC default (DB3 class, 32 V) come from the general part class, not from a
+datasheet I read; the limitations say so. The LED colours are typical Vf ranges per technology, not a part.
+
+### Design notes and engine facts found while fitting
+- **Fits were done against datasheet numbers, then tested** (`verification = reference`): hFE at the datasheet currents, VCE(sat), VBE,
+  IDSS, Vth (250 uA or 1 mA), Rds(on), gate charge (simulated: IRF540N about 60 nC vs 71 nC max, IRF9540N 82 vs 97, IRLZ44N 41 vs 48), forward
+  voltage, UF4007 trr in the JEDEC test (about 55 ns vs 75 ns max). A pass means "inside the window the fit targeted", not that the part is reproduced.
+- **VDMOS**: 3 nodes only, `ksubthres` default 0.1 is on. `Cgdmax` was calibrated by simulated gate charge. `bv`/`ibv` follow V(BR)DSS at the
+  datasheet test current. The gate has no DC path (a current source alone into the gate is `NO-DC-PATH`).
+- **D breakdown (G14)**: ngspice raises `IBV` to `Is*BV/Vt` if the card asks for less, so rectifier/Schottky cards cannot state leakage at the rating.
+- **PJF sign (G16)**: ngspice wants a negative `Vto` for PJF as well (and negative for PMOS); `Vto=+2.5` makes a dead device.
+- **Latching subcircuits (G15)**: `Tf=Tr=1u` plus floating internal nodes ran away to 1000 V after turn-off; `Tf=Tr=0` fails to converge. `bench_scr` uses
+  `Tf=Tr=10n`, a 100 Meg leak `RLK` across the anode and a series anode diode (reverse blocking). Hold current IH sets `RXA = 0.65/IH` (measured
+  5.4 mA for IH = 5 mA); trigger current is about 0.6 V/RGK + 0.1 mA (0.3 mA default). On-state about 1.5 V at 0.1 A, 2.2 V at 5 A.
+- **TRIAC** triggers in quadrants I and III only (positive gate current fires MT2+, negative gate current is copied by an F source into the second SCR).
+  **DIAC** is two SCRs with a series diode + zener from the anode to the gate (breakover = VBO, then about 2 V on-state). **IGBT** is a VDMOS driving a PNP
+  (`ISAT` sets the VDMOS Kp; on-state 0.9 V at 1 A and 2.6 V at 20 A for the defaults).
+- The validator reports `full` for all of these (the F-source gate network and the VDMOS in a body are analysed).
+
+### Tests
+- New `app/tests/test_library_batch_b.py`: 130 tests, real ngspice through `Document` -> `run_document`:
+  - load/kind/provenance/status for all 35, catalog size, shared files emitted once;
+  - forward voltage windows (1N400X, UF4007, 1N5819, BAT54 at the datasheet currents) and Shockley for the generic diode, breakdown at BV, leakage;
+  - UF4007 trr in the Vishay test circuit; Zener VZ and ZZ for four rows of the Vishay table, regulation, forward drop, three Zeners in series (one shared `.subckt`);
+  - TVS breakdown at 1.11 x VRWM and clamp at VC/IPP both polarities, surge clamp; varactor C(V) from a ramp; six LED colours at 20 mA;
+  - BJT hFE windows (18 points), VCE(sat) / VBE(sat) (11 points), generic beta and Early voltage, TIP120 gain and saturation, two TIP120 instances on one rail;
+  - generic MOSFET square law (N and P), threshold and Rds(on) windows for the six VDMOS parts (9 points), IRF540N gate charge;
+  - JFET IDSS window, pinch-off and half-pinch-off square law (3 parts);
+  - SCR latch, hold (2 mA drops out, 12 mA holds, IH = 2 m and 20 m), weak gate, reverse blocking; TRIAC both half cycles (and no firing without a gate);
+    DIAC breakover 32 V and 40 V in both polarities and no conduction below; IGBT on-state, threshold and off-state.
+- Existing tests whose pinned counts changed (no assertion weakened): see below.
+  - `test_catalog.py`: the Electrical simulated set now includes batch B (imported from `test_library_batch_b.NEW`).
+  - `test_library_batch_a.py`: "only additions" is now `>=` (batch B adds more); batch B pins the exact size (92).
+  - `test_library_ui.py`: nav counts 92 / 82 / 2 / 2, simulated-only 87 / 82 / 0 / 1.
+  - `test_milestone_e2e.py`: the "diode" search returns the originals plus the batch B diodes, all Electrical.
+  - `test_subckt_packages.py`: 86 simulated parts, 92 definitions; every new part must be `full`.
+  - `test_components.py` gained one contract row per new simulated part (no edit).
+- Full suite: `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` is **925 passed** (760 + 130 new + 35 contract rows). Catalog build:
+  `python3 -m app.catalog` reports 92 definitions, 0 errors, 0 warnings. No Rust change (no wheel rebuild, no cargo run).
+
+### Skipped (and why)
+- Vendor SPICE cards (all): redistribution terms could not be verified (G19). No part is attributed to a manufacturer's model.
+- 1N914 (its datasheet equals the 1N4148 already shipped), 1N5817/1N5818 (differ from the 1N5819 only by rating and Vf; the description says so),
+  Zener series parts at fixed voltages (one parameterised ZENER covers them; the tests use four rows of the Vishay table).
+- Generic level-3 MOSFET, generic JFET, bidirectional-gate-quadrant II/IV TRIAC triggering, IGBT with co-packaged diode, SCR forward breakover and dV/dt.
+- Phototransistor and photodiode: batch 9 (G18).
+- Reverse recovery of the power MOSFET body diodes and the BAT54 (below the model's resolution or not in the card).
+- AC analysis of anything (G17).
+- Temperature dependence, noise and thermal limits everywhere.

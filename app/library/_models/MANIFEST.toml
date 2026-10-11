@@ -39,3 +39,21 @@ license = "MIT"
 retrieved = "2026-10-11"
 sha256 = "c8c71d3430d0eb49e2bf88a2e8015e87b869671fa475d920c180ee296c501da4"
 changes = "none"
+
+[[file]]
+path = "semiconductors/led.lib"
+origin = "project"
+source = "Bench project; one diode model per LED colour (forward voltage matched to the typical range per technology)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "49ec07cf4723b75bfcbec54905bb737146cb3c3b52ea872a398ef97bb214f8ae"
+changes = "Forward voltage values are typical ranges for each LED technology, not a specific part."
+
+[[file]]
+path = "semiconductors/scr.lib"
+origin = "project"
+source = "Bench project; regenerative NPN/PNP pair SCR subcircuit (not a vendor model)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "6f05c99c193141fd7a04e3fe59952c8bb2702d7cbccc9f6345996448c0302221"
+changes = "none"

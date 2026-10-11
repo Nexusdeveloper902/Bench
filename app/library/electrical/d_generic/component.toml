@@ -1,0 +1,112 @@
+format = 1
+id = "D_GENERIC"
+version = 1
+name = "Diode (full parameter set)"
+description = "Generic junction diode with saturation current, emission coefficient, series resistance, junction capacitance, transit time and reverse breakdown as parameters."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["generic diode"]
+keywords = ["diode", "shockley", "junction", "capacitance", "breakdown", "parameterised"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: the defaults describe no particular device (Is=1e-14, N=1, no capacitance, 100 V breakdown).",
+               "Parameters apply to ngspice's diode model only; temperature dependence, noise and self-heating are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "Is"
+label = "Saturation current"
+unit = "A"
+default = "1e-14"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "N"
+label = "Emission coefficient"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Rs"
+label = "Series resistance"
+unit = "Ω"
+default = "0"
+min = 0
+
+[[params]]
+key = "Cjo"
+label = "Zero-bias capacitance"
+unit = "F"
+default = "0"
+min = 0
+
+[[params]]
+key = "Vj"
+label = "Junction potential"
+unit = "V"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "M"
+label = "Grading coefficient"
+default = "0.5"
+min = 0
+min_exclusive = true
+max = 0.99
+
+[[params]]
+key = "Tt"
+label = "Transit time"
+unit = "s"
+default = "0"
+min = 0
+
+[[params]]
+key = "BV"
+label = "Breakdown voltage"
+unit = "V"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "IBV"
+label = "Current at breakdown"
+unit = "A"
+default = "1e-3"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} dgen_{dev_lc}"
+models = [".model dgen_{dev_lc} D(Is={Is} N={N} Rs={Rs} Cjo={Cjo} Vj={Vj} M={M} Tt={Tt} BV={BV} IBV={IBV})"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice D (level 1) model with every parameter exposed"
+license = "MIT"
+retrieved = "2026-10-11"

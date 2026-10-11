@@ -1,0 +1,84 @@
+format = 1
+id = "TVS_BI"
+version = 1
+name = "TVS diode (bidirectional)"
+description = "Bidirectional transient-voltage-suppressor clamp: two unidirectional clamps in anti-series. Approximate, set by stand-off voltage, clamping voltage and peak pulse current."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["bidirectional transient suppressor"]
+keywords = ["TVS", "bidirectional", "transient suppressor", "clamp", "surge", "protection"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate clamp: breakdown is assumed at 1.11 x the stand-off voltage (1 mA), then a resistance sets the clamping voltage at the peak pulse current. The 400 W SMAJ12A numbers (12 V, 19.9 V at 20.1 A) are the default, from that class of part, not read from one datasheet.",
+               "Static clamp only: no surge-power rating, junction capacitance, response time, leakage below breakdown or temperature behaviour. Choose a clamping voltage above 1.11 x the stand-off voltage.",
+               "Symmetric by construction; real bidirectional parts differ slightly between polarities."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "Terminal A"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+name = "Terminal B"
+at = [60, 15]
+
+[[params]]
+key = "VRWM"
+label = "Stand-off voltage"
+unit = "V"
+default = "12"
+min = 0
+min_exclusive = true
+help = "Reverse working voltage"
+
+[[params]]
+key = "VC"
+label = "Clamping voltage"
+unit = "V"
+default = "19.9"
+min = 0
+min_exclusive = true
+help = "At the peak pulse current; must exceed 1.11 x stand-off"
+
+[[params]]
+key = "IPP"
+label = "Peak pulse current"
+unit = "A"
+default = "20.1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_tvs_bi VRWM={VRWM} VC={VC} IPP={IPP}"
+body = """
+.subckt bench_tvs_bi a b params: VRWM=12 VC=19.9 IPP=20.1
+* Two unidirectional clamps in anti-series (common cathode node m). One side conducts forward (about 0.65 V at 1 mA)
+* while the other breaks down, so each breakdown is lowered by 0.655 V and RDYN absorbs the forward side's rise.
+.param vbr={1.11*VRWM}
+.param rdyn={max(VC-vbr-2*0.025865*ln(IPP/1e-3)-IPP*0.01,0.01)/IPP}
+.model tvsbr D(Is=1e-14 N=1 Rs={rdyn} BV={vbr-0.655} IBV=1e-3)
+.model tvsfw D(Is=1e-14 N=1 Rs=10m)
+D1R a m tvsbr
+D1F a m tvsfw
+D2R b m tvsbr
+D2F b m tvsfw
+.ends bench_tvs_bi
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; anti-series breakdown-diode equivalent of a bidirectional TVS (approximate)"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Clamping voltage at the peak pulse current is reproduced by construction (tested)."

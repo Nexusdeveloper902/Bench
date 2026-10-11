@@ -13,6 +13,7 @@ from app.model import Document
 from app.sim import run_document
 from app.symbols import add_symbol
 import golden_netlists
+from test_library_batch_b import NEW as BATCH_B
 
 KINDS = {"R", "C", "L", "V", "BAT", "I", "D", "GND", "LED", "SW"}     # the ten built-ins; seed packages add more
 ALL_CATEGORIES = ["Electrical", "Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # with the seeds
@@ -183,7 +184,7 @@ def test_category_filter_and_simulated_only(extra_root):
         "POT", "RHEOSTAT", "RNET4_ISO", "RNET4_BUS", "R_TOL", "IND_DCR", "IND_COUPLED", "XFMR_1N", "XFMR_CT", "T_LINE",
         "CAP_CERAMIC", "CAP_ELECTROLYTIC", "CAP_TANTALUM", "CAP_FILM", "FUSE", "PTC", "MOV", "SPDT", "DPST", "DPDT",
         "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VCVS",
-        "VCCS", "CCCS", "CCVS", "SAT_AMP"}     # batch A (test_library_batch_a.py)
+        "VCCS", "CCCS", "CCVS", "SAT_AMP"} | set(BATCH_B)     # batch A (test_library_batch_a.py), batch B (test_library_batch_b.py)
     assert CATALOG.search(category="Communication") == []
 
 

@@ -1,0 +1,54 @@
+format = 1
+id = "Q_2N3906"
+version = 1
+name = "2N3906 PNP transistor"
+description = "General-purpose 200 mA, 40 V PNP switch/amplifier, the complement of the 2N3904: hFE 100-300 at 10 mA, VCE(sat) about 50 mV at 10 mA / 1 mA."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["2N3906", "MMBT3906"]
+keywords = ["transistor", "bjt", "pnp", "bipolar", "2N3906", "general purpose", "switching", "small signal"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the datasheet windows, not a vendor SPICE model: hFE about 105 / 150 / 175 / 160 / 135 at 0.1 / 1 / 10 / 50 / 100 mA (VCE = -1 V), VCE(sat) 0.05 V at 10 mA/1 mA, VBE(sat) 0.74 V.",
+               "Capacitances give CCBO about 4 pF and CEBO about 10 pF; Tf = 0.45 ns is derived from the 250 MHz transition frequency, not measured.",
+               "Early voltage Vaf is an assumption (the datasheet gives none); temperature dependence, noise and breakdown voltages are not modelled.",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://www.sparkfun.com/datasheets/Components/2N3906.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} q2n3906"
+models = [".model q2n3906 PNP(Is=11f Bf=220 Vaf=100 Ikf=0.2 Ise=300f Ne=1.6 Br=4 Rb=10 Rc=0.8 Re=0.2 Cje=12p Cjc=8p Mje=0.33 Mjc=0.33 Vje=0.75 Vjc=0.75 Tf=0.45n Tr=40n)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the STMicroelectronics datasheet values"
+url = "https://www.sparkfun.com/datasheets/Components/2N3906.pdf"
+version = "STMicroelectronics 2N3906 preliminary data"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (VCE=-1 V): hFE >= 60/80/60/30 at 0.1/1/50/100 mA and 100-300 at 10 mA; VCE(sat) <= 0.25 V (10 mA/1 mA), <= 0.4 V (50 mA/5 mA); VBE(sat) 0.65-0.85 V (10 mA/1 mA); CCBO <= 6 pF, CEBO <= 25 pF; fT >= 250 MHz."

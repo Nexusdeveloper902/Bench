@@ -1,0 +1,83 @@
+format = 1
+id = "VARACTOR"
+version = 1
+name = "Varactor diode"
+description = "Variable-capacitance diode: reverse-bias depletion capacitance Cjo/(1+V/Vj)^M with a series loss resistance and a reverse breakdown."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["varicap", "tuning diode"]
+keywords = ["varactor", "varicap", "tuning", "capacitance", "voltage controlled capacitor", "diode"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: defaults (30 pF at 0 V, M = 0.5, 0.7 V) describe no particular part. Capacitance follows the textbook depletion law; set M near 0.75 to 1 for a hyper-abrupt part.",
+               "Bench runs transient analysis only, so capacitance shows up in time-domain behaviour (charging, resonance), not in an AC sweep. Leakage and quality factor beyond the series resistance are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "Cjo"
+label = "Capacitance at 0 V"
+unit = "F"
+default = "30p"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Vj"
+label = "Junction potential"
+unit = "V"
+default = "0.7"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "M"
+label = "Grading coefficient"
+default = "0.5"
+min = 0
+min_exclusive = true
+max = 0.99
+
+[[params]]
+key = "Rs"
+label = "Series resistance"
+unit = "Ω"
+default = "1"
+min = 0
+
+[[params]]
+key = "BV"
+label = "Breakdown voltage"
+unit = "V"
+default = "30"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} dvar_{dev_lc}"
+models = [".model dvar_{dev_lc} D(Is=1e-14 Rs={Rs} Cjo={Cjo} Vj={Vj} M={M} BV={BV} IBV=1u)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice diode junction-capacitance model with the capacitance parameters exposed"
+license = "MIT"
+retrieved = "2026-10-11"

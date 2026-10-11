@@ -1,0 +1,54 @@
+format = 1
+id = "J_2N5460"
+version = 1
+name = "2N5460 P-channel JFET"
+description = "General-purpose P-channel JFET amplifier: IDSS about -3 mA, pinch-off about +2.5 V, gfs about 2.4 mS."
+designator = "Q"
+category = "Electrical"
+subcategory = "JFETs"
+aliases = ["2N5460"]
+keywords = ["jfet", "fet", "p-channel", "2N5460", "p-channel", "general purpose", "amplifier"]
+tags = ["JFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Central Semiconductor datasheet window, not a vendor SPICE model: IDSS -3.0 mA at VDS = -15 V (window -1 to -5 mA), pinch-off +2.5 V (window 0.75-6 V; ngspice's PJF card takes Vto = -2.5), gfs 2.4 mS (window 1-4 mS).",
+               "Capacitances are about 70 % of the datasheet maxima (Ciss 4.8 pF, Crss 1.4 pF). The 2N5461 and 2N5462 grades have different IDSS windows.",
+               "Level-1 (Shichman-Hodges) JFET: drain current Beta (VGS - Vto)^2 (1 + Lambda VDS). Lambda = 0.01 /V is an assumption (the datasheet gives no output conductance).",
+               "The gate must have a DC path to a defined voltage (the gate is a junction, not insulated). Gate leakage, noise and temperature dependence are not modelled."]
+docs = ["https://my.centralsemi.com/datasheets/2N5460-5462.PDF", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "J"
+line = "{dev} {d} {g} {s} j2n5460"
+models = [".model j2n5460 PJF(Vto=-2.5 Beta=417u Lambda=0.01 Cgs=3.4p Cgd=1.4p)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; JFET parameter set fitted to the Central datasheet values"
+url = "https://my.centralsemi.com/datasheets/2N5460-5462.PDF"
+version = "Central Semiconductor 2N5460-2N5462 datasheet"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: IDSS -1.0 to -5.0 mA (VDS=-15 V, VGS=0); VGS(off) 0.75-6.0 V (ID=1 uA); |yfs| 1.0-4.0 mS; Ciss <= 7 pF, Crss <= 2 pF. The model uses the mid-range pair IDSS = -3 mA, Vto = 2.5 V."

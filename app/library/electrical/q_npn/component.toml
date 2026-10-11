@@ -1,0 +1,107 @@
+format = 1
+id = "Q_NPN"
+version = 1
+name = "NPN transistor (generic)"
+description = "Generic NPN bipolar transistor with adjustable gain, saturation current, Early voltage, base resistance, capacitances and transit time."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["NPN BJT"]
+keywords = ["transistor", "bjt", "npn", "bipolar", "generic", "parameterised"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: defaults (Is=1e-14, Bf=100, Br=1, Vaf=100 V) describe no particular device. No high-injection roll-off, base-width breakdown or temperature dependence.",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[[params]]
+key = "Is"
+label = "Saturation current"
+unit = "A"
+default = "1e-14"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Bf"
+label = "Forward beta"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Br"
+label = "Reverse beta"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Vaf"
+label = "Forward Early voltage"
+unit = "V"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "Rb"
+label = "Base resistance"
+unit = "Ω"
+default = "0"
+min = 0
+
+[[params]]
+key = "Cje"
+label = "B-E capacitance"
+unit = "F"
+default = "0"
+min = 0
+
+[[params]]
+key = "Cjc"
+label = "B-C capacitance"
+unit = "F"
+default = "0"
+min = 0
+
+[[params]]
+key = "Tf"
+label = "Forward transit time"
+unit = "s"
+default = "0"
+min = 0
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} qnpn_{dev_lc}"
+models = [".model qnpn_{dev_lc} NPN(Is={Is} Bf={Bf} Br={Br} Vaf={Vaf} Rb={Rb} Cje={Cje} Cjc={Cjc} Tf={Tf})"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice Gummel-Poon bipolar model with the main parameters exposed"
+license = "MIT"
+retrieved = "2026-10-11"

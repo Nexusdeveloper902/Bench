@@ -1,0 +1,53 @@
+format = 1
+id = "M_BS170"
+version = 1
+name = "BS170 N-channel MOSFET"
+description = "60 V, 500 mA enhancement-mode N-MOSFET: VGS(th) about 2 V, RDS(on) about 1.8 ohm at 10 V / 0.2 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["BS170"]
+keywords = ["mosfet", "fet", "vdmos", "power", "BS170", "TO-92", "small signal"]
+tags = ["MOSFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the onsemi typical values, not a vendor SPICE model: threshold 2.0 V (250 uA), RDS(on) 1.8 ohm at 10 V / 0.2 A, gfs 0.2 S at 0.25 A.",
+               "Only Ciss is in the datasheet (<= 60 pF); the model sets Cgs = 40 pF and leaves the gate-drain and drain-source capacitances out.",
+               "Three-pin VDMOS model (body tied to source) with an integral body diode. The gate has no DC path, so drive it through a resistor or a voltage source. Temperature dependence, avalanche energy, safe operating area and self-heating are not modelled."]
+docs = ["https://web.ece.ucsb.edu/~ilan/Classes/ECE2A_F2010/labs/Datasheets/BS170-D.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} mbs170"
+models = [".model mbs170 VDMOS(Vto=1.98 Kp=0.08 Rd=0.205 Rs=0.0362 Cgs=40p bv=60)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; VDMOS parameter set fitted to the onsemi datasheet values"
+url = "https://web.ece.ucsb.edu/~ilan/Classes/ECE2A_F2010/labs/Datasheets/BS170-D.pdf"
+version = "onsemi BS170 data sheet, August 2005 Rev. 5 (copy hosted at UCSB)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: VGS(th) 0.8-3.0 V, typ 2.0 V (ID=1 mA); RDS(on) 1.8 ohm typ, <= 5 ohm (10 V, 0.2 A); gfs 200 mS typ (10 V, 0.25 A); Ciss <= 60 pF."

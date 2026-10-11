@@ -129,9 +129,10 @@ def test_1_esp32_is_listed_under_microcontrollers(win):
 def test_2_search_and_category_filter_through_the_ui(win):
     lib = win.library
     type_search(win, "diode")
-    assert set(ids(win)) == {"D", "D_1N4148", "LED"}
+    shown = set(ids(win))                                       # the three originals plus the batch B diodes, all Electrical
+    assert {"D", "D_1N4148", "LED", "ZENER", "D_1N5819"} <= shown and all(CATALOG.get(i).category == "Electrical" for i in shown)
     click_widget(lib.navs["Electrical"])                       # the category narrows the same query
-    assert set(ids(win)) == {"D", "D_1N4148", "LED"} and lib.navs["Electrical"].property("selected")
+    assert set(ids(win)) == shown and lib.navs["Electrical"].property("selected")
     click_widget(lib.navs["Sensors"])                          # no sensor matches "diode": empty state says why
     assert ids(win) == [] and lib.empty.isVisible() and "diode" in lib.empty_title.text()
     type_search(win, "temperature")                            # the sensors are found inside their category

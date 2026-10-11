@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40" fill="none" stroke="currentColor" stroke-width="2">
+  <line x1="0" y1="15" x2="20" y2="15"/>
+  <line x1="40" y1="15" x2="60" y2="15"/>
+  <polyline points="20,5 20,25 40,15 20,5"/>
+  <line x1="40" y1="5" x2="40" y2="25"/>
+  <polyline points="40,22 45,30 45,40"/>
+</svg>

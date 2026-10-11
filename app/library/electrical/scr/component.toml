@@ -1,0 +1,73 @@
+format = 1
+id = "SCR"
+version = 1
+name = "SCR (thyristor)"
+description = "Silicon-controlled rectifier built as a regenerative NPN/PNP pair: blocks until a gate current of a few hundred microamps fires it, then stays on until the anode current falls below the holding current IH."
+designator = "Q"
+category = "Electrical"
+subcategory = "Thyristors and IGBT"
+aliases = ["silicon controlled rectifier", "thyristor"]
+keywords = ["SCR", "thyristor", "latch", "rectifier", "phase control", "crowbar"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent, not a device model: a two-transistor latch with an anode blocking diode. Holding current (about IH) and trigger current (about 0.3 mA with the default RGK) are set by shunt resistors; the on-state drop is about 1.5 V at 0.1 A and 2.2 V at 5 A.",
+               "Not modelled: forward breakover voltage, dV/dt and di/dt limits, turn-off time (the stored-charge time constant is only 10 ns here), surge ratings, temperature. Reverse blocking is 1000 V by construction.",
+               "The gate needs a pulse current; a gate left open does not fire the device."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [45, 40]
+
+[[params]]
+key = "IH"
+label = "Holding current"
+unit = "A"
+default = "5m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "RGK"
+label = "Gate-cathode resistor"
+unit = "Ω"
+default = "3.3k"
+min = 0
+min_exclusive = true
+help = "Lower = less sensitive gate"
+
+[[params]]
+key = "RON"
+label = "On-state resistance"
+unit = "Ω"
+default = "20m"
+min = 0
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {k} {g} bench_scr IH={IH} RGK={RGK} RON={RON}"
+defs = ["models:semiconductors/scr.lib"]
+model_kind = "equivalent"
+verification = "smoke"
+
+[sim.electrical.provenance]
+source = "Bench project; regenerative NPN/PNP pair (two-transistor SCR analogy), not a vendor model"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"

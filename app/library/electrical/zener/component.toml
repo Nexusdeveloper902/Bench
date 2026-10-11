@@ -1,0 +1,81 @@
+format = 1
+id = "ZENER"
+version = 1
+name = "Zener diode"
+description = "Zener diode set by its nominal voltage VZ at the test current IZT and its dynamic impedance ZZ. Defaults are a 1N4733A (5.1 V at 49 mA, 7 ohm)."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["1N4733A", "1N4742A", "1N47xx", "voltage regulator diode"]
+keywords = ["zener", "regulator", "reference", "clamp", "breakdown", "1N4733A", "voltage reference"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored subcircuit (not a vendor SPICE model): VZ is reached at IZT and the incremental resistance there equals ZZ; away from IZT the curve is the exponential breakdown law (the knee is softer than a real part's tolerance spread), so low-current accuracy is approximate (about 4.3 V at 1 mA for the 5.1 V default).",
+               "Forward conduction is a separate silicon diode (about 0.9 V at 200 mA; datasheet maximum 1.2 V). Temperature coefficient, noise, surge rating and the 5 % voltage tolerance are not modelled.",
+               "Pick IZT and ZZ from the datasheet row of the part you mean; the 1N4728A-1N4761A table is in the cited datasheet."]
+docs = ["https://www.vishay.com/docs/85816/1n4728a.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "VZ"
+label = "Zener voltage"
+unit = "V"
+default = "5.1"
+min = 0
+min_exclusive = true
+help = "Voltage at the test current"
+
+[[params]]
+key = "IZT"
+label = "Test current"
+unit = "A"
+default = "49m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ZZ"
+label = "Dynamic impedance"
+unit = "Ω"
+default = "7"
+min = 0
+min_exclusive = true
+help = "At the test current"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {k} bench_zener VZ={VZ} IZT={IZT} ZZ={ZZ}"
+body = """
+.subckt bench_zener a k params: VZ=5.1 IZT=49m ZZ=7
+* DBR: breakdown branch. Its RS is half of ZZ; the rest of the impedance at IZT comes from the breakdown slope NBV.
+* BV is lowered by IZT*RS so the voltage at IZT is VZ. DFW is a separate low-resistance forward diode.
+.model dzbr D(Is=1e-14 N=1 Rs={ZZ/2} BV={VZ-IZT*ZZ/2} IBV={IZT} NBV={ZZ/2*IZT/0.025865})
+.model dzfw D(Is=1e-14 N=1 Rs=0.5)
+DBR a k dzbr
+DFW a k dzfw
+.ends bench_zener
+"""
+model_kind = "project-subckt"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; breakdown-diode subcircuit parameterised by VZ, IZT and ZZ, checked against the Vishay 1N4728A-1N4761A datasheet table"
+url = "https://www.vishay.com/docs/85816/1n4728a.pdf"
+version = "Vishay 1N4728A-1N4761A, document 85816, revision 2.7, 07-Nov-2024"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Table rows used in the tests: 1N4728A 3.3 V/76 mA/10 ohm, 1N4733A 5.1 V/49 mA/7 ohm, 1N4742A 12 V/21 mA/9 ohm (ZZT typ), 1N4755A 43 V/6 mA/70 ohm."

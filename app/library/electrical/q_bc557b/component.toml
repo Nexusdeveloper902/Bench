@@ -1,0 +1,54 @@
+format = 1
+id = "Q_BC557B"
+version = 1
+name = "BC557B PNP transistor"
+description = "General-purpose 100 mA, 45 V PNP, gain group B, the complement of the BC547B: hFE about 310 at 2 mA, VBE about 0.66 V."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["BC557", "BC557B"]
+keywords = ["transistor", "bjt", "pnp", "bipolar", "BC557", "BC556", "BC558", "general purpose", "European"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Fairchild BC556-BC560 datasheet, not a vendor SPICE model: hFE about 310 at 2 mA, VBE 0.66 V, VCE(sat) 0.08 V at 10 mA/0.5 mA and 0.37 V at 100 mA/5 mA (below the 650 mV maximum).",
+               "Tf = 0.6 ns follows the 150 MHz transition frequency; Early voltage 80 V is an assumption.",
+               "Early voltage Vaf is an assumption (the datasheet gives none); temperature dependence, noise and breakdown voltages are not modelled.",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://www.komponenten.es.aau.dk/fileadmin/komponenten/Data_Sheet/Transistor/BC556.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} qbc557b"
+models = [".model qbc557b PNP(Is=16.4f Bf=380 Vaf=80 Ikf=0.3 Ise=60f Ne=1.5 Br=5 Rb=10 Rc=3 Re=0.2 Cje=12p Cjc=10p Mje=0.33 Mjc=0.33 Vje=0.75 Vjc=0.75 Tf=0.6n Tr=50n)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Fairchild datasheet values"
+url = "https://www.komponenten.es.aau.dk/fileadmin/komponenten/Data_Sheet/Transistor/BC556.pdf"
+version = "Fairchild BC556/557/558/559/560 datasheet (copy hosted at Aalborg University)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (VCE=-5 V): hFE 200-450 for the B group at 2 mA; VBE(on) 600-750 mV (typ 660) at 2 mA, <= 800 mV at 10 mA; VCE(sat) 90 mV typ, <= 300 mV at 10 mA/0.5 mA and 250 mV typ, <= 650 mV at 100 mA/5 mA; Cob <= 6 pF; fT 150 MHz."

@@ -1,0 +1,49 @@
+format = 1
+id = "D_1N5819"
+version = 1
+name = "1N5819 Schottky diode"
+description = "1 A, 40 V Schottky power rectifier: about 0.45 V at 1 A and 0.24 V at 10 mA. 1N5817 and 1N5818 differ in voltage rating and forward drop."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["1N5819", "1N5817", "1N5818", "Schottky rectifier"]
+keywords = ["schottky", "rectifier", "diode", "1N5817", "1N5818", "low drop"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Vishay datasheet, not a vendor SPICE model. 0.45 V at 1 A is below the datasheet maximum of 0.60 V (1N5819).",
+               "Breakdown starts at 40 V (the rating); below it the leakage is the model's saturation current (about 1.5 uA), well under the datasheet's 1 mA maximum at 40 V.",
+               "Junction capacitance fitted to 110 pF at 4 V.",
+               "Temperature dependence, noise and self-heating are not modelled."]
+docs = ["https://www.vishay.com/docs/88525/1n5817.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} d1n5819"
+models = [".model d1n5819 D(Is=1.5u N=1.05 Rs=86m Cjo=365p Vj=0.4 M=0.5 BV=40 IBV=1m)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Vishay 1N5817-1N5819 datasheet values"
+url = "https://www.vishay.com/docs/88525/1n5817.pdf"
+version = "Vishay 1N5817-1N5819, document 88525, revision 01-Jul-2020"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: VF(1 A) <= 0.60 V and VF(3 A) <= 0.90 V (max), IR <= 1 mA at 40 V (max), CJ = 110 pF at 4 V (typ). Forward curve (0.24 V at 10 mA, 0.45 V at 1 A) is the project's reading of the typical curve."

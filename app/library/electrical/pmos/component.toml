@@ -1,0 +1,91 @@
+format = 1
+id = "PMOS"
+version = 1
+name = "P-channel MOSFET (generic, level 1)"
+description = "Generic P-channel enhancement MOSFET (SPICE level 1) with threshold, transconductance parameter, channel-length modulation and W/L as parameters. Four pins: drain, gate, source and body."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["PMOS generic"]
+keywords = ["mosfet", "fet", "p-channel", "level 1", "enhancement", "generic", "parameterised"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: defaults (|Vto| = 1 V, Kp = 50 uA/V2, W/L = 100) describe no particular device. Square-law channel only: no body diode, junction or overlap capacitance, subthreshold conduction or short-channel effects.",
+               "Connect the body pin (usually to the source). The gate has no DC path, so drive it through a resistor or a voltage source."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[[pins]]
+id = "b"
+name = "Body"
+at = [60, 30]
+
+[[params]]
+key = "Vto"
+label = "Threshold voltage"
+unit = "V"
+default = "-1"
+max = 0
+
+[[params]]
+key = "Kp"
+label = "Transconductance parameter"
+default = "50u"
+min = 0
+min_exclusive = true
+help = "A/V2, multiplied by W/L"
+
+[[params]]
+key = "Lambda"
+label = "Channel-length modulation"
+default = "0.02"
+min = 0
+
+[[params]]
+key = "W"
+label = "Width"
+default = "100u"
+min = 0
+min_exclusive = true
+help = "Metres"
+
+[[params]]
+key = "L"
+label = "Length"
+default = "1u"
+min = 0
+min_exclusive = true
+help = "Metres"
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} {b} pm_{dev_lc} W={W} L={L}"
+models = [".model pm_{dev_lc} PMOS(Level=1 Vto={Vto} Kp={Kp} Lambda={Lambda})"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice MOS level 1 (Shichman-Hodges) model with the main parameters exposed"
+license = "MIT"
+retrieved = "2026-10-11"

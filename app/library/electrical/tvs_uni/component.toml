@@ -1,0 +1,81 @@
+format = 1
+id = "TVS_UNI"
+version = 1
+name = "TVS diode (unidirectional)"
+description = "Transient-voltage-suppressor clamp: conducts forward like a diode and breaks down at 1.11 x its stand-off voltage. Approximate, set by stand-off voltage, clamping voltage and peak pulse current."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["transient voltage suppressor", "SMAJ12A"]
+keywords = ["TVS", "transient suppressor", "clamp", "surge", "protection", "SMAJ"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate clamp: breakdown is assumed at 1.11 x the stand-off voltage (1 mA), then a resistance sets the clamping voltage at the peak pulse current. The 400 W SMAJ12A numbers (12 V, 19.9 V at 20.1 A) are the default, from that class of part, not read from one datasheet.",
+               "Static clamp only: no surge-power rating, junction capacitance, response time, leakage below breakdown or temperature behaviour. Choose a clamping voltage above 1.11 x the stand-off voltage."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "VRWM"
+label = "Stand-off voltage"
+unit = "V"
+default = "12"
+min = 0
+min_exclusive = true
+help = "Reverse working voltage"
+
+[[params]]
+key = "VC"
+label = "Clamping voltage"
+unit = "V"
+default = "19.9"
+min = 0
+min_exclusive = true
+help = "At the peak pulse current; must exceed 1.11 x stand-off"
+
+[[params]]
+key = "IPP"
+label = "Peak pulse current"
+unit = "A"
+default = "20.1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {k} bench_tvs_uni VRWM={VRWM} VC={VC} IPP={IPP}"
+body = """
+.subckt bench_tvs_uni a k params: VRWM=12 VC=19.9 IPP=20.1
+* Breakdown branch DBR clamps at VBR = 1.11*VRWM (1 mA); the extra resistance RDYN brings the clamp to VC at IPP.
+* DFW is a separate low-resistance forward diode (a TVS conducts forward like an ordinary diode).
+.param vbr={1.11*VRWM}
+.param rdyn={max(VC-vbr-0.025865*ln(IPP/1e-3),0.01)/IPP}
+.model tvsbr D(Is=1e-14 N=1 Rs={rdyn} BV={vbr} IBV=1e-3)
+.model tvsfw D(Is=1e-14 N=1 Rs=10m)
+DBR a k tvsbr
+DFW a k tvsfw
+.ends bench_tvs_uni
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; breakdown-diode equivalent of a unidirectional TVS (approximate)"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Clamping voltage at the peak pulse current is reproduced by construction (tested)."
