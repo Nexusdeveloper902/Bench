@@ -1,0 +1,83 @@
+format = 1
+id = "XFMR_1N"
+version = 1
+name = "Transformer 1:N"
+description = "Two-winding transformer: primary Lm, secondary N^2 * Lm, coupling K. Open-circuit secondary voltage is K * N times the primary voltage."
+designator = "T"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["transformer", "isolation transformer", "step-up transformer"]
+keywords = ["transformer", "turns ratio", "coupled", "isolation", "subcircuit"]
+tags = ["passive", "magnetic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal-coupling model: magnetising inductance and coupling only. No core loss, saturation, leakage-inductance split or winding resistance.",
+               "The 1 GΩ leaks are numerical DC paths, not insulation."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p1"
+name = "P+"
+at = [0, 20]
+
+[[pins]]
+id = "p2"
+name = "P-"
+at = [0, 60]
+
+[[pins]]
+id = "s1"
+name = "S+"
+at = [80, 20]
+
+[[pins]]
+id = "s2"
+name = "S-"
+at = [80, 60]
+
+[[params]]
+key = "LM"
+label = "Primary inductance"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+help = "Magnetising inductance of the primary"
+
+[[params]]
+key = "N"
+label = "Turns ratio Ns/Np"
+default = "2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "K"
+label = "Coupling K"
+default = "0.99"
+min = 0
+min_exclusive = true
+max = 1
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p1} {p2} {s1} {s2} bench_xfmr LM={LM} N={N} K={K}"
+body = """
+.subckt bench_xfmr p1 p2 s1 s2 params: LM=10m N=2 K=0.99
+LPRI p1 p2 {LM}
+LSEC s1 s2 {LM*N*N}
+KCOUP LPRI LSEC {K}
+RLK1 p1 p2 1G
+RLK2 s1 s2 1G
+.ends bench_xfmr
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; two coupled inductors with a turns ratio"
+license = "MIT"

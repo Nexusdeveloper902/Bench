@@ -1,0 +1,6 @@
+* bench_cell_thevenin: a cell as an EMF VCELL in series with a fixed internal resistance RINT.
+* Ports p n (p is the positive terminal). Approximate: no state-of-charge, temperature, rate or polarisation effects.
+.subckt bench_cell_thevenin p n params: VCELL=3 RINT=0.1
+VEMF x n DC {VCELL}
+RIN p x {RINT}
+.ends bench_cell_thevenin

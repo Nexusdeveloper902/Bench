@@ -1,0 +1,66 @@
+format = 1
+id = "T_LINE"
+version = 1
+name = "Transmission line (lossless)"
+description = "Ideal lossless transmission line of characteristic impedance Z0 and delay TD (ngspice T element)."
+designator = "TL"
+category = "Electrical"
+subcategory = "Transmission lines"
+aliases = ["lossless line", "delay line", "coax"]
+keywords = ["transmission line", "delay", "impedance", "reflection", "T element"]
+tags = ["distributed"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Lossless only: no attenuation, dispersion or skin effect. A lossy line (ngspice O element) is not offered because ngspice hangs on lossy LTRA cards in this build.",
+               "The far-end and near-end pairs are both used; tie the minus pins to the same reference net."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p1"
+name = "1+"
+at = [0, 20]
+
+[[pins]]
+id = "n1"
+name = "1-"
+at = [0, 40]
+
+[[pins]]
+id = "p2"
+name = "2+"
+at = [80, 20]
+
+[[pins]]
+id = "n2"
+name = "2-"
+at = [80, 40]
+
+[[params]]
+key = "Z0"
+label = "Characteristic impedance"
+unit = "Ω"
+default = "50"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "TD"
+label = "Delay"
+unit = "s"
+default = "1u"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "T"
+line = "{dev} {p1} {n1} {p2} {n2} Z0={Z0} TD={TD}"
+model_kind = "primitive"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice lossless transmission line (T element)"
+license = "MIT"

@@ -1,0 +1,71 @@
+format = 1
+id = "CAP_CERAMIC"
+version = 1
+name = "Ceramic capacitor (ESR/ESL)"
+description = "Ceramic capacitor with equivalent series resistance and inductance: low ESR, very high insulation. Generic values."
+designator = "C"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["MLCC", "multilayer ceramic"]
+keywords = ["capacitor", "ceramic", "ESR", "ESL", "decoupling", "subcircuit"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: no DC-bias derating, voltage coefficient, temperature drift or dielectric absorption.",
+               "ESR and ESL are fixed generic values, not a datasheet fit."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 20]
+
+[[pins]]
+id = "b"
+at = [80, 20]
+
+[[params]]
+key = "C"
+label = "Capacitance"
+unit = "F"
+default = "100n"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "esr"
+label = "ESR"
+unit = "Ω"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "esl"
+label = "ESL"
+unit = "H"
+default = "1n"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rleak"
+label = "Insulation resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_cap_esr C={C} ESR={esr} ESL={esl} RLEAK={rleak}"
+defs = ["models:passives/cap_esr.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic series-ESR/ESL equivalent circuit"
+license = "MIT"

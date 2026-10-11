@@ -1,0 +1,72 @@
+format = 1
+id = "SAT_AMP"
+version = 1
+name = "Saturating amplifier (behavioural)"
+description = "Voltage amplifier with a hard output limit: V(op, on) = clamp(gain * V(ip, in), -lim, +lim), built from one behavioural B source."
+designator = "U"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["clipping amplifier", "limiting amplifier", "behavioural amplifier"]
+keywords = ["amplifier", "clip", "saturation", "limit", "behavioural", "subcircuit"]
+tags = ["analog", "behavioural"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioural: a B source with min/max. No bandwidth, offset, supply rails or slew rate; the output clips hard at +/- lim.",
+               "Input resistance is 1 GΩ (a numerical DC path, not a model of the input stage).",
+               "Static validation is limited for the B expression; ngspice checks its arithmetic only."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "op"
+name = "OUT+"
+at = [80, 20]
+
+[[pins]]
+id = "on"
+name = "OUT-"
+at = [80, 60]
+
+[[pins]]
+id = "ip"
+name = "IN+"
+at = [0, 20]
+
+[[pins]]
+id = "in"
+name = "IN-"
+at = [0, 60]
+
+[[params]]
+key = "gain"
+label = "Gain"
+default = "10"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lim"
+label = "Output limit"
+unit = "V"
+default = "2"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {op} {on} {ip} {in} bench_sat GAIN={gain} LIM={lim}"
+body = """
+.subckt bench_sat op on ip in params: GAIN=10 LIM=2
+RINP ip in 1G
+BOUT op on V = {max(-LIM, min(LIM, GAIN*V(ip,in)))}
+.ends bench_sat
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; clamp(gain * v, -lim, lim) as one behavioural source"
+license = "MIT"

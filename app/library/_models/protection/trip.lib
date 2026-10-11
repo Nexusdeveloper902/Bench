@@ -1,0 +1,18 @@
+* bench_trip: time-delay overcurrent element (behavioural). Ports a b; the element sits in series between them.
+* Closed while its trip proxy is low, open once the proxy exceeds 1 (in units of IRATED).
+* IRATED: trip current (A). IHOLD: current below which it closes again (A), below IRATED. IHOLD=0 never closes again (one-shot).
+* TAU: time constant of the proxy (s). An overcurrent of I trips after TAU * ln(I / (I - IRATED)) seconds.
+* RON / ROFF: closed and tripped resistance (ohm).
+* The proxy is a 1 Mohm leak and a capacitor charged by a current-controlled source that copies the element current.
+* Its initial charge is -1 mV: the element starts closed, and with IHOLD=0 it can never close again (the proxy only decays
+* towards zero), which is the one-shot fuse.
+* It is not a thermal model: no power, ambient temperature or latching (a real one-shot fuse stays open).
+.subckt bench_trip a b params: IRATED=1 IHOLD=0.8 TAU=1 RON=1m ROFF=1G
+VSENSE a m DC 0
+STRIP m b ref bl tripsw
+VREF ref 0 DC {1+(1+IHOLD/IRATED)/2}
+RPROXY bl 0 1e6
+CPROXY bl 0 {TAU/1e6} IC=-1m
+FCHG 0 bl VSENSE {1/(IRATED*1e6)}
+.model tripsw SW(VT=1 VH={(1-IHOLD/IRATED)/2} RON={RON} ROFF={ROFF})
+.ends bench_trip

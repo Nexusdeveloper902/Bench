@@ -1,0 +1,67 @@
+format = 1
+id = "RHEOSTAT"
+version = 1
+name = "Rheostat"
+description = "Two-terminal variable resistor: R = rmin + pos * R between a and b (the wiper is tied to one end)."
+designator = "RV"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["variable resistor", "current regulator resistor"]
+keywords = ["rheostat", "variable", "resistance", "subcircuit"]
+tags = ["passive", "variable"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic linear law; the minimum resistance rmin is the wiper-end resistance, not a datasheet value.",
+               "No power rating: dissipation is not limited."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 20]
+
+[[pins]]
+id = "b"
+at = [80, 20]
+
+[[params]]
+key = "R"
+label = "Maximum resistance"
+unit = "Ω"
+default = "1k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "pos"
+label = "Position"
+default = "1"
+min = 0
+max = 1
+help = "0 = minimum resistance, 1 = maximum"
+
+[[params]]
+key = "rmin"
+label = "Minimum resistance"
+unit = "Ω"
+default = "1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_rheostat R={R} POS={pos} RMIN={rmin}"
+body = """
+.subckt bench_rheostat a b params: R=1k POS=1 RMIN=1
+R1 a b {RMIN+POS*R}
+.ends bench_rheostat
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; linear two-terminal variable resistor"
+license = "MIT"

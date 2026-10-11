@@ -1,0 +1,95 @@
+format = 1
+id = "DPDT"
+version = 1
+name = "DPDT switch"
+description = "Double-pole double-throw manual switch: two independent changeover poles (c1 to NO1 or NC1, c2 to NO2 or NC2) that throw together."
+designator = "SW"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["double pole double throw", "two-pole changeover"]
+keywords = ["switch", "two pole", "throw", "changeover", "subcircuit"]
+tags = ["manual"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Static: the position is set in the inspector and does not change during a run.",
+               "Contacts are resistors (on and off values); no bounce, capacitance or leakage."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "c1"
+name = "1COM"
+at = [0, 20]
+
+[[pins]]
+id = "no1"
+name = "1NO"
+at = [80, 10]
+
+[[pins]]
+id = "nc1"
+name = "1NC"
+at = [80, 30]
+
+[[pins]]
+id = "c2"
+name = "2COM"
+at = [0, 80]
+
+[[pins]]
+id = "no2"
+name = "2NO"
+at = [80, 70]
+
+[[pins]]
+id = "nc2"
+name = "2NC"
+at = [80, 90]
+
+[[params]]
+key = "state"
+label = "Position"
+default = "NO"
+kind = "choice"
+choices = ["NO", "NC"]
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "0.01"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+body = """
+.subckt bench_dpdt c1 no1 nc1 c2 no2 nc2 params: RNO=0.01 RNC=1e9
+R1 c1 no1 {RNO}
+R2 c1 nc1 {RNC}
+R3 c2 no2 {RNO}
+R4 c2 nc2 {RNC}
+.ends bench_dpdt
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; four resistive contacts on two poles"
+license = "MIT"
+
+[sim.electrical.line]
+select = "state"
+NO = "{dev} {c1} {no1} {nc1} {c2} {no2} {nc2} bench_dpdt RNO={ron} RNC={roff}"
+NC = "{dev} {c1} {no1} {nc1} {c2} {no2} {nc2} bench_dpdt RNO={roff} RNC={ron}"

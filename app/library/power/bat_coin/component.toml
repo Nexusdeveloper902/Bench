@@ -1,0 +1,57 @@
+format = 1
+id = "BAT_COIN"
+version = 1
+name = "Coin cell, generic 3 V (approximate)"
+description = "Generic primary lithium coin cell in the CR2032 class: a 3.0 V EMF behind about 20 Ω. Approximate: a fixed EMF and resistance, with no state of charge, discharge curve or ambient effects."
+designator = "BT"
+category = "Power"
+subcategory = "Batteries"
+aliases = ["coin cell", "CR2032 class", "button cell"]
+keywords = ["battery", "cell", "internal resistance", "source", "subcircuit"]
+tags = ["primary", "coin"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate Thevenin equivalent: a fixed EMF in series with a fixed internal resistance.",
+               "No state of charge, discharge curve, temperature, rate dependence, or cutoff. Values are generic, not from a datasheet."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [80, 15]
+
+[[params]]
+key = "voc"
+label = "EMF"
+unit = "V"
+default = "3"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rint"
+label = "Internal resistance"
+unit = "Ω"
+default = "20"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p} {n} bench_cell_thevenin VCELL={voc} RINT={rint}"
+defs = ["models:power/cell_thevenin.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic Thevenin cell model (EMF and internal resistance), approximate"
+license = "MIT"

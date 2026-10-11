@@ -409,9 +409,11 @@ NOT_SIMULATED = {"ARDUINO_UNO_R3", "DHT22", "ESP32_DEVKITC", "PIEZO_BUZZER", "SS
 
 
 def test_every_shipped_part_passes_the_static_validator():
-    """The 3 reference packages and the 17 originals: every simulated part's probe deck (instance with default params,
-    a 1 GΩ leak per pin, its models and definition text) is fully analysed with no finding. The 5 parts with no
-    electrical model and the ground symbol have nothing to validate (their limitations say what is not modelled)."""
+    """The 3 reference packages, the 17 originals and the 37 batch-A parts: every simulated part's probe deck (instance
+    with default params, a 1 GΩ leak per pin, its models and definition text) is fully analysed with no finding, except
+    the two batch-A B-source parts (MOV, SAT_AMP), which are `limited` and name what was left to ngspice. The 5 parts
+    with no electrical model and the ground symbol have nothing to validate (their limitations say what is not modelled)."""
+    LIMITED = {"MOV", "SAT_AMP", "T_LINE"}       # B sources and the ngspice T element are limited by construction
     seen = set()
     for i, c in CATALOG.defs.items():
         sec = c.sim.get("electrical") if c.simulated else None
@@ -419,9 +421,13 @@ def test_every_shipped_part_passes_the_static_validator():
             assert i in NOT_SIMULATED | {"GND"}, i
             continue
         seen.add(i)
-        assert electrical.validate_bodies(sec.get("_units", ()), sec, c.pins, c.params) == ("full", [], [], []), i
-        assert sec.get("_status", "full") == "full", i
-    assert len(seen) == 14 and set(REFS) <= seen and len(CATALOG.defs) == 20
+        status, errors, warnings, limits = electrical.validate_bodies(sec.get("_units", ()), sec, c.pins, c.params)
+        if i in LIMITED:
+            assert status == "limited" and errors == [] and warnings == [] and limits, i
+        else:
+            assert (status, errors, warnings, limits) == ("full", [], [], []), i
+        assert sec.get("_status", "full") == ("limited" if i in {"MOV", "SAT_AMP"} else "full"), i   # stored for X parts only
+    assert len(seen) == 51 and set(REFS) <= seen and len(CATALOG.defs) == 57
 
 
 BRES = ".subckt bres a b params: R=1k\nB1 a b I=V(a,b)/{R}\n.ends bres\n"      # behavioural resistor

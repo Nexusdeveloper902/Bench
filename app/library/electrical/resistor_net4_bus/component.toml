@@ -1,0 +1,70 @@
+format = 1
+id = "RNET4_BUS"
+version = 1
+name = "Resistor network, 4 bussed"
+description = "Four resistors of the same value R, each from one of four pins to a common pin C (bussed or 'bowtie' style)."
+designator = "RN"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["bussed resistor network", "common-pin resistor array", "pull-up network"]
+keywords = ["resistor", "array", "pull-up", "common", "subcircuit"]
+tags = ["passive", "network"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Matched elements only: each resistor is exactly R, with no mismatch or tracking error."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "c"
+name = "C"
+at = [0, 60]
+
+[[pins]]
+id = "r1"
+name = "1"
+at = [80, 20]
+
+[[pins]]
+id = "r2"
+name = "2"
+at = [80, 40]
+
+[[pins]]
+id = "r3"
+name = "3"
+at = [80, 80]
+
+[[pins]]
+id = "r4"
+name = "4"
+at = [80, 100]
+
+[[params]]
+key = "R"
+label = "Resistance per element"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {c} {r1} {r2} {r3} {r4} bench_rnet_bus R={R}"
+body = """
+.subckt bench_rnet_bus c r1 r2 r3 r4 params: R=1k
+R1 c r1 {R}
+R2 c r2 {R}
+R3 c r3 {R}
+R4 c r4 {R}
+.ends bench_rnet_bus
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; four ideal resistors sharing one common pin"
+license = "MIT"

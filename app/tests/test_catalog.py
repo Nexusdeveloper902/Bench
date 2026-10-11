@@ -36,7 +36,7 @@ def interface_only(d):
 def test_builtin_catalog_has_ten_kinds_and_no_problems():
     assert KINDS <= set(CATALOG.defs) and CATALOG.problems == []
     assert CATALOG.categories() == ALL_CATEGORIES
-    assert {c.id for c in CATALOG.defs.values() if c.category == "Power"} == {"BAT"}
+    assert {c.id for c in CATALOG.defs.values() if c.category == "Power"} == {"BAT", "BAT_COIN", "BAT_AA", "BAT_LITHIUM"}
     assert all(c.readiness == "simulated" and c.path.is_relative_to(BUILTIN_ROOT) for c in CATALOG.defs.values() if c.id in KINDS)
     assert CATALOG.get("GND").ground and not CATALOG.get("R").ground
     with pytest.raises(ModelError, match="unknown component type NOPE"): CATALOG.get("NOPE")
@@ -179,7 +179,11 @@ def test_category_filter_and_simulated_only(extra_root):
     assert CATALOG.get("BOARD").readiness == "interface" and not CATALOG.get("BOARD").simulated
     assert {d.id for d in CATALOG.search(category="Microcontrollers")} == {"BOARD", "ESP32_DEVKITC", "ARDUINO_UNO_R3"}
     assert "BOARD" in {d.id for d in CATALOG.search()} and "BOARD" not in {d.id for d in CATALOG.search(simulated_only=True)}
-    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222", "OPAMP", "OPAMP_DUAL"}
+    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222", "OPAMP", "OPAMP_DUAL"} | {
+        "POT", "RHEOSTAT", "RNET4_ISO", "RNET4_BUS", "R_TOL", "IND_DCR", "IND_COUPLED", "XFMR_1N", "XFMR_CT", "T_LINE",
+        "CAP_CERAMIC", "CAP_ELECTROLYTIC", "CAP_TANTALUM", "CAP_FILM", "FUSE", "PTC", "MOV", "SPDT", "DPST", "DPDT",
+        "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VCVS",
+        "VCCS", "CCCS", "CCVS", "SAT_AMP"}     # batch A (test_library_batch_a.py)
     assert CATALOG.search(category="Communication") == []
 
 

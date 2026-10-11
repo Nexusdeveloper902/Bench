@@ -487,3 +487,95 @@ any number of packages; a different unit with the same name rejects the later pa
   - Expression values are not evaluated.
   - A finding inside a mixed `defs` + `body` part is attributed to the `body` field.
   - Top-level B and T parts now carry a LIMITED-ANALYSIS warning in every run's core findings.
+
+## Task 5: library batch A (done, not committed)
+
+### Packages added (37; catalog 20 -> 57 definitions; all `sim:electrical`, all with MIT provenance)
+Kinds: project-subckt 15, equivalent 10, primitive 7, behavioral 4, model 1. Status: full 27, limited 2. The 8
+non-X parts (7 primitives and VSW) have no stored status, since only X parts store one; T_LINE is reported limited by
+the validator.
+
+| family | package (id) | kind | status |
+|---|---|---|---|
+| passives | POT (3 pins, wiper `pos` 0-1), RHEOSTAT (2 pins), R_TOL (tolerance fraction) | project-subckt | full |
+| passives | RNET4_ISO (8 pins, 4 isolated), RNET4_BUS (5 pins, common pin) | project-subckt | full |
+| passives | IND_DCR (L + DCR), IND_COUPLED (L1, L2, K), XFMR_1N (LM, N, K), XFMR_CT (centre tap) | project-subckt | full |
+| passives | CAP_CERAMIC, CAP_ELECTROLYTIC, CAP_TANTALUM, CAP_FILM (C, ESR, ESL, leak) | equivalent | full |
+| passives | T_LINE (lossless T element, Z0, TD) | primitive | limited (ngspice T) |
+| protection | FUSE (one-shot, time-delay), PTC (hold current, tripped resistance) | behavioral | full |
+| protection | MOV (power-law clamp) | behavioral | limited (B) |
+| switches | SPDT, DPST, DPDT (R contacts, state select) | project-subckt | full |
+| switches | PUSH_NO, PUSH_NC (R element, pressed/released) | primitive | - |
+| switches | RELAY_SPDT, RELAY_DPDT (coil R+L, pull-in/release current), REED (coil-driven contact) | equivalent | full |
+| switches | VSW (S element, VT/VH), CSW (W element, IT/IH, 0 V sense) | model / project-subckt | - / full |
+| sources | VSRC_EXP_SFFM (EXP, SFFM), ISRC_WAVE (PULSE, SIN) | primitive | - |
+| sources | VCVS (E), VCCS (G) | primitive | - |
+| sources | CCCS (F, 0 V sense), CCVS (H, 0 V sense) | project-subckt | full |
+| sources | SAT_AMP (clamp of gain*V, B source) | behavioral | limited (B) |
+| batteries | BAT_COIN, BAT_AA, BAT_LITHIUM (EMF + internal R) | equivalent | full |
+
+- Shared model files (3, each with a MANIFEST record, `origin = project`, MIT): `_models/passives/cap_esr.lib`,
+  `_models/protection/trip.lib`, `_models/power/cell_thevenin.lib`.
+- 37 `symbol.svg` files (generic line art). The existing contract test requires a symbol for every simulated part.
+- No new category: Electrical (subcategories Passives, Switches, Sources, Protection, Transmission lines) and Power
+  (Batteries). `ALL_CATEGORIES` is unchanged.
+- Four capacitor packages share one `.subckt` and differ in defaults; the three batteries share one too. Merge them
+  later if they look like duplicates.
+
+### Existing tests whose pinned counts changed (no assertion weakened)
+- `test_catalog.py`: Power = BAT + 3 batteries; Electrical simulated set + the 34 new Electrical parts.
+- `test_library_ui.py`: totals 57 / Electrical 47 / Microcontrollers 2 / Sensors 2; simulated-only 52 / 47 / 0 / 1.
+- `test_subckt_packages.py`: 51 simulated, 57 total. MOV and SAT_AMP are `limited` (B source). T_LINE validates as
+  limited (ngspice T). `_status` is stored for X parts only.
+- `test_components.py` gains one contract row per new simulated part (no edit).
+
+### Tests
+- New: `app/tests/test_library_batch_a.py`: **106 passed**.
+  - 37 parametrized load/validate/kind/provenance checks, plus the catalog count and a shared-unit-emitted-once check.
+  - Real-ngspice families, each checked against a closed form:
+    - pot wiper divider (4 positions) and two pots on one rail (two instances);
+    - rheostat, isolated and bussed networks, tolerance corners;
+    - DCR RL step (value and tau); coupled inductors, 1:N and centre-tap transformers (sample by sample, open secondary);
+    - ESR/leak RC time constant for all four capacitors (internal node `xc1.n2`);
+    - matched lossless line (0, then 1 V after TD);
+    - fuse trip time `tau*ln(I/(I-rating))` (+-5 us) and latched; fuse below rating never opens; PTC trip delay and
+      hold at `V*R/(Rtrip+R)`;
+    - MOV power law (30 V, 36 V, -36 V);
+    - switch states (SPDT, DPST, DPDT, both pushbuttons); relay pull-in at 3 V (30 mA x 100 ohm), SPDT and DPDT;
+      reed at 2 V; VSW and CSW thresholds;
+    - EXP and SFFM waveforms, pulse and sine current, VCVS, VCCS, CCCS, CCVS gains, clipping amplifier;
+    - cell terminal voltage under load (three cells), and two AA cells in series (two instances).
+- Full suite (`QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`): **760 passed** (task 4 baseline 617 =
+  617 + 106 new + 37 contract rows). Build validation: `python3 -m app.catalog` 57 definitions, 0 errors, 0 warnings.
+- No Rust change, so no wheel rebuild and no `cargo test` run.
+
+### Engine facts measured (for later batches)
+- S and CSW switch when the control passes VT+VH (ON) and VT-VH (OFF). Measured edges: 1.4 and 0.6 for VT=1, VH=0.4.
+- A one-shot latch needs hold 0 and a -1 mV initial charge on the proxy capacitor. At 0 V the S needs strictly more
+  than VT+VH to start closed, so without the charge the fuse starts open. The proxy only decays towards zero, so it
+  never closes again.
+- A source directly across a body inductor is `V-LOOP` (correctly refused). Windings need a series resistance, and
+  the test measures the primary terminal, not the source.
+- Transient samples are not exactly on the requested grid: at a steep point (1 V/ms) an EXP source read up to about
+  2 us late at tstep 1 us. Check flat points.
+
+### Infrastructure gap (not fixed; task says not to change infrastructure)
+- An unwired negative pin on a voltage source is accepted and runs. Example: V1 to R to GND with V1.n unconnected
+  gives `ok` (`nets: V1.n = n2`, floating). The validator's NO-DC-PATH check does not flag a net touched only by a
+  source. Suggest a follow-up: treat a source-only net as a floating net at the top level.
+
+### Skipped (and why)
+- SPST: the existing `SW` part is SPST, so no duplicate.
+- PWL source: needs a list-valued parameter, and params support only number and choice.
+- AC source: no effect in a `.tran` run; needs `.ac`.
+- Exponential and SFFM current sources: only PULSE and SIN were added to `ISRC_WAVE`. The syntax is the same as
+  `VSRC_EXP_SFFM`; add when a circuit needs it.
+- Current sink: an `I` with its pins reversed; no new package. A compliance-limited source needs a conditional B
+  source, which was not built.
+- Lossy transmission line (O element): ngspice hangs on lossy LTRA cards in this build.
+- Resistor power rating: ngspice does not limit dissipation, so a rating parameter would have no effect.
+- Fuse and PTC: thermal behaviour is a current-and-delay proxy, not self-heating; the fuse is one-shot.
+- Batteries: no state of charge, discharge curve, temperature or ageing (labelled approximate).
+- Dielectric absorption (film), electrolytic polarity and reverse bias, MOV energy and ageing, and reed bounce or
+  magnet fields: not modelled, and the limitations say so.
+- Maintained (latching) pushbutton: not in batch A.

@@ -1,0 +1,132 @@
+format = 1
+id = "RELAY_DPDT"
+version = 1
+name = "Relay, DPDT (coil R + L)"
+description = "Electromechanical relay with two changeover poles driven by one coil (R + L). Both poles pull in together when the coil current reaches IPULL."
+designator = "K"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["DPDT relay", "two-pole relay"]
+keywords = ["relay", "coil", "two pole", "changeover", "electromechanical", "subcircuit"]
+tags = ["electromechanical"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent: each contact is a voltage-controlled switch driven by coil current (no flux, armature or spring model).",
+               "No contact bounce or timing spread; the NC contacts use an offset source and are exact only in this model.",
+               "Generic values, not a datasheet fit."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 160]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "cl1"
+name = "A1"
+at = [0, 20]
+
+[[pins]]
+id = "cl2"
+name = "A2"
+at = [0, 60]
+
+[[pins]]
+id = "c1"
+name = "1COM"
+at = [80, 20]
+
+[[pins]]
+id = "no1"
+name = "1NO"
+at = [80, 40]
+
+[[pins]]
+id = "nc1"
+name = "1NC"
+at = [80, 60]
+
+[[pins]]
+id = "c2"
+name = "2COM"
+at = [80, 100]
+
+[[pins]]
+id = "no2"
+name = "2NO"
+at = [80, 120]
+
+[[pins]]
+id = "nc2"
+name = "2NC"
+at = [80, 140]
+
+[[params]]
+key = "rc"
+label = "Coil resistance"
+unit = "Ω"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lc"
+label = "Coil inductance"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ipull"
+label = "Pull-in current"
+unit = "A"
+default = "30m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "irel"
+label = "Release current"
+unit = "A"
+default = "10m"
+min = 0
+min_exclusive = true
+help = "Must be below the pull-in current"
+
+[[params]]
+key = "ron"
+label = "Contact on resistance"
+unit = "Ω"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Contact off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {cl1} {cl2} {c1} {no1} {nc1} {c2} {no2} {nc2} bench_relay_dpdt RC={rc} LC={lc} IPULL={ipull} IREL={irel} RON={ron} ROFF={roff}"
+body = """
+.subckt bench_relay_dpdt cl1 cl2 c1 no1 nc1 c2 no2 nc2 params: RC=100 LC=10m IPULL=30m IREL=10m RON=0.1 ROFF=1G
+.model relsw SW(VT={(IPULL+IREL)*RC/2} VH={(IPULL-IREL)*RC/2} RON={RON} ROFF={ROFF})
+RCOIL cl1 mid {RC}
+LCOIL mid cl2 {LC}
+VKEY x mid DC {(IPULL+IREL)*RC}
+SNO1 c1 no1 cl1 mid relsw
+SNC1 c1 nc1 x cl1 relsw
+SNO2 c2 no2 cl1 mid relsw
+SNC2 c2 nc2 x cl1 relsw
+.ends bench_relay_dpdt
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; simplified coil-current-controlled two-pole changeover contacts"
+license = "MIT"

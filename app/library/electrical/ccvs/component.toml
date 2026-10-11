@@ -1,0 +1,62 @@
+format = 1
+id = "CCVS"
+version = 1
+name = "Current-controlled voltage source (H)"
+description = "Linear current-controlled voltage source: V(op, on) = rm * I(cp to cn), with cp-cn a 0 V sense path."
+designator = "H"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["CCVS", "H source", "transresistance"]
+keywords = ["controlled", "dependent", "transresistance", "sense", "linear"]
+tags = ["source", "controlled"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal and linear. The sense path is a 0 V source, so it does not disturb the circuit it is in series with."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+value = "rm"
+
+[[pins]]
+id = "op"
+name = "OUT+"
+at = [80, 10]
+
+[[pins]]
+id = "on"
+name = "OUT-"
+at = [80, 50]
+
+[[pins]]
+id = "cp"
+name = "SENSE+"
+at = [0, 10]
+
+[[pins]]
+id = "cn"
+name = "SENSE-"
+at = [0, 50]
+
+[[params]]
+key = "rm"
+label = "Transresistance"
+unit = "Ω"
+default = "100"
+
+[sim.electrical]
+device = "X"
+body = """
+.subckt bench_ccvs op on cp cn params: RM=100
+VSENSE cp cn DC 0
+HOUT op on VSENSE {RM}
+.ends bench_ccvs
+"""
+line = "{dev} {op} {on} {cp} {cn} bench_ccvs RM={rm}"
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice linear H element with a 0 V sense source"
+license = "MIT"

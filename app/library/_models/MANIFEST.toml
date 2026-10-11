@@ -12,3 +12,30 @@ license = "MIT"
 retrieved = "2026-10-10"
 sha256 = "eddf6c18b9c12c5903b5d6be87e17a7c4f3b34e3c4ea0713e503b1d544553d43"
 changes = "none"
+
+[[file]]
+path = "passives/cap_esr.lib"
+origin = "project"
+source = "Bench project; capacitor with series ESR and ESL and a parallel leak (generic equivalent circuit)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "67abf67d1ba885994b9cf85c5944e1efe488c3c4c9a18f435bc88de26b4afb9f"
+changes = "none"
+
+[[file]]
+path = "protection/trip.lib"
+origin = "project"
+source = "Bench project; time-delay overcurrent element built from F, S and RC elements (behavioural, not thermal)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "62e70802baf005ec956a0aa8981970dfe2d04e12cafbd87abd70c739073cb73f"
+changes = "none"
+
+[[file]]
+path = "power/cell_thevenin.lib"
+origin = "project"
+source = "Bench project; Thevenin cell model (EMF in series with internal resistance)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "c8c71d3430d0eb49e2bf88a2e8015e87b869671fa475d920c180ee296c501da4"
+changes = "none"
