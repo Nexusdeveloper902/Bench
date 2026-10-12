@@ -1,0 +1,149 @@
+format = 1
+id = "SN74HC125"
+version = 1
+name = "74HC125 quad bus buffer, tri-state"
+description = "Four non-inverting buffers with individual active-low output enables and tri-state outputs (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Logic gates"
+aliases = ["74HC125", "SN74HC125", "HC125"]
+keywords = ["SN74HC125", "HC125", "tri-state", "buffer", "bus driver"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "A Hi-Z output is a 1 GΩ leak to GND, not a floating node.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc125.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "1A"
+at = [0, 40]
+description = "Buffer 1 input (pin 2)"
+
+[[pins]]
+id = "oe1"
+name = "1OE̅"
+at = [0, 60]
+description = "Buffer 1 output enable, active low (pin 1)"
+
+[[pins]]
+id = "a2"
+name = "2A"
+at = [0, 80]
+description = "Buffer 2 input (pin 5)"
+
+[[pins]]
+id = "oe2"
+name = "2OE̅"
+at = [0, 100]
+description = "Buffer 2 output enable, active low (pin 4)"
+
+[[pins]]
+id = "a3"
+name = "3A"
+at = [0, 120]
+description = "Buffer 3 input (pin 9)"
+
+[[pins]]
+id = "oe3"
+name = "3OE̅"
+at = [0, 140]
+description = "Buffer 3 output enable, active low (pin 10)"
+
+[[pins]]
+id = "a4"
+name = "4A"
+at = [0, 160]
+description = "Buffer 4 input (pin 12)"
+
+[[pins]]
+id = "oe4"
+name = "4OE̅"
+at = [0, 180]
+description = "Buffer 4 output enable, active low (pin 13)"
+
+[[pins]]
+id = "y1"
+name = "1Y"
+at = [120, 40]
+description = "Buffer 1 output (pin 3)"
+
+[[pins]]
+id = "y2"
+name = "2Y"
+at = [120, 60]
+description = "Buffer 2 output (pin 6)"
+
+[[pins]]
+id = "y3"
+name = "3Y"
+at = [120, 80]
+description = "Buffer 3 output (pin 8)"
+
+[[pins]]
+id = "y4"
+name = "4Y"
+at = [120, 100]
+description = "Buffer 4 output (pin 11)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "8n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {oe1} {a2} {oe2} {a3} {oe3} {a4} {oe4} {y1} {y2} {y3} {y4} {vcc} {gnd} bench_sn74hc125 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/gates.lib"]
+body = """
+.subckt bench_sn74hc125 a1 oe1 a2 oe2 a3 oe3 a4 oe4 y1 y2 y3 y4 vc gn params: ROUT=45 TPD=8n
+X1 vc gn a1 oe1 y1 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X2 vc gn a2 oe2 y2 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X3 vc gn a3 oe3 y3 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X4 vc gn a4 oe4 y4 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+.ends bench_sn74hc125
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc125.pdf"
+version = "TI SCLS104F, revised April 2021"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; output follows the input while OE is low and is Hi-Z while OE is high; +-6 mA output drive at 4.5 V; tpd about 8 ns typ."

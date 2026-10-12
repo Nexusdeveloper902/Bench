@@ -1,0 +1,189 @@
+format = 1
+id = "SN74HC244"
+version = 1
+name = "74HC244 octal buffer and line driver, tri-state"
+description = "Eight non-inverting buffers in two groups of four, each group with an active-low output enable and tri-state outputs (20 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Logic gates"
+aliases = ["74HC244", "SN74HC244", "HC244"]
+keywords = ["SN74HC244", "HC244", "tri-state", "buffer", "bus driver", "line driver", "octal"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "A Hi-Z output is a 1 GΩ leak to GND, not a floating node.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc244.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 260]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "oe1"
+name = "1OE̅"
+at = [0, 40]
+description = "Group 1 output enable, active low (pin 1)"
+
+[[pins]]
+id = "a1"
+name = "1A1"
+at = [0, 60]
+description = "Group 1 input 1 (pin 2)"
+
+[[pins]]
+id = "a2"
+name = "1A2"
+at = [0, 80]
+description = "Group 1 input 2 (pin 4)"
+
+[[pins]]
+id = "a3"
+name = "1A3"
+at = [0, 100]
+description = "Group 1 input 3 (pin 6)"
+
+[[pins]]
+id = "a4"
+name = "1A4"
+at = [0, 120]
+description = "Group 1 input 4 (pin 8)"
+
+[[pins]]
+id = "oe2"
+name = "2OE̅"
+at = [0, 140]
+description = "Group 2 output enable, active low (pin 19)"
+
+[[pins]]
+id = "a5"
+name = "2A1"
+at = [0, 160]
+description = "Group 2 input 1 (pin 11)"
+
+[[pins]]
+id = "a6"
+name = "2A2"
+at = [0, 180]
+description = "Group 2 input 2 (pin 13)"
+
+[[pins]]
+id = "a7"
+name = "2A3"
+at = [0, 200]
+description = "Group 2 input 3 (pin 15)"
+
+[[pins]]
+id = "a8"
+name = "2A4"
+at = [0, 220]
+description = "Group 2 input 4 (pin 17)"
+
+[[pins]]
+id = "y1"
+name = "1Y1"
+at = [120, 40]
+description = "Group 1 output 1 (pin 18)"
+
+[[pins]]
+id = "y2"
+name = "1Y2"
+at = [120, 60]
+description = "Group 1 output 2 (pin 16)"
+
+[[pins]]
+id = "y3"
+name = "1Y3"
+at = [120, 80]
+description = "Group 1 output 3 (pin 14)"
+
+[[pins]]
+id = "y4"
+name = "1Y4"
+at = [120, 100]
+description = "Group 1 output 4 (pin 12)"
+
+[[pins]]
+id = "y5"
+name = "2Y1"
+at = [120, 120]
+description = "Group 2 output 1 (pin 9)"
+
+[[pins]]
+id = "y6"
+name = "2Y2"
+at = [120, 140]
+description = "Group 2 output 2 (pin 7)"
+
+[[pins]]
+id = "y7"
+name = "2Y3"
+at = [120, 160]
+description = "Group 2 output 3 (pin 5)"
+
+[[pins]]
+id = "y8"
+name = "2Y4"
+at = [120, 180]
+description = "Group 2 output 4 (pin 3)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 20)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 260]
+description = "Ground (pin 10)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "9n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {oe1} {a1} {a2} {a3} {a4} {oe2} {a5} {a6} {a7} {a8} {y1} {y2} {y3} {y4} {y5} {y6} {y7} {y8} {vcc} {gnd} bench_74hc244 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/gates.lib"]
+body = """
+.subckt bench_74hc244 oe1 a1 a2 a3 a4 oe2 a5 a6 a7 a8 y1 y2 y3 y4 y5 y6 y7 y8 vc gn params: ROUT=45 TPD=9n
+X1 vc gn a1 oe1 y1 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X2 vc gn a2 oe1 y2 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X3 vc gn a3 oe1 y3 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X4 vc gn a4 oe1 y4 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X5 vc gn a5 oe2 y5 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X6 vc gn a6 oe2 y6 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X7 vc gn a7 oe2 y7 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+X8 vc gn a8 oe2 y8 bench_d_tbuf  ROUT={ROUT} TPD={TPD}
+.ends bench_74hc244
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc244.pdf"
+version = "TI SCLS130I, revised February 2026"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; each group follows its inputs while its OE is low and is Hi-Z while OE is high; +-6 mA output drive at 4.5 V; tpd about 9 ns typ."

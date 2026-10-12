@@ -333,9 +333,9 @@ def test_nav_counts_follow_toggle_and_query(win):
     """T3: seeded counts are hard-coded (not the function the UI itself calls); the toggle and the query change them."""
     lib = win.library
     n = lambda k: lib.navs[k].count.text()
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("117", "107", "2", "2")
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("148", "138", "2", "2")
     click_widget(lib.toggle)
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("112", "107", "0", "1")
+    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("143", "138", "0", "1")
     click_widget(lib.toggle)
     type_search(win, "esp")
     assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")

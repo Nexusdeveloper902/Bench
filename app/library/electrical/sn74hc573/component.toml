@@ -1,0 +1,182 @@
+format = 1
+id = "SN74HC573"
+version = 1
+name = "74HC573 octal transparent D-type latch"
+description = "Eight D latches, transparent while LE is high, with tri-state outputs enabled by OE low (20 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Flip-flops and latches"
+aliases = ["74HC573", "SN74HC573A", "HC573"]
+keywords = ["SN74HC573A", "HC573", "latch", "octal", "tri-state"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "A Hi-Z output is a 1 GΩ leak to GND, not a floating node: it settles to GND when nothing else drives the net.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc573a.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 260]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "oeb"
+name = "OE̅"
+at = [0, 40]
+description = "Output enable, active low (pin 1)"
+
+[[pins]]
+id = "le"
+name = "LE"
+at = [0, 60]
+description = "Latch enable, transparent while high (pin 11)"
+
+[[pins]]
+id = "d1"
+name = "D1"
+at = [0, 80]
+description = "Data input 1 (pin 2)"
+
+[[pins]]
+id = "d2"
+name = "D2"
+at = [0, 100]
+description = "Data input 2 (pin 3)"
+
+[[pins]]
+id = "d3"
+name = "D3"
+at = [0, 120]
+description = "Data input 3 (pin 4)"
+
+[[pins]]
+id = "d4"
+name = "D4"
+at = [0, 140]
+description = "Data input 4 (pin 5)"
+
+[[pins]]
+id = "d5"
+name = "D5"
+at = [0, 160]
+description = "Data input 5 (pin 6)"
+
+[[pins]]
+id = "d6"
+name = "D6"
+at = [0, 180]
+description = "Data input 6 (pin 7)"
+
+[[pins]]
+id = "d7"
+name = "D7"
+at = [0, 200]
+description = "Data input 7 (pin 8)"
+
+[[pins]]
+id = "d8"
+name = "D8"
+at = [0, 220]
+description = "Data input 8 (pin 9)"
+
+[[pins]]
+id = "q1"
+name = "Q1"
+at = [120, 40]
+description = "Latch output 1 (pin 19)"
+
+[[pins]]
+id = "q2"
+name = "Q2"
+at = [120, 60]
+description = "Latch output 2 (pin 18)"
+
+[[pins]]
+id = "q3"
+name = "Q3"
+at = [120, 80]
+description = "Latch output 3 (pin 17)"
+
+[[pins]]
+id = "q4"
+name = "Q4"
+at = [120, 100]
+description = "Latch output 4 (pin 16)"
+
+[[pins]]
+id = "q5"
+name = "Q5"
+at = [120, 120]
+description = "Latch output 5 (pin 15)"
+
+[[pins]]
+id = "q6"
+name = "Q6"
+at = [120, 140]
+description = "Latch output 6 (pin 14)"
+
+[[pins]]
+id = "q7"
+name = "Q7"
+at = [120, 160]
+description = "Latch output 7 (pin 13)"
+
+[[pins]]
+id = "q8"
+name = "Q8"
+at = [120, 180]
+description = "Latch output 8 (pin 12)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 20)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 260]
+description = "Ground (pin 10)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "15n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {oeb} {le} {d1} {d2} {d3} {d4} {d5} {d6} {d7} {d8} {q1} {q2} {q3} {q4} {q5} {q6} {q7} {q8} {vcc} {gnd} bench_74hc573 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_74hc573 oeb le d1 d2 d3 d4 d5 d6 d7 d8 q1 q2 q3 q4 q5 q6 q7 q8 vc gn params: ROUT=45 TPD=15n
+X1 vc gn d1 d2 d3 d4 d5 d6 d7 d8 le oeb q1 q2 q3 q4 q5 q6 q7 q8 bench_d_lat8  ROUT={ROUT} TPD={TPD}
+.ends bench_74hc573
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc573a.pdf"
+version = "TI SCLS147G, revised April 2022"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; Q follows D while LE is high, holds the value present when LE falls, outputs Hi-Z when OE is high; tpd (D to Q) about 11-16 ns typ at 4.5 V."

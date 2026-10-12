@@ -1,0 +1,147 @@
+format = 1
+id = "SN74HC107"
+version = 1
+name = "74HC107 dual JK flip-flop"
+description = "Two JK flip-flops with asynchronous active-low reset and negative-edge clock, Q and complementary outputs (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Flip-flops and latches"
+aliases = ["74HC107", "74HCT107", "HC107"]
+keywords = ["74HCT107", "HC107", "JK flip-flop", "toggle"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "The datasheet is Nexperia's (the TI file for this part number does not exist); only the 74HC107 CMOS-level part is modelled, not the TTL-level 74HCT107.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://assets.nexperia.com/documents/data-sheet/74HC_HCT107.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "j1"
+name = "1J"
+at = [0, 40]
+description = "Flip-flop 1 J input (pin 1)"
+
+[[pins]]
+id = "k1"
+name = "1K"
+at = [0, 60]
+description = "Flip-flop 1 K input (pin 4)"
+
+[[pins]]
+id = "ck1"
+name = "1CP"
+at = [0, 80]
+description = "Flip-flop 1 clock, falling edge (pin 12)"
+
+[[pins]]
+id = "r1"
+name = "1R"
+at = [0, 100]
+description = "Flip-flop 1 asynchronous reset, active low (pin 13)"
+
+[[pins]]
+id = "j2"
+name = "2J"
+at = [0, 120]
+description = "Flip-flop 2 J input (pin 8)"
+
+[[pins]]
+id = "k2"
+name = "2K"
+at = [0, 140]
+description = "Flip-flop 2 K input (pin 11)"
+
+[[pins]]
+id = "ck2"
+name = "2CP"
+at = [0, 160]
+description = "Flip-flop 2 clock, falling edge (pin 9)"
+
+[[pins]]
+id = "r2"
+name = "2R"
+at = [0, 180]
+description = "Flip-flop 2 asynchronous reset, active low (pin 10)"
+
+[[pins]]
+id = "q1"
+name = "1Q"
+at = [120, 40]
+description = "Flip-flop 1 output (pin 3)"
+
+[[pins]]
+id = "qb1"
+name = "1Q̅"
+at = [120, 60]
+description = "Flip-flop 1 complementary output (pin 2)"
+
+[[pins]]
+id = "q2"
+name = "2Q"
+at = [120, 80]
+description = "Flip-flop 2 output (pin 5)"
+
+[[pins]]
+id = "qb2"
+name = "2Q̅"
+at = [120, 100]
+description = "Flip-flop 2 complementary output (pin 6)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "15n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {j1} {k1} {ck1} {r1} {j2} {k2} {ck2} {r2} {q1} {qb1} {q2} {qb2} {vcc} {gnd} bench_74hc107 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_74hc107 j1 k1 ck1 r1 j2 k2 ck2 r2 q1 qb1 q2 qb2 vc gn params: ROUT=45 TPD=15n
+X1 vc gn j1 k1 ck1 gn r1 q1 qb1 bench_d_jkn RA=1 ROUT={ROUT} TPD={TPD}
+X2 vc gn j2 k2 ck2 gn r2 q2 qb2 bench_d_jkn RA=1 ROUT={ROUT} TPD={TPD}
+.ends bench_74hc107
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://assets.nexperia.com/documents/data-sheet/74HC_HCT107.pdf"
+version = "Nexperia 74HC_HCT107 Rev. 7, 20 February 2024"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; J-K function table H/H toggle, L/H reset, H/L set, L/L hold on the HIGH-to-LOW clock transition; reset R active low, asynchronous. Pinout and function table from the Nexperia data sheet (the TI SN74HC107 file is not published)."

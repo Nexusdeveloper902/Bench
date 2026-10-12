@@ -1,0 +1,158 @@
+format = 1
+id = "CD4040"
+version = 1
+name = "CD4040B 12-stage ripple-carry binary counter"
+description = "Twelve-stage binary ripple counter: counts on the falling clock edge, asynchronous reset, outputs Q1 to Q12 (16 pins, 3 to 18 V supply)."
+designator = "U"
+category = "Electrical"
+subcategory = "Counters and shift registers"
+aliases = ["CD4040", "CD4040B", "4040"]
+keywords = ["CD4040B", "4040", "counter", "ripple", "divider", "binary"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Each stage delay is TPD, so the ripple delay grows with the stage number as in the real part.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4040b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 300]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "clk"
+name = "CLOCK"
+at = [0, 40]
+description = "Clock, counts on the falling edge (pin 10)"
+
+[[pins]]
+id = "rst"
+name = "RESET"
+at = [0, 60]
+description = "Asynchronous reset, high clears every stage (pin 11)"
+
+[[pins]]
+id = "q1"
+name = "Q1"
+at = [120, 40]
+description = "Divide-by-2 output (pin 9)"
+
+[[pins]]
+id = "q2"
+name = "Q2"
+at = [120, 60]
+description = "Divide-by-4 output (pin 7)"
+
+[[pins]]
+id = "q3"
+name = "Q3"
+at = [120, 80]
+description = "Divide-by-8 output (pin 6)"
+
+[[pins]]
+id = "q4"
+name = "Q4"
+at = [120, 100]
+description = "Divide-by-16 output (pin 5)"
+
+[[pins]]
+id = "q5"
+name = "Q5"
+at = [120, 120]
+description = "Divide-by-32 output (pin 3)"
+
+[[pins]]
+id = "q6"
+name = "Q6"
+at = [120, 140]
+description = "Divide-by-64 output (pin 2)"
+
+[[pins]]
+id = "q7"
+name = "Q7"
+at = [120, 160]
+description = "Divide-by-128 output (pin 4)"
+
+[[pins]]
+id = "q8"
+name = "Q8"
+at = [120, 180]
+description = "Divide-by-256 output (pin 13)"
+
+[[pins]]
+id = "q9"
+name = "Q9"
+at = [120, 200]
+description = "Divide-by-512 output (pin 12)"
+
+[[pins]]
+id = "q10"
+name = "Q10"
+at = [120, 220]
+description = "Divide-by-1024 output (pin 14)"
+
+[[pins]]
+id = "q11"
+name = "Q11"
+at = [120, 240]
+description = "Divide-by-2048 output (pin 15)"
+
+[[pins]]
+id = "q12"
+name = "Q12"
+at = [120, 260]
+description = "Divide-by-4096 output (pin 1)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 300]
+description = "Ground (pin 8)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "400"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "60n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {clk} {rst} {q1} {q2} {q3} {q4} {q5} {q6} {q7} {q8} {q9} {q10} {q11} {q12} {vdd} {vss} bench_cd4040 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_cd4040 clk rst q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 q12 vc gn params: ROUT=400 TPD=60n
+X1 vc gn clk rst q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 q12 bench_d_rip12  ROUT={ROUT} TPD={TPD}
+.ends bench_cd4040
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4040b.pdf"
+version = "TI SCHS030D, revised December 2003"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VDD 3-18 V; each stage toggles on the falling edge of the previous output (ripple), so Q12 lags the clock by twelve stage delays; RESET high clears all outputs."

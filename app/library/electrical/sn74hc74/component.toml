@@ -1,0 +1,147 @@
+format = 1
+id = "SN74HC74"
+version = 1
+name = "74HC74 dual D-type flip-flop"
+description = "Two D flip-flops with asynchronous active-low preset and clear, positive-edge clock, Q and complementary outputs (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Flip-flops and latches"
+aliases = ["74HC74", "SN74HC74", "HC74"]
+keywords = ["SN74HC74", "HC74", "D flip-flop", "register"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "PRE and CLR both low is a state the real part leaves partly undefined (both outputs high); here the reset input wins in the code model.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc74.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "d1"
+name = "1D"
+at = [0, 40]
+description = "Flip-flop 1 data (pin 2)"
+
+[[pins]]
+id = "ck1"
+name = "1CLK"
+at = [0, 60]
+description = "Flip-flop 1 clock, rising edge (pin 3)"
+
+[[pins]]
+id = "pre1"
+name = "1PRE"
+at = [0, 80]
+description = "Flip-flop 1 asynchronous set, active low (pin 4)"
+
+[[pins]]
+id = "clr1"
+name = "1CLR"
+at = [0, 100]
+description = "Flip-flop 1 asynchronous reset, active low (pin 1)"
+
+[[pins]]
+id = "d2"
+name = "2D"
+at = [0, 120]
+description = "Flip-flop 2 data (pin 12)"
+
+[[pins]]
+id = "ck2"
+name = "2CLK"
+at = [0, 140]
+description = "Flip-flop 2 clock, rising edge (pin 11)"
+
+[[pins]]
+id = "pre2"
+name = "2PRE"
+at = [0, 160]
+description = "Flip-flop 2 asynchronous set, active low (pin 10)"
+
+[[pins]]
+id = "clr2"
+name = "2CLR"
+at = [0, 180]
+description = "Flip-flop 2 asynchronous reset, active low (pin 13)"
+
+[[pins]]
+id = "q1"
+name = "1Q"
+at = [120, 40]
+description = "Flip-flop 1 output (pin 5)"
+
+[[pins]]
+id = "qb1"
+name = "1Q̅"
+at = [120, 60]
+description = "Flip-flop 1 complementary output (pin 6)"
+
+[[pins]]
+id = "q2"
+name = "2Q"
+at = [120, 80]
+description = "Flip-flop 2 output (pin 9)"
+
+[[pins]]
+id = "qb2"
+name = "2Q̅"
+at = [120, 100]
+description = "Flip-flop 2 complementary output (pin 8)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "15n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {d1} {ck1} {pre1} {clr1} {d2} {ck2} {pre2} {clr2} {q1} {qb1} {q2} {qb2} {vcc} {gnd} bench_74hc74 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_74hc74 d1 ck1 pre1 clr1 d2 ck2 pre2 clr2 q1 qb1 q2 qb2 vc gn params: ROUT=45 TPD=15n
+X1 vc gn d1 ck1 pre1 clr1 q1 qb1 bench_d_dff SA=1 RA=1 ROUT={ROUT} TPD={TPD}
+X2 vc gn d2 ck2 pre2 clr2 q2 qb2 bench_d_dff SA=1 RA=1 ROUT={ROUT} TPD={TPD}
+.ends bench_74hc74
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc74.pdf"
+version = "TI SCLS094F, revised June 2021"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; positive-edge D flip-flop, PRE or CLR low overrides the clock; tpd (CLK to Q) about 15-20 ns typ at 4.5 V."

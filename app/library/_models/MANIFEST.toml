@@ -111,3 +111,84 @@ license = "MIT"
 retrieved = "2026-10-11"
 sha256 = "9441749330c1238a28b1fac885a71f86cbd30f41607ee421f11a2b2d593b3d97"
 changes = "none"
+
+[[file]]
+path = "digital/mux.lib"
+origin = "project"
+source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
+changes = "none"
+
+[[file]]
+path = "digital/mux.lib"
+origin = "project"
+source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
+changes = "none"
+
+[[file]]
+path = "digital/gates.lib"
+origin = "project"
+source = "Bench project; logic gate and buffer cores (XSPICE d_nand/d_nor/d_and/d_or/d_xor/d_inverter/d_buffer behind the digital I/O stages)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "a9f6ec7c657e539ffa386fe65b3665a1c198a936b7317443bdacf868a480040a"
+changes = "none"
+
+[[file]]
+path = "digital/mux.lib"
+origin = "project"
+source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
+changes = "none"
+
+[[file]]
+path = "digital/io.lib"
+origin = "project"
+source = "Bench project; digital I/O stages (supply-ratiometric adc_bridge input stage, dac_bridge output stage with output impedance and tri-state switch, switch-based Schmitt input)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "ddfcc8bd1f8947997cc962e814b2e4a6508cac121b5b97d01d0a89097a71f612"
+changes = "none"
+
+[[file]]
+path = "digital/gates.lib"
+origin = "project"
+source = "Bench project; logic gate and buffer cores (XSPICE d_nand/d_nor/d_and/d_or/d_xor/d_inverter/d_buffer behind the digital I/O stages)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "b24b0649db7d0866d8e8353e50f5aba1bf2efc5f8e3412d89e20a7ec1677fe7d"
+changes = "none"
+
+[[file]]
+path = "digital/seq.lib"
+origin = "project"
+source = "Bench project; sequential and counter cores (flip-flops, latches, counters, shift registers) from XSPICE d_dff/d_jkff/d_dlatch behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "73fcb65d7c9c5959f4f3695ac5291cee8447ab1887da639bbbd44d245f109fd9"
+changes = "none"
+
+[[file]]
+path = "digital/mux.lib"
+origin = "project"
+source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "97904fa1de5d2362fc3d78423f5555091bfb1a81654464b9c715a7b35eaaa4d6"
+changes = "none"
+
+[[file]]
+path = "digital/conv.lib"
+origin = "project"
+source = "Bench project; N-bit ADC (adc_bridge quantiser registered by d_dff) and R-2R DAC ladder"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "dcaae9b46499a69edda2b75fec175182c221ddbdc9b3cadf8e2a3775d71ff169"
+changes = "none"

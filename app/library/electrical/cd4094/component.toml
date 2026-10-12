@@ -1,0 +1,158 @@
+format = 1
+id = "CD4094"
+version = 1
+name = "CD4094B 8-stage shift-and-store bus register"
+description = "Eight-bit serial-in shift register with latched tri-state parallel outputs and two serial outputs (16 pins, 3 to 18 V supply)."
+designator = "U"
+category = "Electrical"
+subcategory = "Counters and shift registers"
+aliases = ["CD4094", "CD4094B", "4094"]
+keywords = ["CD4094B", "4094", "shift register", "serial", "8-bit", "bus register"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "A Hi-Z output is a 1 GΩ leak to GND.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4094b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 260]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "strobe"
+name = "STROBE"
+at = [0, 40]
+description = "Strobe: storage register transparent while high (pin 1)"
+
+[[pins]]
+id = "data"
+name = "DATA"
+at = [0, 60]
+description = "Serial data input (pin 2)"
+
+[[pins]]
+id = "clock"
+name = "CLOCK"
+at = [0, 80]
+description = "Shift clock, rising edge (pin 3)"
+
+[[pins]]
+id = "oe"
+name = "OUTPUT ENABLE"
+at = [0, 100]
+description = "Output enable, high enables Q1-Q8 (pin 15)"
+
+[[pins]]
+id = "q1"
+name = "Q1"
+at = [120, 40]
+description = "Parallel output 1 (pin 4)"
+
+[[pins]]
+id = "q2"
+name = "Q2"
+at = [120, 60]
+description = "Parallel output 2 (pin 5)"
+
+[[pins]]
+id = "q3"
+name = "Q3"
+at = [120, 80]
+description = "Parallel output 3 (pin 6)"
+
+[[pins]]
+id = "q4"
+name = "Q4"
+at = [120, 100]
+description = "Parallel output 4 (pin 7)"
+
+[[pins]]
+id = "q5"
+name = "Q5"
+at = [120, 120]
+description = "Parallel output 5 (pin 14)"
+
+[[pins]]
+id = "q6"
+name = "Q6"
+at = [120, 140]
+description = "Parallel output 6 (pin 13)"
+
+[[pins]]
+id = "q7"
+name = "Q7"
+at = [120, 160]
+description = "Parallel output 7 (pin 12)"
+
+[[pins]]
+id = "q8"
+name = "Q8"
+at = [120, 180]
+description = "Parallel output 8 (pin 11)"
+
+[[pins]]
+id = "qs"
+name = "QS"
+at = [120, 200]
+description = "Serial output on the rising clock edge (pin 9)"
+
+[[pins]]
+id = "qsb"
+name = "Q'S"
+at = [120, 220]
+description = "Serial output on the falling clock edge (pin 10)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 260]
+description = "Ground (pin 8)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "400"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "60n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {strobe} {data} {clock} {oe} {q1} {q2} {q3} {q4} {q5} {q6} {q7} {q8} {qs} {qsb} {vdd} {vss} bench_cd4094 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_cd4094 strobe data clock oe q1 q2 q3 q4 q5 q6 q7 q8 qs qsb vc gn params: ROUT=400 TPD=60n
+X1 vc gn strobe data clock oe q1 q2 q3 q4 q5 q6 q7 q8 qs qsb bench_d_sr4094  ROUT={ROUT} TPD={TPD}
+.ends bench_cd4094
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4094b.pdf"
+version = "TI SCHS063B, revised July 2003"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VDD 3-18 V; DATA shifts in on each rising CLOCK; the storage latches follow the shift register while STROBE is high and hold while it is low; OUTPUT ENABLE low gives Hi-Z outputs; QS is the last stage on the rising edge and Q'S is the last stage re-clocked on the falling edge."

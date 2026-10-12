@@ -1,0 +1,140 @@
+format = 1
+id = "ADC_8BIT"
+version = 1
+name = "Generic 8-bit sampling ADC"
+description = "Generic 8-bit analog-to-digital converter: on each rising clock edge it registers floor(256 x VIN / VREF), limited to 0-255, on eight logic outputs."
+designator = "U"
+category = "Electrical"
+subcategory = "Data converters"
+aliases = ["ADC_8BIT", "ADC", "8-bit ADC"]
+keywords = ["ADC", "8-bit ADC", "ADC", "converter", "analog to digital", "sampling"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Ideal quantiser: no offset, gain, linearity, noise or sample-and-hold aperture error; the input is read at the clock edge with about 2 ns of bridge delay. Resolution is fixed at 8 bits because a part's pin count cannot depend on a parameter.",
+               "Not a named part: no real converter has the 0 to REF transfer exactly like this (the ADC0804, for instance, adds a start/read handshake and a half-LSB offset).",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vin"
+name = "VIN"
+at = [0, 40]
+description = "Analog input, sampled on the rising clock edge"
+
+[[pins]]
+id = "ref"
+name = "REF"
+at = [0, 60]
+description = "Reference: full scale is REF (code 255 at REF - 1 LSB)"
+
+[[pins]]
+id = "clk"
+name = "CLK"
+at = [0, 80]
+description = "Sample clock, rising edge starts a conversion"
+
+[[pins]]
+id = "d0"
+name = "D0"
+at = [120, 40]
+description = "Output bit 0 (least significant)"
+
+[[pins]]
+id = "d1"
+name = "D1"
+at = [120, 60]
+description = "Output bit 1"
+
+[[pins]]
+id = "d2"
+name = "D2"
+at = [120, 80]
+description = "Output bit 2"
+
+[[pins]]
+id = "d3"
+name = "D3"
+at = [120, 100]
+description = "Output bit 3"
+
+[[pins]]
+id = "d4"
+name = "D4"
+at = [120, 120]
+description = "Output bit 4"
+
+[[pins]]
+id = "d5"
+name = "D5"
+at = [120, 140]
+description = "Output bit 5"
+
+[[pins]]
+id = "d6"
+name = "D6"
+at = [120, 160]
+description = "Output bit 6"
+
+[[pins]]
+id = "d7"
+name = "D7"
+at = [120, 180]
+description = "Output bit 7 (most significant)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "50n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {vin} {ref} {clk} {d0} {d1} {d2} {d3} {d4} {d5} {d6} {d7} {vcc} {gnd} bench_adc8 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/conv.lib"]
+body = """
+.subckt bench_adc8 vin ref clk d0 d1 d2 d3 d4 d5 d6 d7 vc gn params: ROUT=45 TPD=50n
+X1 vc gn vin ref clk d0 d1 d2 d3 d4 d5 d6 d7 bench_d_adc8 ROUT={ROUT} TPD={TPD}
+.ends bench_adc8
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; behavioural quantiser (floor of the scaled input) read through eight adc_bridge elements and registered by eight d_dff"
+version = "not applicable"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "Generic model, no datasheet. Output code = floor(256 * (VIN - GND) / (REF - GND)) limited to 0..255, taken at each rising CLK edge."

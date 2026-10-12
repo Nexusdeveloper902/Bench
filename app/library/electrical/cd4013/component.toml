@@ -1,0 +1,146 @@
+format = 1
+id = "CD4013"
+version = 1
+name = "CD4013B dual D-type flip-flop"
+description = "Two D flip-flops with asynchronous active-high set and reset, positive-edge clock, Q and complementary outputs, 3 to 18 V supply (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Flip-flops and latches"
+aliases = ["CD4013", "CD4013B", "4013"]
+keywords = ["CD4013B", "4013", "D flip-flop", "register"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4013b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "d1"
+name = "D1"
+at = [0, 40]
+description = "Flip-flop 1 data (pin 5)"
+
+[[pins]]
+id = "ck1"
+name = "CLK1"
+at = [0, 60]
+description = "Flip-flop 1 clock, rising edge (pin 3)"
+
+[[pins]]
+id = "s1"
+name = "SET1"
+at = [0, 80]
+description = "Flip-flop 1 asynchronous set, active high (pin 6)"
+
+[[pins]]
+id = "r1"
+name = "RESET1"
+at = [0, 100]
+description = "Flip-flop 1 asynchronous reset, active high (pin 4)"
+
+[[pins]]
+id = "d2"
+name = "D2"
+at = [0, 120]
+description = "Flip-flop 2 data (pin 9)"
+
+[[pins]]
+id = "ck2"
+name = "CLK2"
+at = [0, 140]
+description = "Flip-flop 2 clock, rising edge (pin 11)"
+
+[[pins]]
+id = "s2"
+name = "SET2"
+at = [0, 160]
+description = "Flip-flop 2 asynchronous set, active high (pin 8)"
+
+[[pins]]
+id = "r2"
+name = "RESET2"
+at = [0, 180]
+description = "Flip-flop 2 asynchronous reset, active high (pin 10)"
+
+[[pins]]
+id = "q1"
+name = "Q1"
+at = [120, 40]
+description = "Flip-flop 1 output (pin 1)"
+
+[[pins]]
+id = "qb1"
+name = "Q̅1"
+at = [120, 60]
+description = "Flip-flop 1 complementary output (pin 2)"
+
+[[pins]]
+id = "q2"
+name = "Q2"
+at = [120, 80]
+description = "Flip-flop 2 output (pin 13)"
+
+[[pins]]
+id = "qb2"
+name = "Q̅2"
+at = [120, 100]
+description = "Flip-flop 2 complementary output (pin 12)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "400"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "60n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {d1} {ck1} {s1} {r1} {d2} {ck2} {s2} {r2} {q1} {qb1} {q2} {qb2} {vdd} {vss} bench_cd4013 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_cd4013 d1 ck1 s1 r1 d2 ck2 s2 r2 q1 qb1 q2 qb2 vc gn params: ROUT=400 TPD=60n
+X1 vc gn d1 ck1 s1 r1 q1 qb1 bench_d_dff  ROUT={ROUT} TPD={TPD}
+X2 vc gn d2 ck2 s2 r2 q2 qb2 bench_d_dff  ROUT={ROUT} TPD={TPD}
+.ends bench_cd4013
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4013b.pdf"
+version = "TI SCHS023E, revised September 2016"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VDD 3-18 V; clock-to-Q tpd about 40-45 ns typ at 10 V (more at 5 V); set and reset are active high and override the clock."

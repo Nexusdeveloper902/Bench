@@ -1,0 +1,158 @@
+format = 1
+id = "SN74HC161"
+version = 1
+name = "74HC161 4-bit synchronous binary counter"
+description = "Presettable 4-bit binary counter: rising-edge clock, asynchronous clear, synchronous load, two count enables and a ripple carry output (16 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Counters and shift registers"
+aliases = ["74HC161", "SN74HC161", "HC161"]
+keywords = ["SN74HC161", "HC161", "counter", "binary counter", "4-bit"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Unconnected ENP, ENT and LOAD read high (counting, no load); the real part leaves them undefined. Maximum clock frequency, setup and hold times are not modelled.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc161.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 240]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "clrb"
+name = "CLR̅"
+at = [0, 40]
+description = "Asynchronous clear, active low (pin 1)"
+
+[[pins]]
+id = "clk"
+name = "CLK"
+at = [0, 60]
+description = "Clock, rising edge (pin 2)"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [0, 80]
+description = "Parallel data A, least significant (pin 3)"
+
+[[pins]]
+id = "b"
+name = "B"
+at = [0, 100]
+description = "Parallel data B (pin 4)"
+
+[[pins]]
+id = "c"
+name = "C"
+at = [0, 120]
+description = "Parallel data C (pin 5)"
+
+[[pins]]
+id = "d"
+name = "D"
+at = [0, 140]
+description = "Parallel data D, most significant (pin 6)"
+
+[[pins]]
+id = "enp"
+name = "ENP"
+at = [0, 160]
+description = "Count enable P (pin 7)"
+
+[[pins]]
+id = "ent"
+name = "ENT"
+at = [0, 180]
+description = "Count enable T, also enables RCO (pin 10)"
+
+[[pins]]
+id = "loadb"
+name = "LOAD̅"
+at = [0, 200]
+description = "Synchronous parallel load, active low (pin 9)"
+
+[[pins]]
+id = "qa"
+name = "QA"
+at = [120, 40]
+description = "Output A, least significant (pin 14)"
+
+[[pins]]
+id = "qb"
+name = "QB"
+at = [120, 60]
+description = "Output B (pin 13)"
+
+[[pins]]
+id = "qc"
+name = "QC"
+at = [120, 80]
+description = "Output C (pin 12)"
+
+[[pins]]
+id = "qd"
+name = "QD"
+at = [120, 100]
+description = "Output D, most significant (pin 11)"
+
+[[pins]]
+id = "rco"
+name = "RCO"
+at = [120, 120]
+description = "Ripple carry out: high when ENT is high and the count is 15 (pin 15)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 240]
+description = "Ground (pin 8)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "25n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {clrb} {clk} {a} {b} {c} {d} {enp} {ent} {loadb} {qa} {qb} {qc} {qd} {rco} {vcc} {gnd} bench_74hc161 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_74hc161 clrb clk a b c d enp ent loadb qa qb qc qd rco vc gn params: ROUT=45 TPD=25n
+X1 vc gn clrb clk a b c d enp ent loadb qa qb qc qd rco bench_d_cnt161  ROUT={ROUT} TPD={TPD}
+.ends bench_74hc161
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc161.pdf"
+version = "TI SCLS297D, revised September 2003"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; the counter advances on the rising clock edge when LOAD, ENP and ENT are high; LOAD low loads A-D on the next edge; CLR low clears at once; RCO = ENT and count 15; tpd (CLK to any Q) 25 ns typ at 4.5 V."

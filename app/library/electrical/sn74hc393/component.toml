@@ -1,0 +1,146 @@
+format = 1
+id = "SN74HC393"
+version = 1
+name = "74HC393 dual 4-bit binary ripple counter"
+description = "Two 4-bit binary ripple counters: falling-edge clock, asynchronous active-high clear (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Counters and shift registers"
+aliases = ["74HC393", "SN74HC393", "HC393"]
+keywords = ["SN74HC393", "HC393", "counter", "ripple", "divider", "binary"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc393.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "clk1"
+name = "1CLK"
+at = [0, 40]
+description = "Counter 1 clock, counts on the falling edge (pin 1)"
+
+[[pins]]
+id = "clr1"
+name = "1CLR"
+at = [0, 60]
+description = "Counter 1 asynchronous clear, active high (pin 2)"
+
+[[pins]]
+id = "clk2"
+name = "2CLK"
+at = [0, 80]
+description = "Counter 2 clock, counts on the falling edge (pin 13)"
+
+[[pins]]
+id = "clr2"
+name = "2CLR"
+at = [0, 100]
+description = "Counter 2 asynchronous clear, active high (pin 12)"
+
+[[pins]]
+id = "q1a"
+name = "1QA"
+at = [120, 40]
+description = "Counter 1 output A, weight 1 (pin 3)"
+
+[[pins]]
+id = "q1b"
+name = "1QB"
+at = [120, 60]
+description = "Counter 1 output B, weight 2 (pin 4)"
+
+[[pins]]
+id = "q1c"
+name = "1QC"
+at = [120, 80]
+description = "Counter 1 output C, weight 4 (pin 5)"
+
+[[pins]]
+id = "q1d"
+name = "1QD"
+at = [120, 100]
+description = "Counter 1 output D, weight 8 (pin 6)"
+
+[[pins]]
+id = "q2a"
+name = "2QA"
+at = [120, 120]
+description = "Counter 2 output A, weight 1 (pin 11)"
+
+[[pins]]
+id = "q2b"
+name = "2QB"
+at = [120, 140]
+description = "Counter 2 output B, weight 2 (pin 10)"
+
+[[pins]]
+id = "q2c"
+name = "2QC"
+at = [120, 160]
+description = "Counter 2 output C, weight 4 (pin 9)"
+
+[[pins]]
+id = "q2d"
+name = "2QD"
+at = [120, 180]
+description = "Counter 2 output D, weight 8 (pin 8)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "20n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {clk1} {clr1} {clk2} {clr2} {q1a} {q1b} {q1c} {q1d} {q2a} {q2b} {q2c} {q2d} {vcc} {gnd} bench_74hc393 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_74hc393 clk1 clr1 clk2 clr2 q1a q1b q1c q1d q2a q2b q2c q2d vc gn params: ROUT=45 TPD=20n
+X1 vc gn clk1 clr1 q1a q1b q1c q1d bench_d_rip4  ROUT={ROUT} TPD={TPD}
+X2 vc gn clk2 clr2 q2a q2b q2c q2d bench_d_rip4  ROUT={ROUT} TPD={TPD}
+.ends bench_74hc393
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc393.pdf"
+version = "TI SCLS143E, revised December 2024"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; each counter advances on the falling clock edge, QA toggles every clock, QB every second; CLR high clears at once; ripple delay accumulates stage by stage."

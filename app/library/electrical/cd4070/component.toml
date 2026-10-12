@@ -1,0 +1,148 @@
+format = 1
+id = "CD4070"
+version = 1
+name = "CD4070B quad 2-input XOR gate"
+description = "Four independent 2-input exclusive-OR gates, CD4000-series CMOS (14 pins, 3 to 18 V supply)."
+designator = "U"
+category = "Electrical"
+subcategory = "Logic gates"
+aliases = ["CD4070", "CD4070B", "4070"]
+keywords = ["CD4070B", "4070", "logic", "gate", "XOR"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4070b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "1A"
+at = [0, 40]
+description = "Gate 1 input A (pin 1)"
+
+[[pins]]
+id = "b1"
+name = "1B"
+at = [0, 60]
+description = "Gate 1 input B (pin 2)"
+
+[[pins]]
+id = "a2"
+name = "2A"
+at = [0, 80]
+description = "Gate 2 input A (pin 4)"
+
+[[pins]]
+id = "b2"
+name = "2B"
+at = [0, 100]
+description = "Gate 2 input B (pin 5)"
+
+[[pins]]
+id = "a3"
+name = "3A"
+at = [0, 120]
+description = "Gate 3 input A (pin 9)"
+
+[[pins]]
+id = "b3"
+name = "3B"
+at = [0, 140]
+description = "Gate 3 input B (pin 10)"
+
+[[pins]]
+id = "a4"
+name = "4A"
+at = [0, 160]
+description = "Gate 4 input A (pin 12)"
+
+[[pins]]
+id = "b4"
+name = "4B"
+at = [0, 180]
+description = "Gate 4 input B (pin 13)"
+
+[[pins]]
+id = "y1"
+name = "1Y"
+at = [120, 40]
+description = "Gate 1 output (pin 3)"
+
+[[pins]]
+id = "y2"
+name = "2Y"
+at = [120, 60]
+description = "Gate 2 output (pin 6)"
+
+[[pins]]
+id = "y3"
+name = "3Y"
+at = [120, 80]
+description = "Gate 3 output (pin 8)"
+
+[[pins]]
+id = "y4"
+name = "4Y"
+at = [120, 100]
+description = "Gate 4 output (pin 11)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "400"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "60n"
+min = 0
+min_exclusive = true
+help = "Nominal delay of the gate itself; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {b1} {a2} {b2} {a3} {b3} {a4} {b4} {y1} {y2} {y3} {y4} {vdd} {vss} bench_cd4070 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/gates.lib"]
+body = """
+.subckt bench_cd4070 a1 b1 a2 b2 a3 b3 a4 b4 y1 y2 y3 y4 vc gn params: ROUT=400 TPD=60n
+X1 vc gn a1 b1 y1 bench_d_xor2 ROUT={ROUT} TPD={TPD}
+X2 vc gn a2 b2 y2 bench_d_xor2 ROUT={ROUT} TPD={TPD}
+X3 vc gn a3 b3 y3 bench_d_xor2 ROUT={ROUT} TPD={TPD}
+X4 vc gn a4 b4 y4 bench_d_xor2 ROUT={ROUT} TPD={TPD}
+.ends bench_cd4070
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE d_xor2 behind bench_din/bench_dout bridges, pinout and levels from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4070b.pdf"
+version = "TI SCHS055E, revised September 2003"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VDD 3-18 V; guaranteed VIL 0.3 x VDD and VIH 0.7 x VDD; output about 0.05 V from the rail at no load, 4-15 mA class drive at 5-15 V (a few hundred ohms); tpd tens of ns (65 ns typ at 10 V for CD4070B)."

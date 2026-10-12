@@ -772,3 +772,98 @@ LM741 GBW from the 0.3 us rise time, MCP6002 VOS 0, LM311 large-overdrive delay,
   different designs; aliases only where the datasheet is shared), AMS1117-ADJ (LM317 covers the adjustable structure).
 - Supply-dependent CD4066/405x RON (constant RON param, datasheet values in the help text), output current limits of op-amps and
   comparators, foldback and thermal limits of regulators, LM311 strobe/balance and LM741 offset null pins (G22), AC behaviour (G17).
+
+## Task 8: library batch D, digital and mixed-signal ICs (done, not committed)
+
+### Packages added (31; catalog 117 -> 148 definitions; all `sim:electrical`, all X parts, all MIT)
+Kinds: behavioral 30, project-subckt 1 (DAC_8BIT). Verification: reference 16 (gates, Schmitt, buffers: datasheet levels, drive and
+delay windows plus exact truth tables), analytic 15 (flip-flops, counters, shift registers, muxes, converters: exact function against
+state sequences and closed forms). Status: 30 `limited` (XSPICE `A` devices and B sources, named in each part's generated note), the
+R-2R DAC `full`. Category Electrical, new subcategories Logic gates, Flip-flops and latches, Counters and shift registers,
+Multiplexers, Data converters. `ALL_CATEGORIES` is unchanged. Package ids start with a letter, so TI 74xx parts are `SN74HCxx`
+(aliases `74HCxx`, `HCxx`).
+
+| family | packages (id) |
+|---|---|
+| gates | SN74HC00, 02, 04, 08, 32, 86; SN74LS00 (TTL levels differ, so a separate package); CD4001, CD4011, CD4069 (UB), CD4070, CD4081 |
+| Schmitt | SN74HC14, CD40106 (hysteresis from a switch on the supply-normalised input) |
+| buffers | SN74HC125 (quad), SN74HC244 (octal, two enables), tri-state outputs |
+| flip-flops, latches | SN74HC74 (dual D), CD4013 (dual D), SN74HC107 (dual JK, falling edge), CD4027 (dual JK), SN74HC573 (octal latch, tri-state) |
+| counters, shift registers | SN74HC161 (sync 4-bit), CD4017 (decade Johnson), CD4040 (12-stage ripple), SN74HC393 (dual 4-bit ripple), SN74HC595, CD4094 |
+| muxes | SN74HC151 (8:1), SN74HC157 (quad 2:1) |
+| converters | ADC_8BIT (generic, REF pin, sampling clock), DAC_8BIT (generic R-2R ladder) |
+
+Shared files (5, `origin = project`, MIT, MANIFEST records with sha256): `_models/digital/io.lib` (stages), `gates.lib`, `seq.lib`,
+`mux.lib`, `conv.lib`. 31 `symbol.svg`. Pin descriptions carry DIP pin numbers from the datasheets (all pinouts read from TI/Nexperia
+PDFs; the 74HC107 from Nexperia Rev. 7, since TI publishes no file under that name). Revisions are in each `provenance.version`.
+
+### Approach chosen, and why (probed with `probes/ng_probe.py` before building)
+- **(a) for everything sequential, complex or multi-input**: XSPICE `d_nand/d_nor/d_and/d_or/d_xor/d_inverter/d_buffer/d_dff/d_jkff/
+  d_dlatch` inside subckts, between analog bridges. Exact logic with a few elements per function, and the counters, shift registers
+  and muxes would be hundreds of transistors in (b). The probes confirmed that all of these load through Bench's init and run inside
+  subckts.
+- **(b) was not used for any logic part**: it could reach `full`, but transistor-level gates have no meaningful way to reproduce the
+  74HC/74LS/CD4000 levels with the engine's tmax = tstep and the datasheet drive figures would still need an extra buffer stage.
+  The one place (b) fits is the DAC: resistors and switches, so DAC_8BIT is `full` and `analytic`.
+- **Supply pins are real.** Bridges cannot take thresholds from pins, but a B source can: `bench_din` normalises the pin to
+  `(V(a)-V(gn)) / (RK*(V(vc)-V(gn)) + AK)` before an `adc_bridge`, so thresholds are fractions of the supply (CMOS, `RK=1`) or volts
+  above GND (TTL, `RK=0`). The output stage is a `dac_bridge` (0 or 1) scaled by a POLY source to `gn + (VOLF + (VOHF-VOLF)*d)*(vc-gn)` with
+  `ROUT` in series. Outputs therefore swing to a 3.3 V, 5 V, 10 V or 15 V supply (tested). Supply current and output current from VCC
+  are NOT modelled (ideal sources). HC and CD gates switch at 0.5 x supply with a 0.45-0.55 unknown band (the guaranteed 0.3/0.7 sit
+  inside it, and the tests check them); LS switches at 1.2-1.4 V above GND; 74LS outputs 0.25/3.4 V with 15 ohm; CD4000 outputs 400 ohm
+  default.
+- **Hi-Z**: `dac_bridge` has no high-impedance state (`d_tristate` through it holds the last level), so tri-state outputs use a
+  separate enable dac and a switch (1 GOhm leak to GND when off).
+- **Schmitt**: adc_bridge cannot do hysteresis (it outputs unknown between its thresholds), so the stage is a 1 ohm / 1 kohm `S`
+  switch with `VT +- VH` on the normalised input.
+- **Defaults for unconnected pins** (documented in every limitation): data and clock low; clear, preset, set, reset and load inactive;
+  enable and OE inputs enabled.
+
+### ngspice/XSPICE facts found (for later work)
+- `d_dff`, `d_jkff`, `d_dlatch`, `d_tristate`, `d_srlatch` take scalar nodes (`A1 d clk set reset q nq model`; NULL is allowed for set,
+  reset and unused outputs); `d_nand` etc. and the bridges take `[ ]` vectors; `d_buffer` and `d_inverter` are scalar in this build.
+- `in_low = in_high` is accepted by `adc_bridge`; between two different thresholds the output is unknown (it does not hold).
+- Model parameters accept `{param}` expressions inside subckts, including POLY coefficients and SW `VT`/`VH`.
+- **Power-up edge (G24)**: digital nodes start low; a clock path that is high at t = 0 clocks every edge-triggered model once. Analog-domain
+  inversion of a clock counted once at start in the first CD4040 draft; the fix is digital-domain inversion (`d_inverter`).
+- `d_dff` ripple chains (`D = nQ`, clock = nQ of the previous stage) give a true ripple delay of one TPD per stage.
+- CD4017 reproduces the datasheet quirk that releasing CLOCK INHIBIT while CLOCK is high advances the count (the test pins it).
+- A B source reading `V(vc)` does not count as a use of the supply pin for DANGLING, but the POLY output source does.
+
+### Tests
+- New `app/tests/test_library_batch_d.py`: **112 tests**, real ngspice through `Document` -> `run_document`:
+  - load/kind/provenance/status for all 31 (limited note names the A devices), catalog size, shared files emitted once;
+  - full truth table for every gate type across all gates of each package at once (HC00/02/04/08/32/86, LS00, CD4001/4011/4069/4070/4081);
+  - HC levels at 3.3/5/6 V, switching point at half the supply (3.3 and 5 V), LS TTL thresholds at 4.75/5/5.25 V, CD4000 ratiometric at
+    5/10/15 V, output impedance against the datasheet 4 mA windows, TPD parameter and tpd windows (HC, LS, CD, both edges);
+  - Schmitt thresholds from a triangle (HC14 at 5 and 3.3 V, CD40106 at 5/10/15 V), holds between the thresholds where an HC04 does not,
+    ignores in-band noise and follows a full swing, hex independence;
+  - tri-state buffers (125 and 244 truth tables including Hi-Z), unwired OE;
+  - D flip-flops (HC74, CD4013): capture at the edge only, async set/reset, divide-by-2, two independent flip-flops;
+  - JK (HC107 falling edge, CD4027 rising edge): set/reset/hold/toggle sequence, active edge only, async reset/set;
+  - octal latch transparency and hold, OE Hi-Z; HC161 sequence 0-15 with RCO, async clear, sync load, ENP/ENT hold, two chained HC161
+    to 40 (multi-instance); CD4017 one-hot, carry, reset, inhibit; CD4040 binary count, reset, ripple delay stage by stage; HC393 two
+    independent counters;
+  - HC595 byte shift and RCLK latch, SRCLR clears only the shift register, OE, QH', two cascaded (16-bit); CD4094 strobe, hold,
+    transparency, OE, QS/Q'S;
+  - HC151 all eight channels (two data patterns) and enable, HC157 all channels, select and enable;
+  - ADC code = floor(256 vin / ref) within 1 LSB (exact away from boundaries), clamp, ratiometric REF, registered output; DAC 256 codes,
+    output resistance R, VTH parameter; ADC -> DAC round trip within 1 LSB;
+  - mixed: NE555 astable -> two HC161 -> DAC, +1 LSB per clock edge across the nibble carry.
+- Existing tests whose pinned counts changed (no assertion weakened): `test_catalog.py` (Electrical simulated set includes `BATCH_D`),
+  `test_library_ui.py` (148 / 138 / 2 / 2, simulated-only 143 / 138 / 0 / 1), `test_library_batch_c.py` (exact 117 -> `>=`),
+  `test_subckt_packages.py` (142 simulated, 148 definitions, the 30 batch D X parts must be `limited`, the DAC `full`),
+  `test_components.py` gains 31 contract rows (no edit). `docs/library.md` regenerated.
+- Full suite `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`: **1185 passed** (1042 + 112 + 31). `python3 -m app.catalog`:
+  148 definitions, 0 errors, 0 warnings. No Rust change (no wheel rebuild, no cargo run).
+
+### Skipped (and why)
+- 74HC163 (HC161 with a synchronous clear), 74HC138/139 decoders, 74HC164/165 shift registers, 74HC75, 74HC112: not requested or the
+  same cores (add them from `seq.lib`). A named ADC/DAC (ADC0804, DAC0808, MCP49xx): they need a handshake or SPI frame, which is a
+  state machine per part with no datasheet fit to check, so only the generic converters were built.
+- Generic N-bit converters: pin counts cannot depend on a param (G25), so 8 bits.
+- Propagation delay accuracy beyond one nominal value, fan-out, supply current and power dissipation, setup/hold checks, output current
+  limit, open-drain outputs, input clamps and capacitance, metastability, temperature: not modelled, and each limitation says so.
+- Static validation of A devices (G26) and the power-up clock edge (G24) are logged as gaps; the CD4017 anti-lock gating is not needed
+  because the Johnson counter always starts in a valid state.
+- Digital devices of `docs/adding-components.md` were not documented there; the section above is the reference.

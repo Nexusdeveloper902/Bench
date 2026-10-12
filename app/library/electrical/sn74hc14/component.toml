@@ -1,0 +1,151 @@
+format = 1
+id = "SN74HC14"
+version = 1
+name = "74HC14 hex Schmitt-trigger inverter"
+description = "Six inverters with Schmitt-trigger inputs (14 pins); output switches at VT+ about 0.56 x VCC rising and VT- about 0.36 x VCC falling."
+designator = "U"
+category = "Electrical"
+subcategory = "Logic gates"
+aliases = ["74HC14", "SN74HC14", "HC14"]
+keywords = ["SN74HC14", "HC14", "Schmitt", "hysteresis", "inverter"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Schmitt-trigger inputs: the output switches low when the input rises through VT+ and high again when it falls through VT-, with the typical datasheet thresholds expressed as fractions of the supply; outputs swing from GND to VCC through the ROUT parameter.",
+               "The hysteresis comes from a voltage-controlled switch on the supply-normalised input (VT+ and VT- as fractions of the supply); the defaults are the datasheet typical values at one supply voltage, so the thresholds shift only in proportion to the supply.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74hc14.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 180]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "1A"
+at = [0, 40]
+description = "Gate 1 input (pin 1)"
+
+[[pins]]
+id = "a2"
+name = "2A"
+at = [0, 60]
+description = "Gate 2 input (pin 3)"
+
+[[pins]]
+id = "a3"
+name = "3A"
+at = [0, 80]
+description = "Gate 3 input (pin 5)"
+
+[[pins]]
+id = "a4"
+name = "4A"
+at = [0, 100]
+description = "Gate 4 input (pin 9)"
+
+[[pins]]
+id = "a5"
+name = "5A"
+at = [0, 120]
+description = "Gate 5 input (pin 11)"
+
+[[pins]]
+id = "a6"
+name = "6A"
+at = [0, 140]
+description = "Gate 6 input (pin 13)"
+
+[[pins]]
+id = "y1"
+name = "1Y"
+at = [120, 40]
+description = "Gate 1 output (pin 2)"
+
+[[pins]]
+id = "y2"
+name = "2Y"
+at = [120, 60]
+description = "Gate 2 output (pin 4)"
+
+[[pins]]
+id = "y3"
+name = "3Y"
+at = [120, 80]
+description = "Gate 3 output (pin 6)"
+
+[[pins]]
+id = "y4"
+name = "4Y"
+at = [120, 100]
+description = "Gate 4 output (pin 8)"
+
+[[pins]]
+id = "y5"
+name = "5Y"
+at = [120, 120]
+description = "Gate 5 output (pin 10)"
+
+[[pins]]
+id = "y6"
+name = "6Y"
+at = [120, 140]
+description = "Gate 6 output (pin 12)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 180]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "45"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "12n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {a2} {a3} {a4} {a5} {a6} {y1} {y2} {y3} {y4} {y5} {y6} {vcc} {gnd} bench_sn74hc14 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/gates.lib"]
+body = """
+.subckt bench_sn74hc14 a1 a2 a3 a4 a5 a6 y1 y2 y3 y4 y5 y6 vc gn params: ROUT=45 TPD=12n
+X1 vc gn a1 y1 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+X2 vc gn a2 y2 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+X3 vc gn a3 y3 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+X4 vc gn a4 y4 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+X5 vc gn a5 y5 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+X6 vc gn a6 y6 bench_d_sinv VP=0.556 VN=0.356 ROUT={ROUT} TPD={TPD}
+.ends bench_sn74hc14
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74hc14.pdf"
+version = "TI SCLS085L, revised February 2025"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 2-6 V; at 4.5 V VT+ 1.55 V min, 2.5 V typ, 3.13 V max, VT- 0.9 V min, 1.6 V typ, 2.45 V max, hysteresis 0.9 V typ; tpd 12 ns typ."
