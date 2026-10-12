@@ -1,0 +1,80 @@
+format = 1
+id = "DC_MOTOR"
+version = 1
+name = "DC motor (R + L + back-EMF)"
+description = "Simplified DC motor: armature resistance and inductance in series with a back-EMF voltage KE·ω. The speed is a parameter; the terminal current is (V − KE·ω)/RA at steady state."
+designator = "M"
+category = "Electrical"
+subcategory = "Electromechanical"
+aliases = ["DC motor", "brushed motor", "electrical motor model"]
+keywords = ["motor", "back-EMF", "armature", "speed", "stall", "inductance", "subcircuit"]
+tags = ["electromechanical", "motor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified electrical equivalent: armature R and L, and the back-EMF KE·ω at a fixed speed. The mechanical side (inertia, friction, load torque) is not modelled; the speed is an input.",
+               "Generic values (RA 2 Ω, LA 1 mH, KE 0.02 V·s/rad) for a small motor. Brush drop, commutation, core loss and the speed-torque curve are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "+"
+at = [0, 30]
+
+[[pins]]
+id = "b"
+name = "-"
+at = [60, 30]
+
+[[params]]
+key = "ra"
+label = "Armature resistance"
+unit = "Ω"
+default = "2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "la"
+label = "Armature inductance"
+unit = "H"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ke"
+label = "Back-EMF constant (V·s/rad)"
+default = "0.02"
+min = 0
+min_exclusive = true
+help = "Back-EMF per rad/s; 1 rpm is 0.1047 rad/s"
+
+[[params]]
+key = "speed"
+label = "Speed (rpm)"
+default = "0"
+min = 0
+help = "Shaft speed; 0 gives the stall current"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_motor RA={ra} LA={la} KE={ke} SPEED={speed}"
+body = """
+.subckt bench_motor a b params: RA=2 LA=1m KE=0.02 SPEED=0
+VSTIM stim 0 DC {SPEED}
+RSTIM stim 0 1G
+R1 a n1 {RA}
+L1 n1 n2 {LA}
+E1 n2 b stim 0 {KE*0.10471975511966}
+.ends bench_motor
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; simplified armature equivalent with back-EMF KE·ω; generic values"
+license = "MIT"

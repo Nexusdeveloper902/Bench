@@ -1,0 +1,66 @@
+format = 1
+id = "PHOTOTRANSISTOR"
+version = 1
+name = "Phototransistor (NPN, base photocurrent)"
+description = "NPN phototransistor: the photocurrent is injected into the base and amplified by the transistor, so the collector current is (BF + 1) times the photocurrent in the active region. The irradiance is a parameter."
+designator = "QPH"
+category = "Sensors"
+subcategory = "Light"
+aliases = ["photo transistor", "light transistor"]
+keywords = ["light", "irradiance", "phototransistor", "photocurrent", "NPN", "transistor", "subcircuit"]
+tags = ["sensor", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Equivalent: photocurrent SENS·irradiance into an NPN base with BF = 100 and no Early effect (VAF not set). These are generic values, not a datasheet fit.",
+               "The base is internal (no pin). Its photocurrent is linear in irradiance; no saturation of the photocurrent, no dark-current model beyond the transistor card.",
+               "Irradiance is fixed for the whole run; no response time, spectral response or temperature dependence."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "c"
+name = "C"
+at = [30, 0]
+
+[[pins]]
+id = "e"
+name = "E"
+at = [30, 60]
+
+[[params]]
+key = "irr"
+label = "Irradiance (mW/cm²)"
+default = "1"
+min = 0
+help = "Irradiance on the phototransistor, in mW/cm²"
+
+[[params]]
+key = "sens"
+label = "Base photocurrent per irradiance (A per mW/cm²)"
+unit = "A"
+default = "5u"
+min = 0
+min_exclusive = true
+help = "Generic value: base photocurrent at 1 mW/cm²"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {c} {e} bench_pt IRR={irr} SENS={sens}"
+body = """
+.subckt bench_pt c e params: IRR=1 SENS=5u
+VSTIM stim 0 DC {IRR}
+RSTIM stim 0 1G
+G1 c b stim 0 {SENS}
+Q1 c b e bench_pt_npn
+.model bench_pt_npn NPN(IS=1e-14 BF=100)
+.ends bench_pt
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; base photocurrent into an NPN with generic BF"
+license = "MIT"

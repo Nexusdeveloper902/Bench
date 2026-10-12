@@ -1,0 +1,81 @@
+format = 1
+id = "STRAIN_BRIDGE"
+version = 1
+name = "Strain-gauge bridge, quarter bridge"
+description = "Wheatstone quarter bridge: one active strain gauge with three fixed resistors. The differential output is Vex·GF·ε / (4 + 2·GF·ε) for the excitation across ep and em."
+designator = "UB"
+category = "Sensors"
+subcategory = "Force and position"
+aliases = ["quarter bridge", "Wheatstone bridge"]
+keywords = ["strain", "bridge", "Wheatstone", "gauge", "differential", "sensor", "subcircuit"]
+tags = ["sensor", "bridge"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Quarter-bridge equivalent with an ideal gauge (GF 2.0 generic) and three ideal 350 Ω completion resistors; no lead resistance, no bridge offset, no temperature compensation.",
+               "The output is unloaded: a load across the output changes the reading. The excitation is the caller's, and its supply current is ideal."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "ep"
+name = "E+"
+at = [0, 20]
+
+[[pins]]
+id = "em"
+name = "E-"
+at = [0, 60]
+
+[[pins]]
+id = "op"
+name = "S+"
+at = [80, 20]
+
+[[pins]]
+id = "om"
+name = "S-"
+at = [80, 60]
+
+[[params]]
+key = "r0"
+label = "Bridge resistance"
+unit = "Ω"
+default = "350"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "gf"
+label = "Gauge factor GF"
+default = "2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "eps"
+label = "Strain ε (µε)"
+default = "0"
+help = "Microstrain on the active gauge"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {ep} {em} {op} {om} bench_qb R0={r0} GF={gf} EPS={eps}"
+body = """
+.subckt bench_qb vp vn op om params: R0=350 GF=2 EPS=0
+VSTIM stim 0 DC {EPS}
+RSTIM stim 0 1G
+R1 vp op {R0}
+R2 op vn {R0}
+B3 vp om I={V(vp,om)/(R0*(1+GF*V(stim)*1e-6))}
+R4 om vn {R0}
+.ends bench_qb
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; quarter-bridge equivalent, closed form V(S+) - V(S-) = Vex·x/(2(2+x)), x = GF·ε"
+license = "MIT"

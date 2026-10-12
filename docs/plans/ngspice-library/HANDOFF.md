@@ -867,3 +867,73 @@ PDFs; the 74HC107 from Nexperia Rev. 7, since TI publishes no file under that na
 - Static validation of A devices (G26) and the power-up clock edge (G24) are logged as gaps; the CD4017 anti-lock gating is not needed
   because the Johnson counter always starts in a valid state.
 - Digital devices of `docs/adding-components.md` were not documented there; the section above is the reference.
+
+## Task 9: library batch E, sensors and other electrical devices (done, not committed)
+
+### Packages added (25; catalog 148 -> 173 definitions; all `sim:electrical`, all X parts, all MIT, all `analytic`)
+Kinds: equivalent 20, behavioral 5. Status: full 16, limited 9 (the B-driven or expression-gain sensors below; named in each part's generated note). Category Sensors (18 parts: Light, Temperature, Humidity, Force and position, Magnetic, Acoustic and ultrasonic, Current sensing, Pressure) and Electrical (7 parts: Isolation, Electromechanical, Transducers, Timing). `ALL_CATEGORIES` is unchanged.
+
+| family | package (id) | kind | status | stimulus (instance param -> node `stim`) |
+|---|---|---|---|---|
+| light | LDR (power law, lux), PHOTODIODE (irr, SENS per mW/cm²), PHOTOTRANSISTOR (irr, base photocurrent) | equivalent | LDR limited, PD and PT full | LDR: `stim` = lux, B resistance; PD: `stim` = irradiance, G current; PT: `stim` = irradiance, G base current |
+| temperature | PTC_THERMISTOR (logistic step in log R), RTD_PT100, RTD_PT1000 (IEC 60751 A, B), LM35 (10 mV/°C) | equivalent / behavioral | PTC, RTDs limited; LM35 full | PTC/RTD: `stim` = °C, B resistance; LM35: `stim` = °C, E gain 0.01 |
+| magnetic | HALL_LINEAR (Vcc/2 + S·B, ratiometric) | behavioral | full | `stim` = field in mT, POLY(2) control |
+| force / position | FSR (power law in force), STRAIN_GAUGE (R0(1+GF·ε)), STRAIN_BRIDGE (quarter bridge), POSITION_SENSOR (3-wire ratiometric) | equivalent / behavioral | all four limited | FSR: `stim` = N; strain: `stim` = µε (B gauge arm); POSITION: `stim` = stroke fraction, E VALUE |
+| pressure / humidity | PRESSURE_BRIDGE (S·P·Vex), HUMIDITY_CAP (C0 + CS·RH) | behavioral / equivalent | pressure limited; humidity full | PRESSURE: `stim` = bar, B source; HUMIDITY: none, see G27 |
+| acoustic | MIC_ELECTRET (drain current source), PIEZO_ULTRASONIC (BVD, 40 kHz) | behavioral / equivalent | mic full, piezo full | MIC: `stim` = SIN sound-pressure waveform in Pa, G current; piezo: no stimulus (passive) |
+| current sensing | CURRENT_SHUNT (Kelvin sense), CURRENT_TRANSFORMER (ideal coupling with burden) | equivalent | full | none: the current is the caller's |
+| other: isolation | OPTOCOUPLER (LED + NPN, F-source base drive, CTR generic) | equivalent | full | none |
+| other: electromechanical | DC_MOTOR (R, L, back-EMF; simplified), SOLENOID (R + plunger-dependent L) | equivalent | full | DC_MOTOR: `stim` = speed in rpm, E gain; SOLENOID: none, see G28 |
+| other: transducers | SPEAKER (Thiele-Small electrical analogy) | equivalent | full | none |
+| other: timing | CRYSTAL_32K, CRYSTAL_16M, CERAMIC_RES_16M (BVD) | equivalent | full | none |
+
+**Stimulus design (orchestrator constraint).** Every sensor's physical stimulus is an instance parameter with a default. It drives its own node `stim` through a source in the body (`VSTIM stim 0 DC {param}`, or `SIN(...)` for the microphone), and the response reads V(stim). A 1 GΩ load on `stim` keeps the validator quiet (a B reading V(stim) alone is DANGLING). The source's default uses the parameter, so a later task can replace the source with a time-varying waveform without touching the response.
+
+**Status changes caused by the stimulus rewrite (accepted, per the orchestrator).** Before the rewrite all 25 parts were `full`. Nine dropped to `limited` because their response became a B source or an E VALUE: LDR, PTC_THERMISTOR, RTD_PT100, RTD_PT1000, FSR, STRAIN_GAUGE, STRAIN_BRIDGE, POSITION_SENSOR and PRESSURE_BRIDGE. The other sixteen stayed `full` because the response is linear in V(stim) (PD and PT via G, Hall via POLY(2), LM35 via E gain, mic via G, motor via E gain) or has no stimulus (HUMIDITY_CAP, SOLENOID, and the passive parts).
+
+**Exceptions to the stimulus rule (logged as gaps).**
+- HUMIDITY_CAP keeps RH as a fixed value folded into C. A B-source capacitor needs ddt(), which the validator rejects as a timestep artifact (G27).
+- SOLENOID keeps the plunger position as a parameter in L. ngspice has no voltage-controlled inductor (G28).
+- Piezo, shunt, CT, opto, speaker and the crystals have no physical stimulus; their drive is the caller's source.
+
+### Shared models and provenance
+- `_models/sensors/rtd.lib` (`bench_rtd`, project-authored, MIT, sha256 in MANIFEST). Callendar-Van Dusen with IEC 60751 A = 3.9083e-3 and B = -5.775e-7, valid 0 to 850 °C. The C term below 0 °C is not modelled. Used by RTD_PT100 (R0 = 100) and RTD_PT1000 (R0 = 1000).
+- `_models/resonators/bvd.lib` (`bench_bvd`, project-authored, MIT). Used by the two crystals, the ceramic resonator and the piezo.
+- Inline bodies for everything else (provenance `source` says "Bench project" with the law; values are generic unless noted).
+- **Sources.** IEC 60751:2008 for the RTD constants: the coefficients were written from the standard as I know it, and I did not fetch or check a copy. LM35: TI datasheet SNIS159 (10 mV/°C, 0 V at 0 °C, −55 to 150 °C), URL https://www.ti.com/product/LM35. I did not fetch that URL in this task, so it needs checking. Every other value is generic or typical and is labelled as such in its limitations and provenance (no datasheet was cited for any other part, and none was claimed).
+
+### Tests
+- New `app/tests/test_library_batch_e.py`: **99 tests**, real ngspice through `Document` -> `run_document` (via `Circuit` from batch C):
+  - load/kind/status/provenance for all 25; catalog size; the stimulus source appears in each stimulus part's netlist; shared RTD and BVD files emitted once per deck.
+  - LDR `R10·(lux/10)^-γ` at 10, 100 and 1000 lx.
+  - RTD PT100 at 0, 100 and 850 °C, and PT1000 at 100 °C, against the CVD closed form and the table values (100.00, 138.51, 390.48, 1385.1). Two PT100s in series (multi-instance, one definition).
+  - PTC step: closed form at six temperatures, about 1000× across the switching point, midpoint √1000 · R25.
+  - Photodiode V = SENS·E·RL at 1, 2, 4 mW/cm² and dark. Phototransistor Ic/Iph = BF+1 (1 % tolerance). Optocoupler Ic/IF = CTR at 1 and 0.5, and saturation with a 1 kΩ load.
+  - Hall Vout = Vcc/2 + S·B at 5 V and 3.3 V; strain bridge closed form at 0, +1000 and −500 µε; strain gauge R; FSR R at 1 and 4 N; position ratiometric at 0, 0.25, 1; LM35 at 0, 25, 100 °C; pressure bridge; humidity RC time constant (2 µs).
+  - Microphone tone amplitude at 94 and 74 dB SPL, plus its bias drop. Shunt sense = I·RS. CT burden voltage = Ip·RB/N (1 %).
+  - DC motor: stall current V/RA, running current (V−KE·ω)/RA at 1000 rpm, and the L/R rise (τ = 0.5 ms). Solenoid L/R rise at both plunger ends. Speaker: DC resistance Re, the early Le/Re rise, and the motional ring at the Thiele-Small damped frequency (within 1 %).
+  - Resonator rings (`test_resonator_rings_at_its_series_resonance`, four cases, 0.5 % tolerance): a 1 V step through 1 Ω, source current, detrended zero crossings. Measured against fs = 1/(2π√(Lm·Cm)): 32.768 kHz ≈ 0.1 %, 16 MHz ≈ 0.01 %, ceramic ≈ 0.05 %, piezo 40 kHz ≈ 0.06 %.
+- Existing tests whose pinned counts moved (no assertion weakened; `>=` where the count can grow, exact only in the new file):
+  - `test_catalog.py`: Electrical simulated set adds the seven Electrical batch E parts (`BATCH_E` import).
+  - `test_library_batch_d.py`: `len(CATALOG.defs) == 117 + 31` -> `>=`.
+  - `test_library_ui.py`: nav counts 173 / 145 / 2 / 20 and simulated-only 168 / 145 / 0 / 19 as `>=`.
+  - `test_subckt_packages.py`: `>=` on 142 + 25 and 148 + 25; the limited set includes batch E's nine.
+  - `test_milestone_e2e.py`: the "diode" search now includes PHOTODIODE (a Sensors part, correctly), so the assertions exclude it from the Electrical set. The empty-state probe uses "motor" (no sensor matches). The "temperature" assertion checks a subset including RTD_PT100 and LM35.
+  - `test_components.py`: contract rows for each new simulated part are generated automatically (no edit).
+- Word choice: the milestone "esp" search matched "response" in three descriptions (LDR, Hall, LM35). They say "electrical behaviour" now (G23's pattern, from batch C). `DC_MOTOR`'s description no longer says "source" (the "dc source" search).
+- `docs/library.md` regenerated: `python3 -m app.catalog --markdown > docs/library.md`. `python3 -m app.catalog`: 173 definitions, 0 errors, 0 warnings.
+- Full suite `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`: **1309 passed** (1185 + 99 new + 25 contract rows). No Rust change, so no wheel rebuild and no cargo run.
+
+### Skipped (and why)
+- **Gas sensors.** A MOS-type sensor's R–ppm power law depends on the sensor and the gas, and no published constant could be cited, so there is no credible generic law to package.
+- **Humidity RH and solenoid plunger as stimulus nodes.** Both need a voltage-controlled capacitor or inductor, which ngspice lacks. Logged as G27 and G28.
+- **Connectors, terminals, headers and test points.** A pass-through would be a wire or a 1 mΩ resistor, so it adds nothing. An interface-only part would block a run when wired (the DHT22 rule). The result window already plots any node or source current, so test points and probes add nothing.
+- **Voltmeter and ammeter elements.** A 0 V source and a 1 GΩ resistor already exist and already show up in results, so there is nothing to add.
+- **Linear position as a second pot.** POT already exists, so POSITION_SENSOR is the 3-wire ratiometric sensor instead.
+- **Piezo stimulus.** The BVD is passive, so there is no physical stimulus to expose.
+- **4N35 as a separate pinout.** OPTOCOUPLER is one generic part with the PC817-style pinout and a generic CTR.
+- **Not modelled, all stated in the limitations:** crystal load-capacitance pulling, drive level, overtones, temperature curves and ageing; the Hall output saturation at the rails; sensor noise, drift and hysteresis; the speaker's Le(x) and cone breakup; motor torque, inertia and brush losses; the opto's isolation rating and switching speed; the phototransistor's dark current beyond the transistor card.
+
+### Gaps (appended to GAPS.md)
+- **G27** (humidity RH stimulus: no controlled capacitor, B-ddt warned), **G28** (solenoid plunger: no controlled inductor), **G29** (B-driven sensors are `limited`; the validator does not check B values against a stimulus range), **G30** (sharp source edges make ngspice's trapezoidal integration put an alternating-sample artefact on a high-Q node current; the resonator tests use 10 µs to 50 ns edges and 0.2 to 0.5 µs output steps).
+- Note: the pressure and strain bridges have a differential output with no reference. Without one ground on an output, the validator reports NO-DC-PATH (correct). The tests reference one side through 1 GΩ or ground it.

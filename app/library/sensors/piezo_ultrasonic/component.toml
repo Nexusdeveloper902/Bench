@@ -1,0 +1,71 @@
+format = 1
+id = "PIEZO_ULTRASONIC"
+version = 1
+name = "Piezo / ultrasonic transducer (BVD)"
+description = "Piezoelectric transducer as a Butterworth-Van Dyke equivalent: a motional series RLC in parallel with the static capacitance. Typical 40 kHz ultrasonic values. Electrical equivalent only."
+designator = "XU"
+category = "Sensors"
+subcategory = "Acoustic and ultrasonic"
+aliases = ["ultrasonic transducer", "piezo element", "40 kHz transducer"]
+keywords = ["piezo", "ultrasonic", "transducer", "BVD", "resonance", "RLC", "subcircuit"]
+tags = ["transducer", "resonator"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Butterworth-Van Dyke equivalent: the electrical response near one series resonance (40 kHz typical). No acoustic side, no radiation, no coupling to a medium, no spurious modes.",
+               "The element values are typical, not a datasheet fit. Temperature and drive-level dependence are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "lm"
+label = "Motional inductance"
+unit = "H"
+default = "39.6m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "cm"
+label = "Motional capacitance"
+unit = "F"
+default = "400p"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rm"
+label = "Motional resistance"
+unit = "Ω"
+default = "200"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "c0"
+label = "Static capacitance"
+unit = "F"
+default = "2.5n"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_bvd LM={lm} CM={cm} RM={rm} C0={c0}"
+defs = ["models:resonators/bvd.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; Butterworth-Van Dyke equivalent, typical 40 kHz element values (generic)"
+license = "MIT"

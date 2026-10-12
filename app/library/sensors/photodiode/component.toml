@@ -1,0 +1,75 @@
+format = 1
+id = "PHOTODIODE"
+version = 1
+name = "Photodiode (photoconductive)"
+description = "Photodiode: a current source proportional to irradiance in parallel with a junction diode and junction capacitance. Reverse-biased, it gives a current that follows the irradiance. The irradiance is a parameter."
+designator = "DPH"
+category = "Sensors"
+subcategory = "Light"
+aliases = ["PIN photodiode", "light diode"]
+keywords = ["light", "irradiance", "photodiode", "photocurrent", "diode", "subcircuit"]
+tags = ["sensor", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Photocurrent = SENS·irradiance, linear over the range; SENS is a generic value, not a datasheet fit. The spectral response and the angular response are not modelled.",
+               "Junction diode and capacitance are generic (Is = 1 nA, N = 1.2, CJ = 20 pF). Dark current and breakdown are reduced to the diode card.",
+               "Irradiance is fixed for the whole run; no response time or temperature dependence."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [0, 30]
+
+[[pins]]
+id = "k"
+name = "K"
+at = [60, 30]
+
+[[params]]
+key = "irr"
+label = "Irradiance (mW/cm²)"
+default = "1"
+min = 0
+help = "Irradiance on the photodiode, in mW/cm²"
+
+[[params]]
+key = "sens"
+label = "Photocurrent per irradiance (A per mW/cm²)"
+unit = "A"
+default = "50u"
+min = 0
+min_exclusive = true
+help = "Generic value: photocurrent at 1 mW/cm²"
+
+[[params]]
+key = "cj"
+label = "Junction capacitance"
+unit = "F"
+default = "20p"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {k} bench_pd IRR={irr} SENS={sens} CJ={cj}"
+body = """
+.subckt bench_pd a k params: IRR=1 SENS=50u CJ=20p
+VSTIM stim 0 DC {IRR}
+RSTIM stim 0 1G
+G1 k a stim 0 {SENS}
+D1 a k bench_pd_d
+C1 a k {CJ}
+.model bench_pd_d D(IS=1n N=1.2)
+.ends bench_pd
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; photocurrent source, junction diode and capacitance (generic values)"
+license = "MIT"

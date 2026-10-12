@@ -1,0 +1,72 @@
+format = 1
+id = "CRYSTAL_16M"
+version = 1
+name = "Crystal 16 MHz (AT-cut, BVD)"
+description = "16 MHz AT-cut quartz crystal as a Butterworth-Van Dyke equivalent: series motional RLC (Rs, Ls, Cs) in parallel with Cp. Typical published-range motional values."
+designator = "Y"
+category = "Electrical"
+subcategory = "Timing"
+aliases = ["quartz crystal", "16 MHz crystal", "MCU crystal"]
+keywords = ["crystal", "resonator", "16 MHz", "oscillator", "AT-cut", "BVD", "quartz", "subcircuit"]
+tags = ["timing", "resonator"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Butterworth-Van Dyke equivalent: the electrical response near the series resonance only. Overtones, drive level, load capacitance pulling, temperature and ageing are not modelled.",
+               "Typical values, not a datasheet fit: Ls 7.07 mH, Cs 14 fF, Rs 30 Ω, Cp 5 pF, which give fs = 16 MHz and Q near 24 000.",
+               "The two pins have no DC path through the crystal: wire one of them to a DC path, or the validator reports NO-DC-PATH."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "lm"
+label = "Motional inductance Ls"
+unit = "H"
+default = "7.07m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "cm"
+label = "Motional capacitance Cs"
+unit = "F"
+default = "14f"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rm"
+label = "Series resistance Rs"
+unit = "Ω"
+default = "30"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "c0"
+label = "Shunt capacitance Cp"
+unit = "F"
+default = "5p"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_bvd LM={lm} CM={cm} RM={rm} C0={c0}"
+defs = ["models:resonators/bvd.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; BVD equivalent with typical 16 MHz AT-cut values (generic, not a datasheet fit)"
+license = "MIT"

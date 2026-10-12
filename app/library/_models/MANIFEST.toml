@@ -192,3 +192,21 @@ license = "MIT"
 retrieved = "2026-10-12"
 sha256 = "dcaae9b46499a69edda2b75fec175182c221ddbdc9b3cadf8e2a3775d71ff169"
 changes = "none"
+
+[[file]]
+path = "sensors/rtd.lib"
+origin = "project"
+source = "Bench project; platinum RTD Callendar-Van Dusen equation with the IEC 60751:2008 A and B coefficients"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "23b637b24c9bcdbb3a7f49d7f9d97012a2bd0cbd515527cf23a00c4d24806c87"
+changes = "none"
+
+[[file]]
+path = "resonators/bvd.lib"
+origin = "project"
+source = "Bench project; Butterworth-Van Dyke resonator equivalent (motional RLC in parallel with C0)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "de032119f5f9362ef37cb41d8bab3eed45d14315e590a7c45170f40ba8dddcb1"
+changes = "none"

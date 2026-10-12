@@ -1,0 +1,49 @@
+format = 1
+id = "RTD_PT1000"
+version = 1
+name = "Platinum RTD, PT1000"
+description = "Platinum resistance thermometer, PT1000: R(T) = R0·(1 + A·T + B·T²) with the IEC 60751 A and B coefficients. The temperature is a parameter."
+designator = "RT"
+category = "Sensors"
+subcategory = "Temperature"
+aliases = ["PT1000", "platinum RTD"]
+keywords = ["temperature", "RTD", "platinum", "IEC 60751", "Callendar-Van Dusen", "resistor", "subcircuit"]
+tags = ["sensor", "passive", "precision"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Callendar-Van Dusen equation with the A and B coefficients only, valid from 0 °C to 850 °C. The C term used below 0 °C is not modelled, so the temperature range is limited to 0 to 850 °C.",
+               "Tolerance classes (A, B) and self-heating are not modelled; the nominal resistance is ideal.",
+               "The temperature is fixed for the whole run: no thermal time constant."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "temp"
+label = "Temperature (°C)"
+default = "0"
+min = 0
+max = 850
+help = "Sensor temperature in degrees Celsius, 0 to 850"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_rtd R0=1000 T={temp}"
+defs = ["models:sensors/rtd.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "IEC 60751:2008 Callendar-Van Dusen coefficients A = 3.9083e-3 /°C and B = -5.775e-7 /°C² (T ≥ 0 °C); R0 = 1000 Ω (PT1000)"
+license = "MIT"
+notes = "Published constants from IEC 60751; the package is a closed-form equivalent, not a tolerance-class model."

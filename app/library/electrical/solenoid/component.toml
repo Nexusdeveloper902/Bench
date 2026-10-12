@@ -1,0 +1,75 @@
+format = 1
+id = "SOLENOID"
+version = 1
+name = "Solenoid coil (R + L, plunger-dependent L)"
+description = "Solenoid coil as an electrical equivalent: a coil resistance in series with an inductance that rises from the open-armature value to the closed-armature value as the plunger moves. The plunger position is a parameter."
+designator = "LS"
+category = "Electrical"
+subcategory = "Electromechanical"
+aliases = ["coil", "electromagnet", "actuator coil"]
+keywords = ["solenoid", "coil", "inductance", "electromagnet", "plunger", "actuator", "subcircuit"]
+tags = ["electromechanical", "coil"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Electrical equivalent only: R and an inductance that varies linearly with the plunger position (generic 20 mH open, 60 mH closed). No force, no plunger motion, no eddy currents, no hysteresis and no saturation.",
+               "The position is fixed for the whole run. A flyback diode is not part of this device."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "rc"
+label = "Coil resistance"
+unit = "Ω"
+default = "10"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lo"
+label = "Inductance, plunger open"
+unit = "H"
+default = "20m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lc"
+label = "Inductance, plunger closed"
+unit = "H"
+default = "60m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "pos"
+label = "Plunger position (0 open, 1 closed)"
+default = "0"
+min = 0
+max = 1
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_sol RC={rc} LO={lo} LC={lc} POS={pos}"
+body = """
+.subckt bench_sol a b params: RC=10 LO=20m LC=60m POS=0
+R1 a n1 {RC}
+L1 n1 b {LO+(LC-LO)*POS}
+.ends bench_sol
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; coil R in series with a plunger-dependent L (generic values)"
+license = "MIT"

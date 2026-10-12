@@ -1,0 +1,76 @@
+format = 1
+id = "HALL_LINEAR"
+version = 1
+name = "Linear Hall-effect sensor"
+description = "Ratiometric linear Hall sensor: Vout = Vcc/2 + S·B, with B the field (mT) and S the sensitivity. The field is a parameter; only the electrical behaviour is modelled."
+designator = "UH"
+category = "Sensors"
+subcategory = "Magnetic"
+aliases = ["Hall sensor", "magnetic field sensor"]
+keywords = ["magnetic", "field", "Hall effect", "linear", "ratiometric", "sensor", "subcircuit"]
+tags = ["sensor", "magnetic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Linear transfer around Vcc/2 with generic sensitivity (2.5 mV/mT); not a datasheet fit. No saturation at the rails, no offset drift, no noise, no hysteresis.",
+               "Supply current and the output stage are not modelled beyond a series output resistance; the field is fixed for the whole run."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [0, 15]
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [0, 45]
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [60, 30]
+
+[[params]]
+key = "b"
+label = "Magnetic field (mT)"
+default = "0"
+help = "Flux density along the sensitive axis, in millitesla (negative for the opposite pole)"
+
+[[params]]
+key = "sens"
+label = "Sensitivity (V per mT)"
+unit = "V"
+default = "2.5m"
+min = 0
+min_exclusive = true
+help = "Generic value"
+
+[[params]]
+key = "rout"
+label = "Output resistance"
+unit = "Ω"
+default = "100"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {vcc} {gnd} {out} bench_hall B={b} SENS={sens} ROUT={rout}"
+body = """
+.subckt bench_hall vcc gn out params: B=0 SENS=2.5m ROUT=100
+VSTIM stim gn DC {B}
+RSTIM stim gn 1G
+E1 n gn POLY(2) vcc gn stim gn 0 0.5 {SENS}
+R1 n out {ROUT}
+.ends bench_hall
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ratiometric linear transfer Vout = Vcc/2 + S·B, S generic"
+license = "MIT"

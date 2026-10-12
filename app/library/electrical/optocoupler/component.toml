@@ -1,0 +1,69 @@
+format = 1
+id = "OPTOCOUPLER"
+version = 1
+name = "Optocoupler (LED + phototransistor, generic CTR)"
+description = "LED and NPN phototransistor in one package (PC817/4N35 style pinout). The LED current IF drives a collector current Ic = CTR·IF. CTR is a generic ratio, set it to the bin you need."
+designator = "U"
+category = "Electrical"
+subcategory = "Isolation"
+aliases = ["opto-isolator", "optoisolator", "PC817-style", "4N35-style"]
+keywords = ["optocoupler", "isolator", "LED", "phototransistor", "CTR", "isolation", "subcircuit"]
+tags = ["isolation", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["CTR is a generic ratio (default 100 %), not a bin of any part. Ic = CTR·IF while the transistor is active; saturation at the output follows the transistor card (Vce(sat) about 0.2 V). Current transfer degradation with time and temperature is not modelled.",
+               "The LED is a generic IR card (Is = 60 fA, N = 1.8, about 1.2 V at 10 mA). No series resistance, no capacitance, so no switching speed. The isolation rating and creepage are not modelled; the two sides share no node.",
+               "Not a vendor model; no propagation delay, no base-pin access (the base is internal)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [0, 20]
+
+[[pins]]
+id = "k"
+name = "K"
+at = [0, 60]
+
+[[pins]]
+id = "e"
+name = "E"
+at = [80, 60]
+
+[[pins]]
+id = "c"
+name = "C"
+at = [80, 20]
+
+[[params]]
+key = "ctr"
+label = "Current transfer ratio (CTR)"
+default = "1"
+min = 0
+min_exclusive = true
+help = "Collector current over LED current, as a ratio (1 = 100 %)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {k} {e} {c} bench_opto CTR={ctr}"
+body = """
+.subckt bench_opto a k e c params: CTR=1
+VS a x DC 0
+D1 x k bench_opto_led
+F1 e b VS {CTR/100}
+Q1 c b e bench_opto_npn
+.model bench_opto_led D(IS=6e-14 N=1.8)
+.model bench_opto_npn NPN(IS=1e-14 BF=100)
+.ends bench_opto
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; LED plus NPN with a CCCS base drive, gain CTR/BF; generic values"
+license = "MIT"

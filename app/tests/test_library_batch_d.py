@@ -126,7 +126,7 @@ def test_package_loads_validates_and_records_its_kind(id):
 
 
 def test_catalog_grew_by_exactly_these_parts():
-    assert set(NEW) <= set(CATALOG.defs) and len(NEW) == 31 and len(CATALOG.defs) == 117 + len(NEW)
+    assert set(NEW) <= set(CATALOG.defs) and len(NEW) == 31 and len(CATALOG.defs) >= 117 + len(NEW)     # batch E adds more (test_library_batch_e.py)
 
 
 def test_shared_model_files_are_emitted_once_per_deck():

@@ -1,0 +1,83 @@
+format = 1
+id = "POSITION_SENSOR"
+version = 1
+name = "Linear position sensor (ratiometric, 3-wire)"
+description = "Three-wire potentiometric position sensor: the output is a fraction of the supply, Vout = Vcc·(VLO + (VHI − VLO)·pos), with pos the stroke fraction 0 to 1. The position is a parameter."
+designator = "UX"
+category = "Sensors"
+subcategory = "Force and position"
+aliases = ["linear position sensor", "linear pot sensor", "LVDT-style position output"]
+keywords = ["position", "linear", "ratiometric", "stroke", "displacement", "sensor", "subcircuit"]
+tags = ["sensor", "position"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ratiometric output between VLO and VHI (generic 10 % and 90 % of the supply). Linear in the stroke, no non-linearity, no hysteresis or wear.",
+               "Output impedance is a series resistor; the supply current is ideal. The position is fixed for the whole run."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [0, 20]
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [0, 40]
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 30]
+
+[[params]]
+key = "pos"
+label = "Stroke position (0 to 1)"
+default = "0.5"
+min = 0
+max = 1
+
+[[params]]
+key = "vlo"
+label = "Output at the low end (fraction of Vcc)"
+default = "0.1"
+min = 0
+max = 1
+
+[[params]]
+key = "vhi"
+label = "Output at the high end (fraction of Vcc)"
+default = "0.9"
+min = 0
+max = 1
+
+[[params]]
+key = "rout"
+label = "Output resistance"
+unit = "Ω"
+default = "100"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {vcc} {gnd} {out} bench_pos POS={pos} VLO={vlo} VHI={vhi} ROUT={rout}"
+body = """
+.subckt bench_pos vcc gn out params: POS=0.5 VLO=0.1 VHI=0.9 ROUT=100
+VSTIM stim 0 DC {POS}
+RSTIM stim 0 1G
+RLV vcc gn 1G
+E1 n gn VALUE={V(vcc,gn)*(VLO+(VHI-VLO)*V(stim))}
+R1 n out {ROUT}
+.ends bench_pos
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ratiometric linear output, VLO and VHI generic"
+license = "MIT"

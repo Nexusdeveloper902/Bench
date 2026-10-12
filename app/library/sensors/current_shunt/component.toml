@@ -1,0 +1,65 @@
+format = 1
+id = "CURRENT_SHUNT"
+version = 1
+name = "Current-sense shunt (Kelvin sense)"
+description = "Current-sense resistor with separate sense pins: the voltage between the sense pins is Vsense = I·RS. The current is the caller's; the sense leads draw no current."
+designator = "RSH"
+category = "Sensors"
+subcategory = "Current sensing"
+aliases = ["shunt resistor", "current sense resistor", "Kelvin shunt"]
+keywords = ["current", "shunt", "sense", "Kelvin", "measurement", "resistor", "subcircuit"]
+tags = ["sensor", "passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal resistor between the current pins; the sense pins are tied to its two ends through 1 GΩ, so they draw no current. Lead resistance and parasitic inductance are not modelled.",
+               "No tolerance, temperature coefficient, self-heating or power rating: set RS to the value you need."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "ia"
+name = "I+"
+at = [0, 20]
+
+[[pins]]
+id = "sa"
+name = "S+"
+at = [40, 0]
+
+[[pins]]
+id = "sb"
+name = "S-"
+at = [40, 60]
+
+[[pins]]
+id = "ib"
+name = "I-"
+at = [80, 20]
+
+[[params]]
+key = "rs"
+label = "Shunt resistance"
+unit = "Ω"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {ia} {sa} {sb} {ib} bench_sense RS={rs}"
+body = """
+.subckt bench_sense ia sa sb ib params: RS=10m
+R1 ia ib {RS}
+R2 sa ia 1G
+R3 sb ib 1G
+.ends bench_sense
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ideal shunt with Kelvin sense leads, Vsense = I·RS"
+license = "MIT"
