@@ -4,6 +4,7 @@ version = 1
 name = "PTC thermistor (posistor)"
 description = "Ceramic PTC thermistor: resistance rises by a large factor around its switching temperature. Modelled as a smooth step in log resistance. The temperature is a parameter."
 designator = "RT"
+label = "PTC"
 category = "Sensors"
 subcategory = "Temperature"
 aliases = ["posistor", "PTC thermistor"]

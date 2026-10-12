@@ -4,6 +4,7 @@ version = 1
 name = "Op-amp (ideal, single pole)"
 description = "Generic voltage-feedback op-amp: finite open-loop gain, one dominant pole set by the gain-bandwidth product, 1 Ω output resistance. Output referenced to ground."
 designator = "U"
+label = "OP-AMP"
 category = "Electrical"
 subcategory = "Analog ICs"
 aliases = ["operational amplifier", "opamp"]

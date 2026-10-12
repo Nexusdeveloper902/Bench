@@ -4,6 +4,7 @@ version = 1
 name = "Resistor network, 4 bussed"
 description = "Four resistors of the same value R, each from one of four pins to a common pin C (bussed or 'bowtie' style)."
 designator = "RN"
+label = "RNET BUS"
 category = "Electrical"
 subcategory = "Passives"
 aliases = ["bussed resistor network", "common-pin resistor array", "pull-up network"]

@@ -4,6 +4,7 @@ version = 1
 name = "Linear Hall-effect sensor"
 description = "Ratiometric linear Hall sensor: Vout = Vcc/2 + S·B, with B the field (mT) and S the sensitivity. The field is a parameter; only the electrical behaviour is modelled."
 designator = "UH"
+label = "HALL"
 category = "Sensors"
 subcategory = "Magnetic"
 aliases = ["Hall sensor", "magnetic field sensor"]

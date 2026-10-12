@@ -16,6 +16,7 @@ limitations = ["Generic linear law; the minimum resistance rmin is the wiper-end
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "R"
 box = [0, 0, 80, 40]
 symbol = "symbol.svg"
 

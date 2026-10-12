@@ -4,6 +4,7 @@ version = 1
 name = "TVS diode (bidirectional)"
 description = "Bidirectional transient-voltage-suppressor clamp: two unidirectional clamps in anti-series. Approximate, set by stand-off voltage, clamping voltage and peak pulse current."
 designator = "D"
+label = "TVS BI"
 category = "Electrical"
 subcategory = "Diodes"
 aliases = ["bidirectional transient suppressor"]

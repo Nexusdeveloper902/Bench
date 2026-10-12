@@ -4,6 +4,7 @@ version = 1
 name = "Dual op-amp (ideal, single pole)"
 description = "Two independent generic op-amps (the single-pole OPAMP model) sharing one gain and gain-bandwidth setting."
 designator = "U"
+label = "OP-AMP x2"
 category = "Electrical"
 subcategory = "Analog ICs"
 aliases = ["dual operational amplifier", "dual opamp"]

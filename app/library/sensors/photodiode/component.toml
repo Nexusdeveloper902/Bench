@@ -4,6 +4,7 @@ version = 1
 name = "Photodiode (photoconductive)"
 description = "Photodiode: a current source proportional to irradiance in parallel with a junction diode and junction capacitance. Reverse-biased, it gives a current that follows the irradiance. The irradiance is a parameter."
 designator = "DPH"
+label = "PHOTODIODE"
 category = "Sensors"
 subcategory = "Light"
 aliases = ["PIN photodiode", "light diode"]

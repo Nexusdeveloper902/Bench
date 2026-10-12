@@ -4,6 +4,7 @@ version = 1
 name = "Crystal 32.768 kHz (tuning fork, BVD)"
 description = "32.768 kHz watch-type quartz crystal as a Butterworth-Van Dyke equivalent: series motional RLC (Rs, Ls, Cs) in parallel with Cp. Typical published-range motional values."
 designator = "Y"
+label = "32.768 kHz"
 category = "Electrical"
 subcategory = "Timing"
 aliases = ["watch crystal", "tuning fork crystal", "32.768 kHz crystal"]

@@ -4,6 +4,7 @@ version = 1
 name = "Crystal 16 MHz (AT-cut, BVD)"
 description = "16 MHz AT-cut quartz crystal as a Butterworth-Van Dyke equivalent: series motional RLC (Rs, Ls, Cs) in parallel with Cp. Typical published-range motional values."
 designator = "Y"
+label = "16 MHz"
 category = "Electrical"
 subcategory = "Timing"
 aliases = ["quartz crystal", "16 MHz crystal", "MCU crystal"]

@@ -4,6 +4,7 @@ version = 1
 name = "Optocoupler (LED + phototransistor, generic CTR)"
 description = "LED and NPN phototransistor in one package (PC817/4N35 style pinout). The LED current IF drives a collector current Ic = CTR·IF. CTR is a generic ratio, set it to the bin you need."
 designator = "U"
+label = "OPTO"
 category = "Electrical"
 subcategory = "Isolation"
 aliases = ["opto-isolator", "optoisolator", "PC817-style", "4N35-style"]

@@ -4,6 +4,7 @@ version = 1
 name = "Phototransistor (NPN, base photocurrent)"
 description = "NPN phototransistor: the photocurrent is injected into the base and amplified by the transistor, so the collector current is (BF + 1) times the photocurrent in the active region. The irradiance is a parameter."
 designator = "QPH"
+label = "PHOTO-NPN"
 category = "Sensors"
 subcategory = "Light"
 aliases = ["photo transistor", "light transistor"]

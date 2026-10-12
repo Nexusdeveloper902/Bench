@@ -4,6 +4,7 @@ version = 1
 name = "DIAC (trigger diode)"
 description = "Symmetric trigger diode: blocks below its breakover voltage (default 32 V, the common DB3 class), then breaks back to a low on-state voltage until the current falls below its holding current."
 designator = "D"
+label = "DIAC"
 category = "Electrical"
 subcategory = "Thyristors and IGBT"
 aliases = ["DB3", "trigger diode", "breakover diode"]

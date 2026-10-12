@@ -4,6 +4,7 @@ version = 1
 name = "LDR (light-dependent resistor)"
 description = "Photoresistor: R = R10·(lux/10)^(−γ), a power law in illuminance. The illuminance is a parameter; only the electrical behaviour is modelled."
 designator = "RL"
+label = "LDR"
 category = "Sensors"
 subcategory = "Light"
 aliases = ["photoresistor", "CdS photocell"]

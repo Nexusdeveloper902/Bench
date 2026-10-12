@@ -4,6 +4,7 @@ version = 1
 name = "DPST switch"
 description = "Double-pole single-throw manual switch: two contacts (a1-b1 and a2-b2) that open and close together."
 designator = "SW"
+label = "DPST"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["double pole single throw", "two-pole switch"]

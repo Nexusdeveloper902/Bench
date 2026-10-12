@@ -4,6 +4,7 @@ version = 1
 name = "Transformer 1:N"
 description = "Two-winding transformer: primary Lm, secondary N^2 * Lm, coupling K. Open-circuit secondary voltage is K * N times the primary voltage."
 designator = "T"
+label = "XFMR"
 category = "Electrical"
 subcategory = "Passives"
 aliases = ["transformer", "isolation transformer", "step-up transformer"]

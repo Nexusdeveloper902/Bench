@@ -16,6 +16,7 @@ limitations = ["Generic linear taper with a fixed wiper resistance: no taper law
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "R"
 box = [0, 0, 80, 80]
 symbol = "symbol.svg"
 

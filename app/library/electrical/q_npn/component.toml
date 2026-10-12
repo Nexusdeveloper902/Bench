@@ -4,6 +4,7 @@ version = 1
 name = "NPN transistor (generic)"
 description = "Generic NPN bipolar transistor with adjustable gain, saturation current, Early voltage, base resistance, capacitances and transit time."
 designator = "Q"
+label = "NPN"
 category = "Electrical"
 subcategory = "Bipolar transistors"
 aliases = ["NPN BJT"]

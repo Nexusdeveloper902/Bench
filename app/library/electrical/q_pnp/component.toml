@@ -4,6 +4,7 @@ version = 1
 name = "PNP transistor (generic)"
 description = "Generic PNP bipolar transistor with adjustable gain, saturation current, Early voltage, base resistance, capacitances and transit time."
 designator = "Q"
+label = "PNP"
 category = "Electrical"
 subcategory = "Bipolar transistors"
 aliases = ["PNP BJT"]

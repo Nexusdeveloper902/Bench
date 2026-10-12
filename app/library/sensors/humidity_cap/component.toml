@@ -4,6 +4,7 @@ version = 1
 name = "Capacitive humidity sensor (linear C(RH))"
 description = "Capacitive relative-humidity sensor: C = C0 + CS·RH over the middle of the range. The relative humidity is a parameter."
 designator = "CH"
+label = "RH"
 category = "Sensors"
 subcategory = "Humidity"
 aliases = ["capacitive humidity sensor", "RH sensor"]

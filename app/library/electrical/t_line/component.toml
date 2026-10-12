@@ -4,6 +4,7 @@ version = 1
 name = "Transmission line (lossless)"
 description = "Ideal lossless transmission line of characteristic impedance Z0 and delay TD (ngspice T element)."
 designator = "TL"
+label = "T-LINE"
 category = "Electrical"
 subcategory = "Transmission lines"
 aliases = ["lossless line", "delay line", "coax"]

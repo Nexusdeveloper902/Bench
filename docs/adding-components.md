@@ -32,6 +32,7 @@ version = 1                         # see "Versions" below
 name = "1N4148 diode"
 description = "General-purpose silicon signal diode with a fixed SPICE model."
 designator = "D"                    # auto-name prefix: D1, D2 ...
+label = "1N4148"                    # optional; short part type printed on the canvas when the part has no value label
 category = "Electrical"             # free text; a TAXONOMY name is listed first (see "Search and roots")
 subcategory = "Semiconductors"
 aliases = ["1N4148", "signal diode"]        # search only, never used to resolve ids
@@ -63,6 +64,8 @@ line = "{dev} {a} {k} d1n4148"      # {dev} is the instance name; {a} and {k} ar
 models = [".model d1n4148 D(Is=2.52n N=1.752 Rs=0.568)"]   # model names are global to the netlist (see rules below)
 current = "@{dev_lc}[id]"           # the vector shown when show_current is on
 ```
+
+`label` (optional, 12 characters or fewer) is the short part type drawn under the part name for parts that have no value label (ICs, transistors, sensors). If you omit it, the first word of `name` that contains a digit is used (`2N3904 NPN transistor` gives `2N3904`); with no such word nothing is drawn. Set it when that default is poor, e.g. `label = "OP-AMP"`. Parts with a generic box body already print their name inside it, so they never show the label.
 
 ## Example 2: interface-only part (DHT22)
 

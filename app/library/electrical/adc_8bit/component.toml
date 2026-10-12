@@ -4,6 +4,7 @@ version = 1
 name = "Generic 8-bit sampling ADC"
 description = "Generic 8-bit analog-to-digital converter: on each rising clock edge it registers floor(256 x VIN / VREF), limited to 0-255, on eight logic outputs."
 designator = "U"
+label = "ADC"
 category = "Electrical"
 subcategory = "Data converters"
 aliases = ["ADC_8BIT", "ADC", "8-bit ADC"]

@@ -4,6 +4,7 @@ version = 1
 name = "Current transformer with burden"
 description = "AC current transformer: the secondary carries Ip/N into a burden resistor, so the output voltage is Ip·RB/N. Valid above the frequency where the magnetising inductance is large against the burden. The turns ratio is a parameter."
 designator = "TC"
+label = "CT"
 category = "Sensors"
 subcategory = "Current sensing"
 aliases = ["CT", "AC current sensor"]

@@ -4,6 +4,7 @@ version = 1
 name = "Lithium-ion cell, generic 3.7 V (approximate)"
 description = "Generic 18650-class lithium-ion cell: a 3.7 V nominal EMF behind about 0.1 Ω. Approximate: a fixed EMF and resistance; no state of charge, cutoff voltage or ageing."
 designator = "BT"
+label = "LI-ION"
 category = "Power"
 subcategory = "Batteries"
 aliases = ["Li-ion", "18650", "rechargeable cell"]

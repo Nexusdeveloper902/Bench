@@ -4,6 +4,7 @@ version = 1
 name = "SPDT switch"
 description = "Single-pole double-throw manual switch: the common pin c connects to NO or to NC, chosen by the state."
 designator = "SW"
+label = "SPDT"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["single pole double throw", "changeover switch", "toggle SPDT"]

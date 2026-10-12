@@ -4,6 +4,7 @@ version = 1
 name = "Relay, DPDT (coil R + L)"
 description = "Electromechanical relay with two changeover poles driven by one coil (R + L). Both poles pull in together when the coil current reaches IPULL."
 designator = "K"
+label = "RELAY DPDT"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["DPDT relay", "two-pole relay"]

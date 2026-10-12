@@ -4,6 +4,7 @@ version = 1
 name = "Fuse (time-delay, behavioural)"
 description = "One-shot time-delay fuse (behavioural): current above the rating for a delay set by tau opens it, and it stays open."
 designator = "F"
+label = "FUSE"
 category = "Electrical"
 subcategory = "Protection"
 aliases = ["fuse", "time-delay fuse", "overcurrent element"]

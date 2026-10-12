@@ -16,6 +16,7 @@ limitations = ["Polarity is not enforced: reverse bias and the failure mode are 
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "C"
 box = [0, 0, 80, 40]
 symbol = "symbol.svg"
 

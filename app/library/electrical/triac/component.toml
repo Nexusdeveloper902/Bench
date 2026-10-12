@@ -4,6 +4,7 @@ version = 1
 name = "TRIAC"
 description = "Bidirectional thyristor built from two anti-parallel SCRs: a gate pulse of either polarity (quadrants I and III) turns it on for the rest of the half cycle."
 designator = "Q"
+label = "TRIAC"
 category = "Electrical"
 subcategory = "Thyristors and IGBT"
 aliases = ["bidirectional thyristor", "AC switch"]

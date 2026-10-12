@@ -4,6 +4,7 @@ version = 1
 name = "Electret microphone (JFET stage equivalent)"
 description = "Electret condenser microphone as an electrical equivalent: a drain-biased current source that carries the sound-driven signal into the drain resistor. The sound pressure level and the frequency are parameters."
 designator = "MK"
+label = "MIC"
 category = "Sensors"
 subcategory = "Acoustic and ultrasonic"
 aliases = ["electret mic", "condenser microphone"]

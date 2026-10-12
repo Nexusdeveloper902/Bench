@@ -4,6 +4,7 @@ version = 1
 name = "Piezoresistive pressure bridge (linear)"
 description = "Ratiometric pressure sensor: the differential output is Vout = S·P·Vex, with S the sensitivity (V/V per bar), P the pressure and Vex the excitation. The pressure is a parameter."
 designator = "UP"
+label = "PRESSURE"
 category = "Sensors"
 subcategory = "Pressure"
 aliases = ["pressure sensor", "piezoresistive pressure sensor"]

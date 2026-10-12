@@ -4,6 +4,7 @@ version = 1
 name = "Diode (full parameter set)"
 description = "Generic junction diode with saturation current, emission coefficient, series resistance, junction capacitance, transit time and reverse breakdown as parameters."
 designator = "D"
+label = "DIODE"
 category = "Electrical"
 subcategory = "Diodes"
 aliases = ["generic diode"]

@@ -4,6 +4,7 @@ version = 1
 name = "Current-sense shunt (Kelvin sense)"
 description = "Current-sense resistor with separate sense pins: the voltage between the sense pins is Vsense = I·RS. The current is the caller's; the sense leads draw no current."
 designator = "RSH"
+label = "SHUNT"
 category = "Sensors"
 subcategory = "Current sensing"
 aliases = ["shunt resistor", "current sense resistor", "Kelvin shunt"]

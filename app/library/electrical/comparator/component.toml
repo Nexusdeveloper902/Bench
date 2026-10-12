@@ -4,6 +4,7 @@ version = 1
 name = "Comparator (open collector)"
 description = "Generic voltage comparator with an open-collector output: the output sinks to ground through RON while the - input is above the + input, and floats otherwise (add a pull-up)."
 designator = "U"
+label = "COMPARATOR"
 category = "Electrical"
 subcategory = "Comparators"
 aliases = ["voltage comparator", "open-collector comparator"]

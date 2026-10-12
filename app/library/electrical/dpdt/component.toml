@@ -4,6 +4,7 @@ version = 1
 name = "DPDT switch"
 description = "Double-pole double-throw manual switch: two independent changeover poles (c1 to NO1 or NC1, c2 to NO2 or NC2) that throw together."
 designator = "SW"
+label = "DPDT"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["double pole double throw", "two-pole changeover"]

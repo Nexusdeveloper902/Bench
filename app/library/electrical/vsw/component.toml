@@ -4,6 +4,7 @@ version = 1
 name = "Voltage-controlled switch"
 description = "Switch between p and n, closed when the control voltage (cp - cn) exceeds VT + VH/2 and open below VT - VH/2 (ngspice S element)."
 designator = "S"
+label = "V-SWITCH"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["voltage controlled switch", "analog switch", "VCS"]

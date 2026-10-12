@@ -4,6 +4,7 @@ version = 1
 name = "Ceramic resonator 16 MHz (BVD)"
 description = "16 MHz ceramic resonator as a Butterworth-Van Dyke equivalent: a lower-Q series RLC (Rs, Ls, Cs) in parallel with a large static capacitance. Typical values."
 designator = "Y"
+label = "16 MHz"
 category = "Electrical"
 subcategory = "Timing"
 aliases = ["ceramic resonator", "ceramic clock resonator"]

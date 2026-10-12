@@ -4,6 +4,7 @@ version = 1
 name = "NTC thermistor"
 description = "Negative-temperature-coefficient thermistor, beta model: R = R25·exp(B·(1/T − 1/298.15 K)). The temperature is a parameter."
 designator = "RT"
+label = "NTC"
 category = "Sensors"
 subcategory = "Temperature"
 aliases = ["NTC", "thermistor"]
@@ -18,7 +19,7 @@ docs = ["https://ngspice.sourceforge.io/docs.html"]
 [presentation]
 box = [0, 0, 60, 30]
 symbol = "symbol.svg"
-value = "temp"
+value = "r25"
 
 [[pins]]
 id = "a"

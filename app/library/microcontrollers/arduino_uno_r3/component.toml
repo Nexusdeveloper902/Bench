@@ -4,6 +4,7 @@ version = 1
 name = "Arduino Uno R3"
 description = "ATmega328P board with 14 digital I/O pins, 6 analog inputs and the power header. Headers as printed on the official pinout."
 designator = "U"
+label = "UNO R3"
 category = "Microcontrollers"
 subcategory = "Development boards"
 aliases = ["Uno", "Arduino Uno", "ATmega328P"]

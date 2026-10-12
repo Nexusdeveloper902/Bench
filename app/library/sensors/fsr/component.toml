@@ -4,6 +4,7 @@ version = 1
 name = "Force-sensitive resistor"
 description = "Force-sensitive resistor: R = R(F1)·(F/F1)^(−n), a power law in force, in parallel with a no-load leakage resistance. The force is a parameter."
 designator = "RF"
+label = "FSR"
 category = "Sensors"
 subcategory = "Force and position"
 aliases = ["FSR", "force sensing resistor", "pressure-sensitive resistor"]

@@ -4,6 +4,7 @@ version = 1
 name = "Zener diode"
 description = "Zener diode set by its nominal voltage VZ at the test current IZT and its dynamic impedance ZZ. Defaults are a 1N4733A (5.1 V at 49 mA, 7 ohm)."
 designator = "D"
+label = "ZENER"
 category = "Electrical"
 subcategory = "Diodes"
 aliases = ["1N4733A", "1N4742A", "1N47xx", "voltage regulator diode"]

@@ -4,6 +4,7 @@ version = 1
 name = "Coin cell, generic 3 V (approximate)"
 description = "Generic primary lithium coin cell in the CR2032 class: a 3.0 V EMF behind about 20 Ω. Approximate: a fixed EMF and resistance, with no state of charge, discharge curve or ambient effects."
 designator = "BT"
+label = "COIN"
 category = "Power"
 subcategory = "Batteries"
 aliases = ["coin cell", "CR2032 class", "button cell"]

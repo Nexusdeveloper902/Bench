@@ -16,6 +16,7 @@ limitations = ["Generic: no DC-bias derating, voltage coefficient, temperature d
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "C"
 box = [0, 0, 80, 40]
 symbol = "symbol.svg"
 

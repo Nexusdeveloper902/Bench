@@ -4,6 +4,7 @@ version = 1
 name = "Reed switch (coil-actuated)"
 description = "Normally open reed contact in a glass tube, actuated by a coil (the magnet's field stands in for the coil current). Pulls in at IPULL, releases below IREL."
 designator = "S"
+label = "REED"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["reed relay", "magnetic reed switch", "glass reed"]

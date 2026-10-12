@@ -4,6 +4,7 @@ version = 1
 name = "DC motor (R + L + back-EMF)"
 description = "Simplified DC motor: armature resistance and inductance in series with a back-EMF voltage KE·ω. The speed is a parameter; the terminal current is (V − KE·ω)/RA at steady state."
 designator = "M"
+label = "MOTOR"
 category = "Electrical"
 subcategory = "Electromechanical"
 aliases = ["DC motor", "brushed motor", "electrical motor model"]

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QFrame, QGraphicsScene, QGraphicsView, QGridLayou
                                QToolButton, QVBoxLayout)
 
 from . import theme, widgets as W
-from .catalog import CATALOG, geometry, pin_offset, summary
+from .catalog import CATALOG, canvas_text, geometry, pin_offset, summary
 from .components import format_si
 from .library import MIME
 from .symbols import add_badge, add_placeholder, add_symbol, is_generic, part_transform
@@ -514,7 +514,7 @@ class Canvas(QGraphicsView):
     def _labels(self, n, d, c, r, cur, sel, named=True):
         sc = self.sc
         name = sc.addSimpleText(n, _font(theme.SMALL_PX, QFont.DemiBold)); name.setBrush(QBrush(QColor(theme.SEL if sel else theme.INK)))
-        rows = [summary(d["kind"], d["params"]) if c else ""]
+        rows = [(canvas_text if named else summary)(d["kind"], d["params"]) if c else ""]   # part-type label only where the body does not print the name
         if cur is not None: rows.append(format_si(cur, "A", 3))
         texts = []
         for s in filter(None, rows):

@@ -4,6 +4,7 @@ version = 1
 name = "Saturating amplifier (behavioural)"
 description = "Voltage amplifier with a hard output limit: V(op, on) = clamp(gain * V(ip, in), -lim, +lim), built from one behavioural B source."
 designator = "U"
+label = "SAT AMP"
 category = "Electrical"
 subcategory = "Sources"
 aliases = ["clipping amplifier", "limiting amplifier", "behavioural amplifier"]

@@ -4,6 +4,7 @@ version = 1
 name = "Piezo buzzer"
 description = "Two-terminal piezo buzzer element. Needs an external driver to sound."
 designator = "BZ"
+label = "BUZZER"
 category = "Audio"
 subcategory = "Buzzers"
 aliases = ["piezo", "buzzer", "beeper", "piezo element"]

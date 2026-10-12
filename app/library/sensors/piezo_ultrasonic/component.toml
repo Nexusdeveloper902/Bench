@@ -4,6 +4,7 @@ version = 1
 name = "Piezo / ultrasonic transducer (BVD)"
 description = "Piezoelectric transducer as a Butterworth-Van Dyke equivalent: a motional series RLC in parallel with the static capacitance. Typical 40 kHz ultrasonic values. Electrical equivalent only."
 designator = "XU"
+label = "PIEZO"
 category = "Sensors"
 subcategory = "Acoustic and ultrasonic"
 aliases = ["ultrasonic transducer", "piezo element", "40 kHz transducer"]

@@ -4,6 +4,7 @@ version = 1
 name = "Strain gauge (R·(1 + GF·ε))"
 description = "Metal-foil strain gauge: R = R0·(1 + GF·ε). The strain is a parameter, in microstrain (µε)."
 designator = "RS"
+label = "STRAIN"
 category = "Sensors"
 subcategory = "Force and position"
 aliases = ["strain gage", "foil gauge"]

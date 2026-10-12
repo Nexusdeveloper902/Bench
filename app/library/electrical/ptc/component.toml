@@ -4,6 +4,7 @@ version = 1
 name = "PTC resettable fuse (behavioural)"
 description = "Polymer PTC resettable fuse as a time-delay element: a low resistance when cold, a high resistance once the trip current is held past the delay, and it stays tripped while the current stays above the hold current. Behavioural."
 designator = "PTC"
+label = "PTC FUSE"
 category = "Electrical"
 subcategory = "Protection"
 aliases = ["resettable fuse", "polyfuse", "PPTC"]

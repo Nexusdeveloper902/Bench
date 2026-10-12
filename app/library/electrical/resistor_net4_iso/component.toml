@@ -4,6 +4,7 @@ version = 1
 name = "Resistor network, 4 isolated"
 description = "Four independent resistors of the same value R, each with its own pair of pins (SIP/DIP-style isolated network)."
 designator = "RN"
+label = "RNET ISO"
 category = "Electrical"
 subcategory = "Passives"
 aliases = ["resistor array", "isolated resistor network"]

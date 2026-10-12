@@ -4,6 +4,7 @@ version = 1
 name = "Varactor diode"
 description = "Variable-capacitance diode: reverse-bias depletion capacitance Cjo/(1+V/Vj)^M with a series loss resistance and a reverse breakdown."
 designator = "D"
+label = "VARACTOR"
 category = "Electrical"
 subcategory = "Diodes"
 aliases = ["varicap", "tuning diode"]

@@ -4,6 +4,7 @@ version = 1
 name = "Strain-gauge bridge, quarter bridge"
 description = "Wheatstone quarter bridge: one active strain gauge with three fixed resistors. The differential output is Vex·GF·ε / (4 + 2·GF·ε) for the excitation across ep and em."
 designator = "UB"
+label = "STRAIN BR"
 category = "Sensors"
 subcategory = "Force and position"
 aliases = ["quarter bridge", "Wheatstone bridge"]

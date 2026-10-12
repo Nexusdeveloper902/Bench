@@ -4,6 +4,7 @@ version = 1
 name = "Loudspeaker (Thiele-Small electrical equivalent)"
 description = "Loudspeaker driver as its Thiele-Small electrical equivalent: voice-coil Re and Le in series with the motional branch, a parallel RLC with Rp = Bl²/Rms, Lp = Cms·Bl² and Cp = Mms/Bl². The driver parameters are inputs."
 designator = "LS"
+label = "SPEAKER"
 category = "Electrical"
 subcategory = "Transducers"
 aliases = ["speaker", "driver", "loudspeaker"]

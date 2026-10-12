@@ -4,6 +4,7 @@ version = 1
 name = "IGBT"
 description = "Insulated-gate bipolar transistor as a VDMOS driving a PNP: about 1 V to 2.5 V when on, turns on above its gate threshold, with a turn-off current tail."
 designator = "Q"
+label = "IGBT"
 category = "Electrical"
 subcategory = "Thyristors and IGBT"
 aliases = ["insulated gate bipolar transistor"]

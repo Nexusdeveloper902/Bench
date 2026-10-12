@@ -4,6 +4,7 @@ version = 1
 name = "Transformer, center-tapped secondary"
 description = "Primary Lm and a center-tapped secondary (two halves of N^2 * Lm / 4 in series, coupled to the primary with K). Each half sees N/2 of the primary voltage."
 designator = "T"
+label = "XFMR CT"
 category = "Electrical"
 subcategory = "Passives"
 aliases = ["center-tapped transformer", "CT transformer", "split-secondary transformer"]

@@ -4,6 +4,7 @@ version = 1
 name = "Current-controlled switch"
 description = "Switch between p and n, closed while the current from cp to cn exceeds IT + IH/2 and open below IT - IH/2 (ngspice W element, the control current is a sense source)."
 designator = "S"
+label = "I-SWITCH"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["current controlled switch", "relay-like switch"]

@@ -4,6 +4,7 @@ version = 1
 name = "Op-amp macromodel (supplies, slew rate, rails)"
 description = "Generic voltage-feedback op-amp with supply pins: open-loop gain, gain-bandwidth, slew rate, output swing to each rail, input offset, bias current, output resistance and quiescent current are parameters."
 designator = "U"
+label = "OP-AMP"
 category = "Electrical"
 subcategory = "Analog ICs"
 aliases = ["op-amp macromodel", "generic op-amp"]

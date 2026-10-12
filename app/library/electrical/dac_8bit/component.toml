@@ -4,6 +4,7 @@ version = 1
 name = "Generic 8-bit R-2R DAC"
 description = "Generic 8-bit digital-to-analog converter built as an R-2R resistor ladder: OUT = REF x code / 256 with an output resistance of R."
 designator = "U"
+label = "DAC"
 category = "Electrical"
 subcategory = "Data converters"
 aliases = ["DAC_8BIT", "DAC", "R-2R ladder", "8-bit DAC"]

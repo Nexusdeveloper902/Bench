@@ -4,6 +4,7 @@ version = 1
 name = "Varistor (MOV, approximate)"
 description = "Metal-oxide varistor as a symmetric power law: I = IK * (V / VC)^ALPHA, sign of V. Approximate clamp; IK is the current at the clamping voltage VC."
 designator = "RV"
+label = "MOV"
 category = "Electrical"
 subcategory = "Protection"
 aliases = ["MOV", "varistor", "surge arrester"]

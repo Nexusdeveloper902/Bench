@@ -4,6 +4,7 @@ version = 1
 name = "Solenoid coil (R + L, plunger-dependent L)"
 description = "Solenoid coil as an electrical equivalent: a coil resistance in series with an inductance that rises from the open-armature value to the closed-armature value as the plunger moves. The plunger position is a parameter."
 designator = "LS"
+label = "SOLENOID"
 category = "Electrical"
 subcategory = "Electromechanical"
 aliases = ["coil", "electromagnet", "actuator coil"]

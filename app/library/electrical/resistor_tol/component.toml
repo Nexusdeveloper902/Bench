@@ -15,6 +15,7 @@ limitations = ["Tolerance is a fixed multiplier, not a random draw. Power rating
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "R"
 box = [0, 0, 60, 30]
 symbol = "symbol.svg"
 

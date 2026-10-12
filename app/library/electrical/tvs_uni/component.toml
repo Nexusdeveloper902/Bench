@@ -4,6 +4,7 @@ version = 1
 name = "TVS diode (unidirectional)"
 description = "Transient-voltage-suppressor clamp: conducts forward like a diode and breaks down at 1.11 x its stand-off voltage. Approximate, set by stand-off voltage, clamping voltage and peak pulse current."
 designator = "D"
+label = "TVS"
 category = "Electrical"
 subcategory = "Diodes"
 aliases = ["transient voltage suppressor", "SMAJ12A"]

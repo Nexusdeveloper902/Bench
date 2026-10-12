@@ -4,6 +4,7 @@ version = 1
 name = "Pushbutton (normally open)"
 description = "Momentary pushbutton, normally open: closed only while pressed."
 designator = "SW"
+label = "PUSH NO"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["push button NO", "momentary switch", "tactile switch"]

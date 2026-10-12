@@ -4,6 +4,7 @@ version = 1
 name = "AA alkaline cell, generic 1.5 V (approximate)"
 description = "Generic primary alkaline AA cell: a 1.5 V EMF behind about 0.2 Ω. Approximate: a fixed EMF and resistance, with no state of charge, discharge curve or ambient effects."
 designator = "BT"
+label = "AA"
 category = "Power"
 subcategory = "Batteries"
 aliases = ["AA battery", "alkaline", "LR6"]

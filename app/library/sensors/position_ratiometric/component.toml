@@ -4,6 +4,7 @@ version = 1
 name = "Linear position sensor (ratiometric, 3-wire)"
 description = "Three-wire potentiometric position sensor: the output is a fraction of the supply, Vout = Vcc·(VLO + (VHI − VLO)·pos), with pos the stroke fraction 0 to 1. The position is a parameter."
 designator = "UX"
+label = "POS"
 category = "Sensors"
 subcategory = "Force and position"
 aliases = ["linear position sensor", "linear pot sensor", "LVDT-style position output"]

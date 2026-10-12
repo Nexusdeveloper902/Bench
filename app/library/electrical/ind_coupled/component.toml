@@ -4,6 +4,7 @@ version = 1
 name = "Coupled inductors"
 description = "Two inductors L1 and L2 with a coupling coefficient K (mutual M = K * sqrt(L1 * L2)). Each winding has a 1 GΩ leak so an open winding has a DC path."
 designator = "T"
+label = "K COUPLED"
 category = "Electrical"
 subcategory = "Passives"
 aliases = ["mutual inductance", "K coupled inductors"]

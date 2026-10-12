@@ -4,6 +4,7 @@ version = 1
 name = "SCR (thyristor)"
 description = "Silicon-controlled rectifier built as a regenerative NPN/PNP pair: blocks until a gate current of a few hundred microamps fires it, then stays on until the anode current falls below the holding current IH."
 designator = "Q"
+label = "SCR"
 category = "Electrical"
 subcategory = "Thyristors and IGBT"
 aliases = ["silicon controlled rectifier", "thyristor"]

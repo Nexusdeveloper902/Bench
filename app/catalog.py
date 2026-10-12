@@ -27,8 +27,9 @@ SCHEME_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.\-]*:")   # file:, javascript:, ftp
 ID_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
 PIN_RE = re.compile(r"[A-Za-z0-9_]+\Z")
 CHOICE_RE = re.compile(r"[A-Za-z0-9_.+\-]+\Z")
+LABEL_RE = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]+\Z")   # default part-type label token: letters and digits
 DESIGNATOR_RE = re.compile(r"[A-Z]+\Z")
-TOP = ("format", "id", "version", "name", "description", "designator", "category", "subcategory", "aliases", "keywords",
+TOP = ("format", "id", "version", "name", "description", "designator", "label", "category", "subcategory", "aliases", "keywords",
        "tags", "domain", "capabilities", "limitations", "docs", "pins", "params", "presentation", "sim")
 PIN_KEYS = ("id", "name", "at", "description")
 PARAM_KEYS = ("key", "label", "unit", "default", "kind", "choices", "min", "min_exclusive", "max", "when", "help")
@@ -70,6 +71,7 @@ class Definition:
     animate_when: tuple = ()        # ((param, choice), ...): results of such a run autoplay
     sim: dict = field(default_factory=dict)   # domain -> opaque section, checked by SIM_DOMAINS[domain]
     path: Path = None               # package directory
+    label: str = ""                 # short part type printed on the canvas when there is no value label
 
     @property
     def terminals(self):
@@ -197,6 +199,10 @@ def load_definition(path, root=None, cache=None):
     subcategory = typed(raw, "subcategory", str, "subcategory", "a string", default="")
     designator = typed(raw, "designator", str, "designator", "capital letters like \"R\"", default="U")
     if not DESIGNATOR_RE.match(designator): bad("DEF-FIELD", f"bad designator {designator!r}; use capital letters only", "designator"); designator = "U"
+    plabel = typed(raw, "label", str, "label", "a short part type like \"LM358\"", default=None)
+    if plabel is None:   # default: first name word mixing letters and digits (LM358, 2N3904); else none
+        plabel = next((w for w in str(name).split() if len(w) <= 12 and LABEL_RE.match(w)), "")
+    elif len(plabel) > 12 or plabel != plabel.strip(): bad("DEF-FIELD", f"bad label {plabel!r}; use 12 characters or fewer, no edge spaces", "label")
     aliases, keywords, tags = (strs(raw, k, k) for k in ("aliases", "keywords", "tags"))
     caps, limits, docs = (strs(raw, k, k) for k in ("capabilities", "limitations", "docs"))
     if "capabilities" not in raw: bad("DEF-FIELD", "missing required key 'capabilities'; add it (may be [])", "capabilities")
@@ -349,7 +355,7 @@ def load_definition(path, root=None, cache=None):
         return None, out
     return Definition(ident[0], version, name, category, domain, tuple(caps), tuple(pins), tuple(box), description,
                       designator, subcategory, tuple(aliases), tuple(keywords), tuple(tags), tuple(limits), tuple(docs),
-                      tuple(params), sym, icon, value, ind, show, tuple(anim), sim, path.parent), out
+                      tuple(params), sym, icon, value, ind, show, tuple(anim), sim, path.parent, plabel), out
 
 
 # ---------------------------------------------------------------- catalog
@@ -435,6 +441,11 @@ reload()
 
 def get(kind):
     return CATALOG.get(kind)
+
+
+def canvas_text(kind, params):
+    """Canvas row under a part's name: the value summary, else the short part-type label."""
+    return summary(kind, params) or get(kind).label
 
 
 def summary(kind, params):

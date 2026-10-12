@@ -16,6 +16,7 @@ limitations = ["Generic: no core saturation, no frequency-dependent loss, no win
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
+value = "L"
 box = [0, 0, 80, 30]
 symbol = "symbol.svg"
 

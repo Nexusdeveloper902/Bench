@@ -4,6 +4,7 @@ version = 1
 name = "Instrumentation amplifier (3 op-amp)"
 description = "Classic three-op-amp instrumentation amplifier: two input buffers with 25 kΩ feedback resistors and an external gain resistor RG between the RG pins (gain = 1 + 50 kΩ / RG), then a unity-gain difference stage referenced to REF."
 designator = "U"
+label = "IN-AMP"
 category = "Electrical"
 subcategory = "Analog ICs"
 aliases = ["in-amp", "instrumentation amplifier", "INA"]

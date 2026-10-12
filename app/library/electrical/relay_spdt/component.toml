@@ -4,6 +4,7 @@ version = 1
 name = "Relay, SPDT (coil R + L)"
 description = "Electromechanical relay: coil resistance and inductance drive a changeover contact. Pulls in when the coil current reaches IPULL and releases below IREL."
 designator = "K"
+label = "RELAY SPDT"
 category = "Electrical"
 subcategory = "Switches"
 aliases = ["relay", "changeover relay", "SPDT relay"]

@@ -4,6 +4,7 @@ version = 1
 name = "P-channel MOSFET (generic, level 1)"
 description = "Generic P-channel enhancement MOSFET (SPICE level 1) with threshold, transconductance parameter, channel-length modulation and W/L as parameters. Four pins: drain, gate, source and body."
 designator = "Q"
+label = "PMOS"
 category = "Electrical"
 subcategory = "MOSFETs"
 aliases = ["PMOS generic"]
