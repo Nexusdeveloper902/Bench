@@ -42,3 +42,18 @@ r = s.run()  # r: series/time/npts/wall_ms/used_pauses/fallback_reason
 - Threading: one `Simulation` = one sequential user. Parallel sims must use
   separate processes (shared-handle threads crash libngspice; the core
   serializes but does not parallelize).
+
+## Live runs
+
+```python
+run = s.live(["v.xrl1.vstim"], chunk=1e-4, realtime=1.0)   # benchcore.LiveRun
+for chunk in run:            # on a worker thread; GIL released while a chunk computes
+    ...                      # chunk: time, series (new points), changes, t, done, wall, rtf, seq
+run.set({"v.xrl1.vstim": 100.0})   # any thread: applied at the next chunk boundary
+run.pause(); run.resume(); run.cancel(); run.close()
+s.replay(run.changes)        # the change log as one blocking run, like run()
+```
+
+A live run owns the engine until it ends: `run`/`replay`/another `live` raise
+`BackendError` meanwhile. Only declared R (resistance) and V/I DC values change.
+Contract, mechanism and limits: `docs/plans/ngspice-library/LIVE.md`.

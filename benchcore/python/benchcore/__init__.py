@@ -27,6 +27,8 @@ from ._benchcore import (
 
 __all__ = [
     "Simulation",
+    "LiveRun",
+    "replay",
     "validate",
     "SimError",
     "InvalidCircuitError",
@@ -43,6 +45,11 @@ SimError = Exception
 # validate(deck) -> [finding dict]: the static checks every run applies, on a whole deck (title line first), with no
 # simulation session (the catalog validates package definition text with it).
 validate = _k.validate
+
+# LiveRun(deck, observables, devices=[], chunk=None, realtime=None): a transient that runs while values change;
+# replay(deck, observables, [(t, device, value)]) -> dict like run(). Contract: docs/plans/ngspice-library/LIVE.md.
+LiveRun = _k.LiveRun
+replay = _k.replay
 
 
 class Simulation:
@@ -137,6 +144,22 @@ class Simulation:
         self._last = res
         self._state = "completed"   # res["used_pauses"] says whether native pauses were hit on the way
         return res
+
+    def live(self, devices=(), chunk=None, realtime=None):
+        """Start a live run of this deck -> LiveRun (iterate it on a worker thread). devices: ngspice names
+        (e.g. "v.xrl1.vstim") that set() may change during the run. Refused while another run holds the engine."""
+        return _k.LiveRun(self._deck(), list(self._observables), list(devices), chunk, realtime)
+
+    def replay(self, changes):
+        """Replay a live run's change log [(t, device, value)] as one blocking run of this deck -> dict like run()."""
+        self._state = "running"
+        try:
+            self._last = _k.replay(self._deck(), list(self._observables), [tuple(c) for c in changes])
+        except BaseException:
+            self._last, self._state = None, "failed"
+            raise
+        self._state = "completed"
+        return self._last
 
     def reset(self):
         self._last = None

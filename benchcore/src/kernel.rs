@@ -74,7 +74,7 @@ fn tran_tmax(lines: &[String]) -> Option<f64> {
 /// expression, require TMAX <= min_width/10 (events) / min_period/50 (sines).
 /// Tightens the .tran line when the required bound is stricter than the
 /// explicit one; demands an explicit user bound for unquantifiable TIME.
-fn apply_tmax_policy(mut lines: Vec<String>) -> Result<Vec<String>, SimError> {
+pub(crate) fn apply_tmax_policy(mut lines: Vec<String>) -> Result<Vec<String>, SimError> {
     let exprs = validate::b_exprs(&lines);
     if exprs.is_empty() {
         return Ok(lines);
@@ -159,7 +159,7 @@ pub fn pause_exact(got: f64, want: f64) -> bool {
     (got - want).abs() <= tol
 }
 
-fn scan_loud_failure(log: &[String]) -> Option<String> {
+pub(crate) fn scan_loud_failure(log: &[String]) -> Option<String> {
     let pats = [
         "singular",
         "singular matrix",
@@ -210,7 +210,7 @@ fn scan_loud_failure(log: &[String]) -> Option<String> {
 }
 
 /// `msg: <first ngspice error lines>` (L12: the reason lives in the log).
-fn with_reason(msg: String) -> String {
+pub(crate) fn with_reason(msg: String) -> String {
     let why = ngspice::error_lines(3);
     if why.is_empty() {
         msg
@@ -219,7 +219,7 @@ fn with_reason(msg: String) -> String {
     }
 }
 
-fn nonfinite_or_short(time: &[f64], series: &HashMap<String, Vec<f64>>) -> bool {
+pub(crate) fn nonfinite_or_short(time: &[f64], series: &HashMap<String, Vec<f64>>) -> bool {
     if time.iter().any(|v| !v.is_finite()) {
         return true;
     }
@@ -253,7 +253,7 @@ fn read_all(obs: &[String]) -> (HashMap<String, Vec<(f64, f64)>>, Vec<f64>) {
 /// (unknown node/branch, or a device quantity that was never saved) is a
 /// caller error, never an empty/truncated series. Skipped when there is no
 /// time grid (.op decks).
-fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[f64]) -> Result<(), SimError> {
+pub(crate) fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[f64]) -> Result<(), SimError> {
     if t.is_empty() {
         return Ok(());
     }
@@ -331,12 +331,14 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
 pub fn run_simulation(req: SimRequest) -> Result<SimResult, SimError> {
     // Whole-sequence serialization on the singleton handle.
     let _op = ngspice::op_lock();
+    crate::live::refuse_if_live()?;
     run_simulation_inner(req)
 }
 
-fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
-    // 0. static gates first (fail fast, before touching the backend)
-    let findings = validate::validate(&req.netlist.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+/// The static gates every run passes before touching the backend: validator, control-flow escapes, empty deck.
+/// Shared by batch and live runs (live runs then apply the same TMAX policy).
+pub(crate) fn gates(netlist: &[String]) -> Result<(), SimError> {
+    let findings = validate::validate(&netlist.to_vec());
     if validate::has_error(&findings) {
         let codes = validate::error_codes(&findings);
         let first = findings.iter().find(|f| f.severity == "error").unwrap();
@@ -346,7 +348,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
         });
     }
     // deny control-flow escapes (skip title line 0: ngspice title semantics)
-    for l in req.netlist.iter().skip(1) {
+    for l in netlist.iter().skip(1) {
         let ll = l.trim().to_lowercase();
         if ll == "quit" || ll.starts_with("quit ") || ll.contains("controlled exit") {
             return Err(SimError::InvalidConfig {
@@ -356,7 +358,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
     }
     // empty-deck guard (validate() yields no findings for title-only decks)
     {
-        let has_content = req.netlist.iter().skip(1).any(|l| {
+        let has_content = netlist.iter().skip(1).any(|l| {
             let s = l.trim();
             !(s.is_empty() || s.starts_with('*') || s.eq_ignore_ascii_case(".end"))
         });
@@ -367,7 +369,12 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             });
         }
     }
+    Ok(())
+}
 
+fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
+    // 0. static gates first (fail fast, before touching the backend)
+    gates(&req.netlist)?;
     let mut lines = req.netlist.clone();
     let obs = req.observables.clone();
     let stops_in = req.stops.clone();

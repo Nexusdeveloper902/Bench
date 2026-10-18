@@ -309,6 +309,11 @@ pub fn cur_plot_name() -> String {
 
 /// Read a vector by fully-qualified name. Returns None if missing/empty/complex.
 pub fn read_vec_qualified(name: &str) -> Option<Vec<f64>> {
+    read_vec_from(name, 0)
+}
+
+/// Points `from..` of a vector (live chunks read only what is new). None if missing/empty/complex.
+fn read_vec_from(name: &str, from: usize) -> Option<Vec<f64>> {
     let st = sim().lock().ok()?;
     let lib = st.lib.as_ref()?;
     unsafe {
@@ -327,7 +332,7 @@ pub fn read_vec_qualified(name: &str) -> Option<Vec<f64>> {
             return None;
         }
         let slice = std::slice::from_raw_parts(vi.v_realdata, n);
-        Some(slice.to_vec())
+        Some(slice[from.min(n)..].to_vec())
     }
 }
 
@@ -368,30 +373,46 @@ pub fn all_vecs_count(plot: &str) -> usize {
 
 /// Read observable + time from the CURRENT plot (stale-plot safe).
 pub fn read_series(observables: &[String]) -> (HashMap<String, Vec<f64>>, Vec<f64>) {
+    read_series_from(observables, 0)
+}
+
+/// `read_series`, points `from..` only (a missing vector reads as empty).
+pub fn read_series_from(observables: &[String], from: usize) -> (HashMap<String, Vec<f64>>, Vec<f64>) {
     let plot = cur_plot_name();
     let mut out: HashMap<String, Vec<f64>> = HashMap::new();
     for v in observables {
         let mut data: Option<Vec<f64>> = None;
         if !plot.is_empty() {
-            data = read_vec_qualified(&format!("{}.{}", plot, v));
+            data = read_vec_from(&format!("{}.{}", plot, v), from);
         }
         if data.is_none() {
-            data = read_vec_qualified(v);
+            data = read_vec_from(v, from);
         }
         out.insert(v.clone(), data.unwrap_or_default());
     }
     let mut t: Vec<f64> = vec![];
     if !plot.is_empty() {
-        if let Some(v) = read_vec_qualified(&format!("{}.time", plot)) {
+        if let Some(v) = read_vec_from(&format!("{}.time", plot), from) {
             t = v;
         }
     }
     if t.is_empty() {
-        if let Some(v) = read_vec_qualified("time") {
+        if let Some(v) = read_vec_from("time", from) {
             t = v;
         }
     }
     (out, t)
+}
+
+/// Take and clear the ngspice output log (live runs scan each chunk's own lines).
+pub fn drain_logs() -> Vec<String> {
+    match logs().lock() {
+        Ok(mut lg) => {
+            lg.1.clear();
+            std::mem::take(&mut lg.0)
+        }
+        Err(_) => vec![],
+    }
 }
 
 pub fn take_logs() -> (Vec<String>, Vec<String>) {

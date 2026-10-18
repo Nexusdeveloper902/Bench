@@ -2,6 +2,7 @@
 Pure Python, imports only .components. A part's `line` / `models` are str.format templates; the catalog never sees
 SPICE text and no per-kind code exists here. Definition text (`defs` files, `body`) is literal ngspice text: it is
 never formatted, and each unit is emitted once per deck however many parts use it (docs/adding-components.md)."""
+import ast
 import hashlib
 import re
 import string
@@ -509,6 +510,98 @@ def emit(section, part_name, nodes, values):
     dev = device_name(section, part_name)
     kw = {**{k: _r(v) for k, v in values.items()}, **nodes, "dev": dev, "dev_lc": dev.lower()}
     return [_line(section, values).format(**kw)], [m.format(**kw) for m in section.get("models", [])]
+
+
+_VALUE_LINE = re.compile(r"\{dev\}\s+\S+\s+\S+\s+(?:dc\s+)?\{(\w+)\}\Z", re.I)
+_BODY_VALUE = re.compile(r"([rvi]\w*)\s+(\S+)\s+\S+\s+(?:dc\s+)?\{([^{}]*)\}\Z", re.I)
+_OPS = {ast.Add: float.__add__, ast.Sub: float.__sub__, ast.Mult: float.__mul__, ast.Div: float.__truediv__}
+
+
+def _arith(expr, env):
+    """Value of a plain body expression (numbers, params, + - * / and parentheses), or None for anything else."""
+    def ev(n):
+        if isinstance(n, ast.Constant) and type(n.value) in (int, float): return float(n.value)
+        if isinstance(n, ast.Name): return env[n.id.lower()]
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, ast.USub): return -ev(n.operand)
+        if isinstance(n, ast.BinOp) and type(n.op) in _OPS: return _OPS[type(n.op)](ev(n.left), ev(n.right))
+        raise ValueError
+    try: return ev(ast.parse(expr.strip(), mode="eval").body)
+    except (SyntaxError, KeyError, ValueError, ZeroDivisionError): return None
+
+
+def _subckt_lines(units, name):
+    """Logical lines inside .subckt `name` (header and .ends excluded) as (depth, text); nested bodies at depth 2+."""
+    for u in units:
+        logical = []
+        for s in u.lines:
+            if s.startswith("+") and logical: logical[-1] += " " + s[1:].strip()
+            else: logical.append(s)
+        out, depth = [], 0
+        for s in logical:
+            t = s.split()
+            w = t[0].lower()
+            if depth == 0:
+                depth = int(w == ".subckt" and len(t) > 1 and t[1].lower() == name)
+                continue
+            if w == ".subckt": depth += 1
+            if w == ".ends":
+                depth -= 1
+                if depth == 0: return out
+                continue
+            out.append((depth, s))
+    return []
+
+
+def live_devices(section, part_name, values):
+    """What a live run can change for one part, from package data alone (docs/plans/ngspice-library/LIVE.md).
+    -> ({ngspice device name: value}, {param key: stimulus?}). A live change is an ngspice `alter` of an R
+    (resistance) or a V/I source (DC value):
+    - top-level R/V/I parts: the value of a `{dev} n1 n2 [DC] {key}` line; a choice that selects between such lines
+      (a switch's state) is live too;
+    - X parts: each R/V/I line of the .subckt whose value is one {expression} over the instance params; a body
+      param is live when no other body line mentions it, and its key when the instance line passes it once as
+      NAME={key} and no `models` line uses it. stimulus: it reaches a `VSTIM stim ...` source (sensor convention).
+    Everything else (B/E/G values, models, waveforms, C and L) is fixed for the run."""
+    letter, dev = section["device"], device_name(section, part_name).lower()
+    line, cur = section["line"], _line(section, values)
+    if letter in "RVI":
+        m = _VALUE_LINE.match(cur.strip())
+        if not m or not isinstance(values.get(m[1]), float): return {}, {}
+        keys = {m[1]: False}
+        if isinstance(line, dict) and all(_VALUE_LINE.match(t.strip()) for k, t in line.items() if k != "select"):
+            keys[line["select"]] = False
+        return {dev: values[m[1]]}, keys
+    if letter != "X": return {}, {}
+    devices, keys = _x_live(section, dev, cur, values)
+    if isinstance(line, dict):     # a choice between instance lines that differ only in which keys they pass
+        tpls = {k: t for k, t in line.items() if k != "select"}
+        if len({re.sub(r"=\{\w+\}", "=*", t) for t in tpls.values()}) == 1 and all(
+                set(re.findall(r"=\{(\w+)\}", t)) <= set(_x_live(section, dev, t, values)[1]) for t in tpls.values()):
+            keys[line["select"]] = False
+    return devices, keys
+
+
+def _x_live(section, dev, cur, values):
+    """live_devices for one X instance line template `cur`."""
+    toks = cur.split()
+    name = next((t.lower() for t in toks[1:] if not t.startswith("{") and "=" not in t), None)
+    lines = _subckt_lines(section.get("_units", ()), name)
+    models = " ".join(section.get("models", ()))
+    inst = {m[1].lower(): m[2] for m in (re.fullmatch(r"(\w+)=\{(\w+)\}", t) for t in toks) if m
+            if isinstance(values.get(m[2]), float) and cur.count("{" + m[2] + "}") == 1 and "{" + m[2] + "}" not in models}
+    env = {p: values[k] for p, k in inst.items()}
+    alter = {}                     # line index -> (device, expression, is the stimulus source)
+    for i, (depth, s) in enumerate(lines):
+        m = depth == 1 and _BODY_VALUE.match(s)
+        if m and _arith(m[3], env) is not None:
+            alter[i] = (f"{m[1][0].lower()}.{dev}.{m[1].lower()}", m[3], m[1].lower() == "vstim" and m[2].lower() == "stim")
+    devices, keys = {}, {}
+    for p, k in inst.items():
+        uses = [i for i, (_, s) in enumerate(lines) if re.search(rf"(?<![\w.]){re.escape(p)}(?![\w(])", s, re.I)]
+        if uses and all(i in alter for i in uses):
+            keys[k] = any(alter[i][2] for i in uses)
+            devices.update({alter[i][0]: _arith(alter[i][1], env) for i in uses})
+    return devices, keys
 
 
 def build_netlist(parts, nets, defs):

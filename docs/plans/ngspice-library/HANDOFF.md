@@ -937,3 +937,158 @@ Kinds: equivalent 20, behavioral 5. Status: full 16, limited 9 (the B-driven or 
 ### Gaps (appended to GAPS.md)
 - **G27** (humidity RH stimulus: no controlled capacitor, B-ddt warned), **G28** (solenoid plunger: no controlled inductor), **G29** (B-driven sensors are `limited`; the validator does not check B values against a stimulus range), **G30** (sharp source edges make ngspice's trapezoidal integration put an alternating-sample artefact on a high-Q node current; the resonator tests use 10 µs to 50 ns edges and 0.2 to 0.5 µs output steps).
 - Note: the pressure and strain bridges have a differential output with no reference. Without one ground on an output, the validator reports NO-DC-PATH (correct). The tests reference one side through 1 GΩ or ground it.
+
+## Task 9.5a: live interaction, engine and Python API (done, not committed)
+
+Design, probes and the full contract: `LIVE.md`. Probe script: `probes/live_probe.py`.
+
+### The interrupted attempt
+It had left `kernel.rs` and `ngspice.rs` edited and referring to a `crate::live` module that did not exist, so it did not
+compile. I saved the diff, restored HEAD for the baselines, then reapplied all of it because it is sound and small:
+- `gates()` extracted from `run_simulation_inner`, so batch and live share the static gates;
+- `pub(crate)` on `apply_tmax_policy`, `scan_loud_failure`, `with_reason`, `nonfinite_or_short` and `check_observables`;
+- `refuse_if_live()` in `run_simulation`;
+- `read_vec_from` / `read_series_from` (read only points `from..`) and `drain_logs()` in `ngspice.rs`.
+Nothing was reverted. There was no LIVE.md.
+
+### Mechanism (chosen after probing; LIVE.md "Decision")
+Native stop/resume with `alter` at each pause. The run pauses at every chunk boundary `k·chunk`, and each pause is
+verified exact. Queued changes are applied there with `alter <dev> = v` and read back with `print @dev[param]`. Then
+`delete all`, the next `stop when time = ...`, and `resume`.
+- EXTERNAL sources were rejected: a user change is not a pure function of time.
+- bg_halt was rejected: it halts at an arbitrary time, and the step after it gives 2.5e-3 V of artefact vs 1.6e-5 V here.
+
+### Files
+- New `benchcore/src/live.rs`:
+  - `LiveSim`: the kernel layer: start, `advance(apply, until)`, finish.
+  - `replay`.
+  - `LiveRun`: controls, pause, pacing, sequence numbers.
+  - `refuse_if_live`.
+- `benchcore/src/lib.rs`: pyclass `LiveRun` and `replay()`.
+- `benchcore/python/benchcore/__init__.py`: exports, plus `Simulation.live()` and `Simulation.replay()`.
+- `app/electrical.py`: `live_devices` (pure, package data).
+- `app/sim.py`:
+  - `run_document` was split into `_prepare` / `_simulation` / `_failed` / `_derive`; its behaviour is identical.
+  - New: `live_params`, `LiveSession`, `replay_document`.
+  - `RunResult.state` gains "running" and "cancelled".
+- Docs: `benchcore/docs/api.md` ("Live runs"), LIVE.md.
+
+### Python API for 9.5b (use `app.sim`; never benchcore directly from UI code)
+```python
+from app.sim import live_params, LiveSession, replay_document, run_document
+
+live_params(doc) -> [{"part": "RL1", "key": "lux", "label": "Illuminance (lux)", "unit": "", "stimulus": True}, ...]
+    # what can change live, at the parts' current values, in part order. stimulus=True: a sensor's physical input.
+
+s = LiveSession(doc, chunk=None, realtime=None)
+    # chunk: sim seconds per chunk (default tstop/100; with realtime r: min(tstop/100, 0.05*r)). Also the change latency.
+    # realtime: sim seconds per wall second (1.0 = real time); None = as fast as possible.
+    # Never raises for circuit/core problems: s.result.status is "blocked" (pre-check) or "failed" (core refused,
+    # e.g. another live run is open), and iterating yields nothing.
+
+for chunk in s: ...          # ON ONE WORKER THREAD (QThread). Each step computes a chunk with the GIL released.
+    # chunk = {"t": float sim time reached, "time": [t...] new points, "series": {vector: [(t, v)...]} new points only
+    #          (keys as RunResult.series: node vectors 'v(n2)', currents, derived 'v(Part)'; readable name ->
+    #          s.result.signal("V(n2)")["vector"]), "changes": [(t, part, key, value)] applied at this chunk's start,
+    #          "done": bool, "wall": active wall seconds (paused time excluded), "rtf": sim s per wall s achieved so far}
+    # Iteration ends (StopIteration) when done, cancelled or failed. Core errors never raise here: they end iteration
+    # and land in s.result (status "failed", message "SolverError: ...", details). Points before an error are kept.
+
+s.set_stimulus(part, value, key=None)   # any thread (the Qt thread): queues only, never waits for the engine.
+    # key None = the part's one stimulus param. value: number or text as typed ("1k"). Applied at the next chunk
+    # boundary. Raises app.components.ModelError (user message): run over, unknown part, param not live
+    # ("... cannot change during a live run"), or a value the param refuses ("RL1 lux: must be > 0").
+s.pause(); s.resume()        # any thread; a pause takes effect at the next chunk boundary; paused time is not paced.
+s.cancel()                   # any thread; the worker's iteration ends at the next boundary (at once if paused).
+s.close()                    # ends now and releases the engine; WAITS for a chunk in progress (call it off the Qt
+                             # thread, or after the worker has finished). Idempotent.
+s.state                      # "running" | "paused" | "completed" | "cancelled" | "failed" | "blocked"
+s.result                     # RunResult growing on the worker thread: status "running" -> "success" | "cancelled" |
+                             # "failed"; series accumulate (same keys and pairs as run_document's)
+s.changes                    # [(t, part, key, value)] applied so far, in order
+s.replay()                   # -> RunResult: this run's change log on the circuit it started from (blocking; refused
+                             # while any live run is open; a session that never started returns its own result)
+replay_document(doc, changes) -> RunResult   # the same for a saved log; "blocked" if a change is not live in doc
+```
+**Threading rules.**
+1. Exactly one worker thread iterates a session.
+2. Every session must end: iterate it to the end, `cancel()` and let the worker finish, or `close()`. Until it ends,
+   `run_document` returns status "failed" ("BackendError: a live run is active: ...") and a second `LiveSession` is
+   "failed" too.
+3. Never leave the worker blocked in a paused session at shutdown. Call `cancel()` and then join the worker.
+4. `s.result` lists are appended on the worker thread. Read them in the Qt thread after a chunk signal, or use the
+   chunk payloads.
+
+Engine level (for reference): `benchcore.LiveRun(deck, observables, devices=[], chunk=None, realtime=None)`.
+- It is iterable, with `set({device: value}) -> seq`, `pause`, `resume`, `cancel`, `close`, `state` and `changes`.
+- Its chunk dict also has `seq`.
+- `benchcore.replay(deck, observables, [(t, device, value)]) -> dict` like `run_simulation`.
+- Errors are the existing typed ones. `SimError::Lifecycle` maps to `BackendError`.
+
+### Live-adjustable parts (LIVE.md "What is live")
+- **Stimuli** (`stimulus: True`): LDR lux; PTC, RTD_PT100, RTD_PT1000 and LM35 temp; PHOTODIODE and PHOTOTRANSISTOR
+  irr; HALL_LINEAR b; FSR force; STRAIN_GAUGE and STRAIN_BRIDGE eps; POSITION_SENSOR pos; PRESSURE_BRIDGE pres;
+  DC_MOTOR speed.
+- **Primitives:**
+  - R `R`; V, battery and I `dc` (DC mode only);
+  - SW, PUSH_NO and PUSH_NC `state` and the active on/off value;
+  - SPDT, DPST and DPDT `state`;
+  - POT and RHEOSTAT R, pos and wiper resistance;
+  - BAT_AA, BAT_COIN and BAT_LITHIUM voc and rint.
+- **Internal R/V/I values** the rule also finds (G35): capacitor ESR and leakage, op-amp macro vos/ib/iq/rout, SCR,
+  IGBT, crystals and others. That is 49 parts in all.
+- **Not live:** B/E/G expressions, models, waveforms (PULSE/SIN/PWL, so the microphone SPL), C/L values, a source's
+  mode, HUMIDITY_CAP RH (G27), SOLENOID plunger (G28).
+
+### Limits
+- Latency is one chunk, and a chunk cannot be interrupted (G34).
+- A change queued during the last chunk is dropped with the run's end.
+- Params have no upper bound for sliders, and an accepted extreme value can fail the solve (G31).
+- XSPICE edge timing moves within a time step under chunking (G33).
+- O/U/OSDI decks are refused (`UnavailableError` -> status "failed").
+- An `@` observable needs a `.save` (the app always saves its currents).
+- One live run at a time.
+
+### Tests (all against real ngspice)
+- `benchcore/tests/live.rs`: 12 tests.
+  - LDR step at t1 matches the law before and after.
+  - RC source change matches the analytic response and a batch PWL step.
+  - Live vs replay with changes from another thread, and the replay is deterministic.
+  - Pause/resume continuity.
+  - Cancel, then batch.
+  - Batch, replay and a second live run refused while live.
+  - Solver error mid-run, then recovery.
+  - Poisoned engine mid-run, then reload.
+  - Bad devices refused (unknown, C, PULSE, injection, unsaved `@`).
+  - Pacing.
+  - Two live devices.
+  - XSPICE edges.
+- `benchcore/tests/python/test_live.py`: 12 tests. The same scenarios through `Simulation.live` and a worker thread,
+  plus GIL release (the main thread keeps running while a chunk computes) and the package exports.
+- `app/tests/test_live.py`: 30 tests.
+  - Every stimulus is live and flagged; static parts have none; primitives are live and waveforms are not.
+  - LDR step through `LiveSession`.
+  - `replay_document` and `session.replay()` vs live.
+  - Switch and pot together, against the closed form and replay.
+  - Pause/resume continuity.
+  - Cancel, then batch.
+  - Engine error mid-run, then recovery.
+  - Batch and a second live run refused; a blocked circuit never starts.
+  - User errors.
+  - Pacing.
+
+| Suite | Baseline (HEAD d3a5839, wheel rebuilt) | After |
+|---|---|---|
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | 1310 | 1340 (+30 `app/tests/test_live.py`) |
+| `cd benchcore && cargo test` | 59 (13 lib + 3 adder + 43 correctness) | 71 (+12 `tests/live.rs`) |
+| `cd benchcore && python3 -m pytest -q tests/python` | 9 | 21 (+12 `test_live.py`) |
+
+The wheel was rebuilt and reinstalled per CLAUDE.md. Golden netlists are unchanged (`build_netlist` untouched).
+
+### Gaps (appended to GAPS.md)
+- **G31:** no slider range on stimulus params.
+- **G32:** the batch pause path dumps core with an unsaved `@dev[param]` observable. This bug predates this task, and
+  the repro is in the entry.
+- **G33:** XSPICE edge shift under chunking.
+- **G34:** a chunk cannot be interrupted.
+- **G35:** the derived live rule exposes internal values.
