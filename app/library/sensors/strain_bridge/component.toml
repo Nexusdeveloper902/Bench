@@ -59,6 +59,8 @@ min_exclusive = true
 key = "eps"
 label = "Strain ε (µε)"
 default = "0"
+min = -10000
+max = 10000
 help = "Microstrain on the active gauge"
 
 [sim.electrical]

@@ -8,10 +8,10 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import FuncFormatter
 from PySide6.QtCore import QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QPlainTextEdit,
-                               QProgressBar, QPushButton, QSlider, QStackedWidget, QStyledItemDelegate, QVBoxLayout,
-                               QWidget)
+                               QProgressBar, QPushButton, QSlider, QStackedWidget, QStyledItemDelegate, QToolTip,
+                               QVBoxLayout, QWidget)
 
 from . import theme, widgets as W
 from .components import format_si
@@ -23,6 +23,10 @@ SLIDER_MAX = 10000
 LOOP_SECONDS = 4.0   # wall-clock time for one pass over the simulated window (blink example: ~1 Hz)
 GROUPS = (("node", "Node voltages"), ("across", "Voltage across parts"), ("current", "Currents"))
 QUANTITY = {"V": "Voltage", "A": "Current"}
+# live-run pacing: (label, sim seconds per wall second; "fit" = the whole run in FIT_SECONDS; None = as fast as possible)
+PACES = (("Pace: 10 s run", "fit"), ("Pace: 1×", 1.0), ("Pace: 0.1×", 0.1), ("Pace: 0.01×", 0.01),
+         ("Pace: 0.001×", 1e-3), ("Pace: 0.0001×", 1e-4), ("Pace: max", None))
+FIT_SECONDS = 10.0
 
 
 def eng(m):
@@ -67,6 +71,7 @@ class ResultsPanel(QWidget):
         self.result, self.want = None, None   # want: the signal the user picked; kept across reruns
         self.cur_t, self.cur_line, self.cur_dot, self.t_rng = None, None, None, (0.0, 1.0)
         self.bg, self._last = None, 0.0
+        self.xlim = None      # (0, tstop) during a live run: the plot grows into a fixed time axis
         root = QVBoxLayout(self); root.setContentsMargins(16, 8, 16, 8); root.setSpacing(4)
         # header: title, signal picker, details link
         head = QHBoxLayout(); head.setSpacing(10)
@@ -78,7 +83,11 @@ class ResultsPanel(QWidget):
         self.details_btn = QPushButton("Show details"); self.details_btn.setCheckable(True)
         self.details_btn.setProperty("link", True); self.details_btn.setCursor(Qt.PointingHandCursor)
         self.details_btn.toggled.connect(self._details_toggled)
-        head.addWidget(self.probe, 1); head.addStretch(1); head.addWidget(self.details_btn)
+        self.pace = QComboBox(); self.pace.setMaximumWidth(130)
+        for text, r in PACES: self.pace.addItem(text, r)
+        self.pace.setToolTip("Live run pacing: simulated time per wall-clock second (1× = real time). "
+                             "\"10 s run\" spreads the stop time over 10 s; \"max\" runs as fast as possible.")
+        head.addWidget(self.probe, 1); head.addStretch(1); head.addWidget(self.pace); head.addWidget(self.details_btn)
         root.addLayout(head)
         self.pages = QStackedWidget(); root.addWidget(self.pages, 1)
         self._empty_page(); self._running_page(); self._ok_page(); self._fail_page(); self._details_page()
@@ -111,6 +120,18 @@ class ResultsPanel(QWidget):
         w = QWidget(); l = QVBoxLayout(w); l.setContentsMargins(0, 0, 0, 0); l.setSpacing(4)
         self.play_btn, self.slider, self.time_lbl = PlayButton(), QSlider(Qt.Horizontal), W.label("", "timelbl")
         self.slider.setRange(0, SLIDER_MAX); self.slider.setEnabled(False); self.play_btn.setEnabled(False)
+        # live strip (window-driven, replaces the message banner while live): pause/resume, stop, sim time, achieved pace
+        self.live_row = QWidget(); lr = QHBoxLayout(self.live_row); lr.setContentsMargins(0, 0, 0, 0); lr.setSpacing(8)
+        self.live_pause, self.live_stop, self.live_replay = QPushButton("Pause"), QPushButton("Stop"), QPushButton("Replay as batch run")
+        self.live_replay.setProperty("link", True); self.live_replay.setCursor(Qt.PointingHandCursor)
+        W.set_icon(self.live_pause, "pause", "TEXT_2", 14); W.set_icon(self.live_stop, "stop", "TEXT_2", 14)
+        self.live_pause.setToolTip("Pause the live run at the next chunk boundary (paused time is not paced)")
+        self.live_stop.setToolTip("Stop the live run; the results so far are kept")
+        self.live_replay.setToolTip("Re-run the recorded slider changes as one batch run (deterministic)")
+        self.live_lbl = W.label("", "timelbl")
+        for b in (self.live_pause, self.live_stop): lr.addWidget(b)
+        lr.addWidget(self.live_lbl, 1)
+        self.live_row.hide(); l.addWidget(self.live_row)
         row = QHBoxLayout(); row.setSpacing(10)
         row.addWidget(self.play_btn); row.addWidget(self.slider, 1); row.addWidget(self.time_lbl)
         l.addLayout(row)
@@ -119,11 +140,13 @@ class ResultsPanel(QWidget):
         self.plotw.mpl_connect("draw_event", self._on_draw)
         self.plotw.mpl_connect("button_press_event",
                                lambda e: e.inaxes is self.ax and e.xdata is not None and self.set_cursor_time(e.xdata))
+        self.plotw.mpl_connect("motion_notify_event", self._mark_tip)
         l.addWidget(self.plotw, 1)
         self.readout, self.stats = W.label("", "readout"), W.label("", "stats")
         l.addWidget(self.readout); l.addWidget(self.stats)
         self.ok_banner, col = banner("ok", "check", "STATE_COMPLETED")
         self.msg = W.label("", wrap=True); col.addWidget(self.msg); l.addWidget(self.ok_banner)
+        self.ok_banner.layout().addWidget(self.live_replay, 0, Qt.AlignVCenter)   # after a live run (window-driven)
         self.pages.addWidget(w)
 
     def _fail_page(self):
@@ -208,7 +231,7 @@ class ResultsPanel(QWidget):
     def plot(self, name):
         self.ax.clear()
         r = self.result
-        sig = r.signal(name) if r and r.ok else None
+        sig = r.signal(name) if r and r.ok and self._points() else None
         self.cur_line = self.cur_dot = None
         self.fig.set_facecolor(theme.PANEL); self.ax.set_facecolor(theme.PANEL)
         for s in self.ax.spines.values(): s.set_color(theme.BORDER_STRONG); s.set_linewidth(0.8)
@@ -217,7 +240,10 @@ class ResultsPanel(QWidget):
             ser = r.series[sig["vector"]]
             t, v = zip(*ser)
             self.ax.plot(t, v, color=theme.WIRE, lw=1.6)
-            (ts, tp), (vs, vp) = eng(max(abs(t[0]), abs(t[-1]))), eng(max(map(abs, v)))
+            if self.xlim: self.ax.set_xlim(*self.xlim)
+            for tc, *_ in r.changes:   # live-run changes: a short tick on the time axis (hover: what changed)
+                self.ax.axvline(tc, 0, 0.1, color=theme.SEL, lw=1.6)
+            (ts, tp), (vs, vp) = eng(max(abs(t[0]), abs((self.xlim or t)[-1]))), eng(max(map(abs, v)))
             self.ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _, s=ts: f"{x / s:.6g}"))
             self.ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _, s=vs: f"{x / s:.6g}"))
             self.ax.set_xlabel(f"time ({tp}s)"); self.ax.set_ylabel(f"{QUANTITY[sig['unit']]} ({vp}{sig['unit']})")
@@ -250,7 +276,7 @@ class ResultsPanel(QWidget):
     def _init_cursor(self):
         """Called whenever the result changes: stop playback, cursor to end of run (or disabled if no result)."""
         self.timer.stop(); self.play_btn.setText("Play"); self.play_btn.update()
-        ok = bool(self.result and self.result.ok and self.result.series)
+        ok = bool(self.result and self.result.ok and self._points())
         self.slider.setEnabled(ok); self.play_btn.setEnabled(ok)
         if ok:
             ser = next(iter(self.result.series.values()))
@@ -258,6 +284,35 @@ class ResultsPanel(QWidget):
         else:
             self.cur_t = None
         self.slider.blockSignals(True); self.slider.setValue(SLIDER_MAX); self.slider.blockSignals(False)
+
+    def _points(self):
+        """Points so far in the result (a live result starts empty)."""
+        return bool(self.result and self.result.series and next(iter(self.result.series.values())))
+
+    def grow(self):
+        """A live run streamed more points into self.result: widen the cursor range and redraw. The cursor follows the
+        newest point unless the user moved it back."""
+        if not self._points(): return
+        ser = next(iter(self.result.series.values()))
+        follow = self.cur_t is None or self.cur_t >= self.t_rng[1]
+        if self.cur_t is None: self._init_cursor()
+        self.t_rng = (ser[0][0], ser[-1][0])
+        if follow: self.cur_t = self.t_rng[1]
+        self.plot(self.probe.currentText())
+        self.set_cursor_time(self.cur_t)
+
+    def _mark_tip(self, e):
+        """Tooltip for a live-change tick under the mouse (within 4 px)."""
+        r = self.result
+        if e.inaxes is not self.ax or not r or not r.changes: return
+        x = self.ax.transData.transform
+        near = [c for c in r.changes if abs(x((c[0], 0))[0] - e.x) <= 4]
+        if near:
+            QToolTip.showText(QCursor.pos(), "\n".join(f"t = {format_si(t, 's', 4)}: {p} {k} = "
+                                                       f"{v if isinstance(v, str) else format_si(v, '', 4)}"
+                                                       for t, p, k, v in near), self.plotw)
+        else:
+            QToolTip.hideText()
 
     def set_cursor_time(self, t):
         if self.cur_t is None: return

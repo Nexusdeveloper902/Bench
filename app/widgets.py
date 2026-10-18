@@ -38,6 +38,7 @@ ICONS = {
     "up": '<polyline points="6 15 12 9 18 15"/>',
     "right": '<polyline points="9 6 15 12 9 18"/>',
     "play": '<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/>',
+    "stop": '<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>',
     "pause": '<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>',
     "pulse": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
     "hand": '<path d="M18 11V6a2 2 0 0 0-4 0v1M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/>'

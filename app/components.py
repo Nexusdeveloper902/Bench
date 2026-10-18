@@ -77,6 +77,22 @@ class Param:
     max: float = None
     when: tuple = ()            # ((other_key, value), ...): param applies only if all match
     help: str = ""              # one-line hint (tooltip)
+    scale: str = ""             # live-run slider: "log" | "linear" | "" (log for Ω, else linear)
+
+    def slider(self, value):
+        """(lo, hi, log): the live-run slider range for a number param starting at `value`. The ends are min/max
+        where the package gives them; a log slider with no positive min starts six decades below max. A missing end
+        is taken around value (x/÷100 on a log slider, ±2|value| or ±1 on a linear one). value is always inside."""
+        log = (self.scale or ("log" if self.unit == "Ω" else "linear")) == "log" and value > 0
+        lo, hi = self.min, self.max
+        if log:
+            if lo is None or lo <= 0:
+                lo = hi / 1e6 if hi is not None else value / 100
+            hi = hi if hi is not None else value * 100
+        else:
+            m = 2 * abs(value) or 1.0
+            lo, hi = (-m if lo is None else lo), (m if hi is None else hi)
+        return min(lo, value), max(hi, value), log
 
     def applies(self, params):
         return all(params.get(k) == v for k, v in self.when)

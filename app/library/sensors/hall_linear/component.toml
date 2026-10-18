@@ -39,6 +39,8 @@ at = [60, 30]
 key = "b"
 label = "Magnetic field (mT)"
 default = "0"
+min = -200
+max = 200
 help = "Flux density along the sensitive axis, in millitesla (negative for the opposite pole)"
 
 [[params]]

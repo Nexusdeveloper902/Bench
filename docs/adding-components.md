@@ -133,6 +133,14 @@ Each `[[params]]` table maps to one editable field.
 | `min`, `min_exclusive`, `max` | numeric bounds |
 | `when` | `{param = "choice"}`: the field applies only when those values match |
 | `help` | one-line tooltip |
+| `scale` | live-run slider scale: `"log"` or `"linear"`; default log for `Ω`, linear otherwise. `"log"` needs `min >= 0` |
+
+**Live-run sliders.** During a live run the inspector shows a slider for each live param of the selected part
+(a dropdown for a choice). Its range is `min`..`max`. A log slider whose `min` is missing or 0 (exclusive) starts six
+decades below `max` (LDR lux: 0.1 to 100000). A missing end is taken around the starting value: x/÷100 on a log
+slider (a resistor at 1k: 10 to 100k), ±2·|value| (or ±1) on a linear one. So give a stimulus param (`VSTIM ... DC
+{P}`, LIVE.md) both `min` and `max`, at the physical range the model is valid for, and `scale = "log"` when it spans
+decades (illuminance, force). `max` is also a validation bound, so a typed value above it is refused (G31).
 
 ## `[sim.electrical]` rules
 

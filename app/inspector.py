@@ -2,14 +2,32 @@
 catalog Definition's param schema (number -> text field with unit and SI hint, choice -> dropdown, `when` fields appear
 and vanish with their choice); pins, limitations, docs and readiness come from the Definition too. No component is
 named here. Design: docs/milestone/03-design.md (inspector frames)."""
+import math
+
 from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QSlider,
+                               QVBoxLayout, QWidget)
 
 from . import theme, widgets as W
 from .components import ModelError, format_si
 
 SI_HINT = "1k  4.7u  330m"
+STEPS = 1000   # live slider resolution
+
+
+def live_fmt(x, unit):
+    """A live value: SI-prefixed with a unit, plain for unitless params (their unit is in the label: lux, °C, N)."""
+    return format_si(x, unit, 4) if unit else f"{x:.6g}"
+
+
+def slider_map(lo, hi, log):
+    """(position -> value, value -> position) for a 0..STEPS slider over [lo, hi]; values keep 3 significant digits."""
+    if hi <= lo: return (lambda i: lo), (lambda v: 0)
+    if log:
+        k = math.log(hi / lo)
+        return (lambda i: float(f"{lo * math.exp(k * i / STEPS):.3g}"),
+                lambda v: round(STEPS * math.log(max(v, lo) / lo) / k))
+    return (lambda i: float(f"{lo + (hi - lo) * i / STEPS:.3g}"), lambda v: round(STEPS * (v - lo) / (hi - lo)))
 
 
 class FieldEdit(QLineEdit):
@@ -31,6 +49,7 @@ class Inspector(QWidget):
     param_edited = Signal(str, str, str)   # part, param key, text as typed (committed on Enter / focus loss)
     plot_requested = Signal(str)           # pin ref of the selected wire
     delete_requested = Signal()
+    live_edited = Signal(str, str, object)  # part, param key, value (float, or choice text) from a live-run control
 
     def __init__(self):
         super().__init__()
@@ -41,11 +60,14 @@ class Inspector(QWidget):
         self.view = "none"           # none | part | placeholder | wire
         self.edits, self.boxes, self.msgs, self.labels, self.banner = {}, {}, {}, {}, None
         self.buttons = {}
+        self.live, self.live_sliders, self.live_labels = None, {}, {}
 
     # ---- entry points
-    def show_selection(self, doc, sel, wire, run):
-        """Render the canvas selection: a part name, a wire (pin, pin) or nothing. `run` = (analysis, stop, step) text."""
-        self.ctx = (doc, sel, wire, run)
+    def show_selection(self, doc, sel, wire, run, live=None):
+        """Render the canvas selection: a part name, a wire (pin, pin) or nothing. `run` = (analysis, stop, step) text.
+        live: during a live run, {param key: current value} of the selected part's live params (sliders on top)."""
+        self.ctx = (doc, sel, wire, run, live)
+        self.live, self.live_sliders, self.live_labels = live, {}, {}
         self.edits, self.boxes, self.msgs, self.labels, self.buttons, self.banner = {}, {}, {}, {}, {}, None
         w = QWidget(); w.setObjectName("panel")
         lay = QVBoxLayout(w); lay.setContentsMargins(theme.LG, theme.LG, theme.LG, theme.LG); lay.setSpacing(theme.SM)
@@ -154,6 +176,8 @@ class Inspector(QWidget):
                                   "substituted.", "hint", wrap=True))
             return
         self._header(lay, c, c.name, f"{n}  ·  {c.id}  ·  v{d['version']}", c.readiness)
+        if self.live:
+            self._live_controls(lay, n, c)
         lay.addWidget(W.section("Parameters"))
         keys = c.fields(d["params"])
         if not keys:
@@ -178,6 +202,33 @@ class Inspector(QWidget):
         if docs: lay.addWidget(docs)
         lay.addWidget(W.rule())
         lay.addWidget(W.label(f"type {c.id}   version {d['version']}", "code"))
+
+    def _live_controls(self, lay, n, c):
+        """Live run: one slider (number) or dropdown (choice) per live param. Changes are emitted as live_edited."""
+        lay.addWidget(W.section("Live"))
+        for k, v in self.live.items():
+            m = c.param(k)
+            if m.kind == "choice":
+                lay.addWidget(self._label_row(m.label, "", m.help))
+                w = QComboBox(); w.setFixedHeight(theme.CONTROL_H); w.addItems(m.choices); w.setCurrentText(v)
+                w.currentTextChanged.connect(lambda t, k=k: self.live_edited.emit(n, k, t))
+                self.live_sliders[k] = w; lay.addWidget(w)
+                continue
+            lo, hi, log = m.slider(v)
+            to_val, to_pos = slider_map(lo, hi, log)
+            head = self._label_row(m.label, live_fmt(v, m.unit), m.help)
+            val = head.findChildren(QLabel)[-1]; val.setObjectName("readout"); theme.repolish(val)
+            sl = QSlider(Qt.Horizontal); sl.setRange(0, STEPS); sl.setValue(to_pos(v)); sl.setFixedHeight(theme.CONTROL_H - 8)
+            sl.setToolTip(f"{live_fmt(lo, m.unit)} to {live_fmt(hi, m.unit)}{', log scale' if log else ''}")
+            sl.valueChanged.connect(lambda i, k=k, f=to_val, lab=val, u=m.unit: (
+                lab.setText(live_fmt(f(i), u)), self.live_edited.emit(n, k, f(i))))
+            ends = QWidget(); el = QHBoxLayout(ends); el.setContentsMargins(0, 0, 0, 0)
+            el.addWidget(W.label(live_fmt(lo, m.unit), "hint")); el.addStretch(1)
+            el.addWidget(W.label(live_fmt(hi, m.unit) + ("  (log)" if log else ""), "hint"))
+            self.live_sliders[k], self.live_labels[k] = sl, val
+            for x in (head, sl, ends): lay.addWidget(x)
+        lay.addWidget(W.label("Live run: a change applies at the next chunk boundary and is marked on the plot. "
+                              "Editing a parameter below stops the live run.", "hint", wrap=True))
 
     def _pins(self, lay, doc, n, c):
         wired = {e for w in doc.wires for e in w}

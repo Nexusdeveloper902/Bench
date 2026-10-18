@@ -21,6 +21,7 @@ class RunResult:
     signals: list = field(default_factory=list)  # readable names, see components.build_netlist
     details: str = ""                # developer diagnostics: error type, full message, findings, deck
     excluded: list = field(default_factory=list)  # unsimulated parts left out of the circuit (named in the message)
+    changes: list = field(default_factory=list)   # live runs and their replays: [(t, part, key, value)] applied
 
     @property
     def state(self):
@@ -352,4 +353,4 @@ def _replay(diags, cfg, nl, start, changes):
         return _failed(e, findings, diags, nl)
     _derive(series, nl)
     return RunResult(True, "success", _ok_message(series, nl), series, findings, diags, nl["signals"],
-                     _details("ok", f"{cfg}", findings, diags, _deck(nl)), nl["excluded"])
+                     _details("ok", f"{cfg}", findings, diags, _deck(nl)), nl["excluded"], list(changes))

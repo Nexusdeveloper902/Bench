@@ -48,6 +48,8 @@ help = "Generic metal-foil value"
 key = "eps"
 label = "Strain ε (µε)"
 default = "0"
+min = -10000
+max = 10000
 help = "Microstrain: 1 µε = 1e-6 m/m"
 
 [sim.electrical]

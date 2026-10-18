@@ -58,6 +58,7 @@ help = "Back-EMF per rad/s; 1 rpm is 0.1047 rad/s"
 key = "speed"
 label = "Speed (rpm)"
 default = "0"
+max = 20000
 min = 0
 help = "Shaft speed; 0 gives the stall current"
 

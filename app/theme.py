@@ -45,7 +45,9 @@ DARK = dict(
 # into STATES (text, colour, hollow) and READINESS (label, foreground, background, tooltip).
 _STATES = {"idle": ("Idle", "STATE_IDLE", False), "running": ("Running", "STATE_RUNNING", True),
            "completed": ("Completed", "STATE_COMPLETED", False), "failed": ("Failed", "STATE_FAILED", False),
-           "blocked": ("Blocked", "STATE_FAILED", False), "stale": ("Out of date", "STATE_STALE", False)}
+           "blocked": ("Blocked", "STATE_FAILED", False), "stale": ("Out of date", "STATE_STALE", False),
+           "live": ("Live", "STATE_RUNNING", True), "paused": ("Paused", "STATE_STALE", True),
+           "cancelled": ("Stopped", "STATE_IDLE", False)}
 _READINESS = {"simulated": ("Simulated", "Has a working simulation model"), "interface": ("Interface only", "Not simulated"),
               "placeable": ("Reference only", "Documentation only: no pins, not simulated"),
               "placeholder": ("Placeholder", "No usable definition: kept unchanged")}   # keys: Definition.readiness + placeholder

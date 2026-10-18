@@ -1092,3 +1092,116 @@ The wheel was rebuilt and reinstalled per CLAUDE.md. Golden netlists are unchang
 - **G33:** XSPICE edge shift under chunking.
 - **G34:** a chunk cannot be interrupted.
 - **G35:** the derived live rule exposes internal values.
+
+## Task 9.5b: live interaction, UI (done, not committed)
+
+Built on 9.5a's `app.sim` API only (`LiveSession`, `live_params`, `session.replay()`); no engine code. Engine
+contract: `LIVE.md`.
+
+### Behaviour
+- **Live button** (top bar, after Reset; F6; Simulation menu) starts a live run of the circuit and turns into
+  **Stop**. Batch Run / Re-run / Reset (buttons, F5, Ctrl+F5, menu), the run-setting fields and the pace picker are
+  disabled until the worker has finished; `run()` and `reset()` also refuse while a session exists. The state badge
+  shows **Live** (hollow, running colour), **Paused**, then Completed / **Stopped** (cancelled) / Failed.
+- **Pace** picker in the results header: `10 s run` (default: tstop spread over 10 s of wall time), 1×, 0.1×, 0.01×,
+  0.001×, 0.0001× (sim seconds per wall second) and `max` (as fast as possible). The chunk is 9.5a's default.
+- **Live strip** (replaces the result banner while live): Pause/Resume (F7), Stop, and `t = 11.2 ms / 20 ms
+  0.0100× real time` (sim time reached, stop time, achieved factor from the chunk's `rtf`; "paused" while paused).
+- **Inspector**: while live, a selected part with live params gets a "Live" section on top: a slider per number
+  param (label from the package, value readout with its unit, range ends underneath, `(log)` on a log slider,
+  tooltip with the range) and a dropdown per choice param (switch state). Stimulus params are listed first. Moving
+  a control emits `live_edited`; the window coalesces changes (last value per param wins) and hands them to
+  `set_stimulus` at most every 50 ms, so a drag does not flood the chunk queue. A refused value (over `max`, or the
+  run just ended) goes to the status bar in red; the run continues. No on-canvas affordance was added.
+- **Streaming plot**: the window keeps its own `RunResult` copy and extends it on the Qt thread from each chunk
+  payload (rule 4). A 50 ms single-shot timer coalesces redraws. The time axis is fixed at 0..tstop while live, so
+  the line visibly grows. The cursor follows the newest point unless the user moved it back. The readout, stats and
+  LED glow and current labels work during the run, because the copy has `ok=True`. Each applied change is a short
+  orange tick at the bottom of the plot at its time; hovering over it shows `t = 6.2 ms: RL1 lux = 805`.
+  `RunResult.changes` (new field) holds the log; replay results carry it too.
+- **After the run**: the result stays as a normal result: scrub, Play, probe picker, Show details, Re-run. A
+  cancelled run keeps its points (`ok=True`, state "cancelled"). The banner reads `ok, N points` plus a **Replay
+  as batch run** link (shown when the live run applied changes). It calls `session.replay()` (blocking, like Run)
+  and shows that result with the same ticks.
+- **Errors mid-run** (e.g. a `SolverError` in a chunk) are shown exactly like a batch failure: Failed badge, "Run
+  failed" page with the message, `FAILED: ...` status, Show details with the developer text. The engine is free
+  again for the next run. An exception in the worker (an app bug) becomes a failed result with the traceback in
+  details.
+- **Editing during a live run stops it** (chosen over refusing). Any change in the run key (parts, params, wires,
+  settings; the same signature that makes batch results stale) cancels the session in `_check_stale`. The streamed
+  result is dropped as out of date, as after a batch run, and the status reads "Live run stopped: the circuit
+  changed. results out of date - press Re-run". Moving or selecting parts does not stop it. Slider values are never
+  written into the document (G39).
+
+### Threading and cleanup
+- `LiveWorker(QThread)` iterates the session; each chunk is emitted as a queued `chunk` signal; `finished` triggers
+  `_live_done`. That slot joins the thread (`wait()`; finished is emitted in the thread's last moments), calls
+  `session.close()` (idempotent, never waits since the iteration has ended) and publishes the outcome.
+- The Qt thread only calls queueing methods (`set_stimulus`, `pause`, `resume`, `cancel`), so it never waits on
+  the engine. The exceptions are `end_live()` on window close and on New/Open/examples (`_reset`). There it cancels
+  (immediate if paused) and waits for the chunk in progress. This is threading rule 3: never leave the worker
+  blocked in a paused run (G38).
+- A chunk that arrives after its result was dropped is ignored (`result is not live_result`).
+
+### Package data (G31, fixed)
+- New optional param key `scale` (`"log"` | `"linear"`; default log for Ω, else linear; `"log"` needs `min >= 0`;
+  `DEF-PARAM` otherwise). `Param.slider(value) -> (lo, hi, log)`: [min, max]; a log slider without a positive min
+  starts six decades below max; a missing end is taken around the value (x/÷100 log, ±2|v| linear).
+- `max` (and a `min` where there was none) on every stimulus that lacked one: LDR lux 100000 + log, FSR force
+  100 N + log, PHOTODIODE/PHOTOTRANSISTOR irr 100 mW/cm², HALL_LINEAR b ±200 mT, STRAIN_GAUGE/STRAIN_BRIDGE eps
+  ±10000 µε, PRESSURE_BRIDGE pres 10 bar, DC_MOTOR speed 20000 rpm. LM35, PTC, RTD and POSITION_SENSOR already had
+  both ends. Documented in `docs/adding-components.md` (Parameters) and `docs/frontend-components.md`.
+  `docs/library.md` is unchanged (bounds are not in the catalog output; regenerated and compared).
+- `app/tests/test_live.py::test_engine_error_mid_run...` used LDR lux = 1e300, now refused by `max`; it uses 1e-300
+  (still inside `min > 0`, still breaks the law: G37).
+
+### Layout
+- Top bar: the Live button needs about 104 px, so the compact top bar (no Transient chip, narrower fields and
+  buttons) now starts below 1360 px instead of 1240, and below 1150 px the "Stop time"/"Time step" captions hide
+  (the fields keep their tooltips). Minimum bar width is now 1136 px compact and 1001 px narrow, so it fits at
+  1280 and at the 1024 minimum (before this task it overflowed by 32 px at 1024).
+- Screenshots were rendered offscreen at 1280×800, light and dark: live and paused with the LDR slider and a
+  half-grown plot with its change tick, and finished with two ticks and the replay link. Nothing overlaps; the
+  plot keeps its tick labels clear because the live strip replaces the banner instead of adding a row.
+
+### Files
+- `app/window.py`: `LiveWorker`, Live/Pause actions and button, `live`, `pause_live`, `stop_live`, `end_live`,
+  `live_set` + `_live_flush`, `_live_chunk`, `_live_redraw`, `_live_label`, `_live_done`, `replay_live`. Also
+  `_sync_controls`, `_show_result`, `_check_stale`, `closeEvent`, `_reset`, `resizeEvent`, `refresh` (passes live
+  values to the inspector).
+- `app/results.py`: `PACES`, pace combo, live strip, `grow()`, `_points()`, fixed `xlim`, change ticks + hover
+  tooltip, empty-series guards, replay link in the ok banner.
+- `app/inspector.py`: `live_edited` signal, `slider_map`, `live_fmt`, `_live_controls`; `show_selection(..., live)`.
+- `app/components.py` (`Param.scale`, `Param.slider`), `app/catalog.py` (`scale` key), `app/sim.py`
+  (`RunResult.changes`; replay results carry the log), `app/theme.py` (badge states live, paused, cancelled),
+  `app/widgets.py` (stop icon), 9 sensor/motor `component.toml` files.
+- Docs: adding-components.md, frontend-components.md, frontend-architecture.md, LIVE.md (limits), GAPS.md.
+
+### Tests: `app/tests/test_live_ui.py` (27, real MainWindow, real ngspice, offscreen)
+- LDR divider at 0.01×. The lux slider is moved mid-run. The plotted output (`ax.lines[0]` = `view_data()`) matches
+  the LDR law for 10 lux before the change and for the new lux after it, within 1e-4 V. The change tick is drawn.
+  Scrubbing works after the run.
+- The plot grows (fixed 0..tstop axis, more points over time).
+- Pause holds sim time over 400 ms; resume completes to tstop.
+- Stop keeps the points so far (state "Stopped"), then Re-run batch succeeds.
+- Batch is disabled during live: buttons, actions, fields, pace; direct `run()`/`reset()` are refused.
+- Window close mid-run while paused: the worker finishes, the session is cancelled, `run_document` works, and a
+  new window's batch run works.
+- Engine error mid-run (lux 1e-300): shown as Run failed with SolverError, then batch recovers.
+- A refused value (over max) is reported in red and the run goes on.
+- Editing a param stops the run and makes the result stale.
+- Switch dropdown plus resistor slider range (fallback x/÷100): the switch current steps at the change.
+- Replay matches the live run within 1e-4 V and carries the same change log.
+- Slider ranges come from package data for all 14 stimuli. Log scale and mapping. A bad `scale` is a definition error.
+- Ran 3 more times in a row: 27/27 each time (about 23 s).
+
+| Suite | Before | After |
+|---|---|---|
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | 1340 | 1367 (+27 `test_live_ui.py`) |
+
+### Gaps (appended to GAPS.md)
+- **G31:** fixed.
+- **G36:** sensor limitation text says the stimulus is fixed for the whole run.
+- **G37:** typed values below a log slider's floor can still break the solve.
+- **G38:** close/New/Open wait for the chunk in progress on the Qt thread.
+- **G39:** slider values are not written back, and there is no save-session.

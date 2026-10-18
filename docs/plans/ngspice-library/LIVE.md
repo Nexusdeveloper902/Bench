@@ -107,7 +107,8 @@ run's extra chunk breakpoints.
 - Latency is one chunk. ngspice cannot be interrupted inside a chunk (bg_halt was rejected above), so cancel, pause
   and changes wait for the chunk in progress. Keep chunks short for heavy circuits.
 - A change queued during the last chunk is never applied (the run ends at tstop) and is not in the log.
-- A value inside a param's declared range can still break the solve: LDR lux = 1e300, FSR force = 1e-300. The chunk
-  fails loudly. Sensor params have no upper bound for a slider (G31).
+- A value inside a param's declared range can still break the solve: LDR lux = 1e-300, FSR force = 1e-300. The chunk
+  fails loudly. Stimulus params now have a `max` and a slider range (G31, fixed in 9.5b); a typed value
+  below a log slider's floor still can (G37).
 - XSPICE edges can move by up to about a third of a time step between a live run and its batch or replay run (G33).
 - One live run at a time. Parallel runs need processes (REPORT §6).

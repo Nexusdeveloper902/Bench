@@ -186,7 +186,7 @@ def test_engine_error_mid_run_fails_the_session_and_the_engine_recovers():
     c, ldr, _, out = divider()
     s = LiveSession(c.d, chunk=5e-4)
     next(s)
-    s.set_stimulus(ldr, "1e300")                  # inside the param's range, breaks the LDR law in ngspice
+    s.set_stimulus(ldr, "1e-300")                 # inside the param's range (> 0), breaks the LDR law in ngspice
     assert collect(s).status == "failed" and s.state == "failed"
     assert "SolverError" in s.result.message and len(s.result.get(out)) > 10    # the points before the error stay
     assert run_document(c.d).ok and collect(LiveSession(c.d)).ok

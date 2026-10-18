@@ -44,6 +44,7 @@ at = [80, 60]
 key = "pres"
 label = "Pressure (bar)"
 default = "0"
+max = 10
 min = 0
 help = "Gauge pressure in bar"
 

@@ -32,7 +32,7 @@ DESIGNATOR_RE = re.compile(r"[A-Z]+\Z")
 TOP = ("format", "id", "version", "name", "description", "designator", "label", "category", "subcategory", "aliases", "keywords",
        "tags", "domain", "capabilities", "limitations", "docs", "pins", "params", "presentation", "sim")
 PIN_KEYS = ("id", "name", "at", "description")
-PARAM_KEYS = ("key", "label", "unit", "default", "kind", "choices", "min", "min_exclusive", "max", "when", "help")
+PARAM_KEYS = ("key", "label", "unit", "default", "kind", "choices", "min", "min_exclusive", "max", "when", "help", "scale")
 PRES_KEYS = ("box", "symbol", "icon", "value", "indicator", "show_current", "animate_when")
 
 
@@ -254,12 +254,15 @@ def load_definition(path, root=None, cache=None):
         when = typed(t, "when", dict, f"{f}.when", "a table like {mode = \"PULSE\"}", default={})
         if not all(isinstance(v, str) for v in when.values()): bad("DEF-PARAM", "'when' values must be choice strings", f"{f}.when"); when = {}
         hlp = typed(t, "help", str, f"{f}.help", "a string", default="")
+        scale = typed(t, "scale", str, f"{f}.scale", "\"log\" or \"linear\"", default="")
+        if scale not in ("", "log", "linear"): bad("DEF-PARAM", f"scale must be \"log\" or \"linear\"; got {scale!r}", f"{f}.scale"); scale = ""
+        if scale == "log" and _num(lo) and lo < 0: bad("DEF-PARAM", "a log scale needs min >= 0", f"{f}.scale"); scale = ""
         if key is None or label is None or default is None: continue
         if not ID_RE.match(key): bad("DEF-PARAM", f"bad param key {key!r}; use letters, digits and _ starting with a letter", f"{f}.key"); continue
         if key in ("dev", "dev_lc") or any(key == p.id for p in pins) or any(key == q.key for q in params):
             bad("DEF-PARAM", f"param key '{key}' clashes with a pin id, a template name (dev, dev_lc) or another param; rename it", f"{f}.key"); continue
         p = Param(key, label, unit, default, kind, tuple(choices), lo if _num(lo) else None, excl, hi if _num(hi) else None,
-                  tuple(when.items()), hlp)
+                  tuple(when.items()), hlp, scale)
         try: p.parse(default, key)
         except ModelError as e: bad("DEF-PARAM", f"default {default!r} is not valid ({e}); fix the default", f"{f}.default")
         params.append(p)

@@ -51,6 +51,7 @@ Helpers: `get(kind)` (ModelError on unknown kind), `Component.defaults()`, `.fie
 | `kind` | `"number"` (SI text) or `"choice"` (`choices` tuple) |
 | `min`, `min_exclusive`, `max` | bounds; message `R1 R: must be > 0` |
 | `when` | `((other_key, value), ...)`: param applies only then (source waveform fields) |
+| `scale` | live-run slider scale (`"log"`, `"linear"`, `""` = log for Ω); `Param.slider(value)` -> `(lo, hi, log)` |
 
 `Param.parse(text, owner)` returns a float (or the choice string) or raises `ModelError` naming part and key.
 Values are stored as typed text (`"4.7k"`), never normalised, so files keep what the user wrote.

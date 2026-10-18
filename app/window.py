@@ -6,19 +6,19 @@ per component (pins, body box, symbol, params, units, value label, current/glow 
 Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
 import os
 import traceback
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
                                QMessageBox, QPushButton, QSizePolicy, QSplitter, QToolButton, QVBoxLayout, QWidget)
 from .model import Document, ModelError, RUN_PARAMS, led_level, value_at
 from .catalog import CATALOG
 from .components import format_si
-from .sim import run_document, RunResult
+from .sim import run_document, RunResult, LiveSession, live_params
 from .history import History
 from .canvas import Canvas, pin_pos, wire_pts, part_rect   # re-exported: tests and scripts import them from here
 from .inspector import Inspector
 from .library import LibraryPanel
-from .results import ProblemsPanel, ResultsPanel, banner
+from .results import FIT_SECONDS, ProblemsPanel, ResultsPanel, banner
 from . import theme, widgets as W
 
 
@@ -29,6 +29,21 @@ def logo_pixmap(px=28):
     p.drawRoundedRect(0, 0, px, px, theme.R_MD, theme.R_MD)
     p.drawPixmap((px - 20) // 2, (px - 20) // 2, W.svg_pixmap("pulse", theme.ON_PRIMARY, 20)); p.end()
     return pm
+
+
+class LiveWorker(QThread):
+    """Iterates one LiveSession off the Qt thread (LIVE.md threading rule 1). Each chunk reaches the window as a queued
+    signal; QThread.finished follows the last one. Core errors end the iteration inside the session (never raise)."""
+    chunk = Signal(object)
+
+    def __init__(self, session):
+        super().__init__(); self.session, self.error = session, None
+
+    def run(self):
+        try:
+            for c in self.session: self.chunk.emit(c)
+        except Exception:   # an app bug: shown as a failed run, never hidden
+            self.error = traceback.format_exc()
 
 
 # ---------------------------------------------------------------- main window
@@ -43,6 +58,13 @@ class MainWindow(QMainWindow):
         self.state = "idle"     # idle | running | completed | failed | blocked (no pause: the core runs synchronously)
         self.invalid = {}       # run-setting key -> message, for the fields that do not parse
         self.autoplay = False   # start looping after a Run of a time-varying source
+        # live run (task 9.5b): the session and its worker exist from start until the worker has finished
+        self.session, self.worker, self.paused, self.last_session, self.live_result = None, None, False, None, None
+        self.live_vals, self.live_pending, self.live_t, self.live_rtf = {}, {}, 0.0, 0.0
+        self.live_flush = QTimer(self); self.live_flush.setSingleShot(True); self.live_flush.setInterval(50)
+        self.live_flush.timeout.connect(self._live_flush)      # slider drags: at most one change per part per 50 ms
+        self.live_redraw = QTimer(self); self.live_redraw.setSingleShot(True); self.live_redraw.setInterval(50)
+        self.live_redraw.timeout.connect(self._live_redraw)    # chunks: at most one plot redraw per 50 ms
         self.hist = History()
         self.clean = self.doc.to_dict()
         self.canvas = Canvas(self)
@@ -67,6 +89,9 @@ class MainWindow(QMainWindow):
         self.a_run = act("Run", self.run, "F5", tip="Run the transient simulation (F5)")
         self.a_rerun = act("Re-run", self.rerun, "Ctrl+F5", tip="Clear results and run again (Ctrl+F5)")
         self.a_reset = act("Reset", self.reset, tip="Clear the results (the circuit is kept)")
+        self.a_live = act("Live", self.live, "F6", tip="Live run (F6): the transient runs while you move sliders on "
+                          "sensors, pots, switches and sources; F6 again stops it")
+        self.a_pause = act("Pause live run", self.pause_live, "F7", tip="Pause or resume the live run (F7)")
         self.a_zoom_in = act("Zoom in", lambda: self.canvas.zoom_by(1.25), "Ctrl+=", "Ctrl++")
         self.a_zoom_out = act("Zoom out", lambda: self.canvas.zoom_by(1 / 1.25), "Ctrl+-")
         self.a_fit = act("Fit all parts", self.canvas.fit, "Ctrl+0")
@@ -78,6 +103,7 @@ class MainWindow(QMainWindow):
         self.inspector.param_edited.connect(self.edit_param)
         self.inspector.plot_requested.connect(self.probe_pin)
         self.inspector.delete_requested.connect(self.delete_selected)
+        self.inspector.live_edited.connect(self.live_set)
         # results dock: waveform viewer | Problems
         self.results, self.problems_panel = ResultsPanel(), ProblemsPanel()
         self.problems_panel.part_clicked.connect(self.select)
@@ -86,6 +112,10 @@ class MainWindow(QMainWindow):
                   "slider", "plotw", "fig", "ax", "timer"):
             setattr(self, n, getattr(self.results, n))      # the viewer's widgets, reachable from the window
         self.problems, self.problems_lbl = self.problems_panel.list, self.problems_panel.title
+        self.pace = self.results.pace
+        self.results.live_pause.clicked.connect(self.pause_live)
+        self.results.live_stop.clicked.connect(self.stop_live)
+        self.results.live_replay.clicked.connect(self.replay_live)
         dock = QWidget(); dock.setObjectName("results"); dock.setFixedHeight(theme.DOCK_H)
         dl = QHBoxLayout(dock); dl.setContentsMargins(0, 0, 0, 0); dl.setSpacing(0)
         sep = QFrame(); sep.setObjectName("vsep")
@@ -127,7 +157,7 @@ class MainWindow(QMainWindow):
         menu = QMenu(app)
         for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
                             ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
-                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset)),
+                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset, None, self.a_live, self.a_pause)),
                             ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit, None, self.a_dark))):
             sub = menu.addMenu(title)
             for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
@@ -163,6 +193,10 @@ class MainWindow(QMainWindow):
             if prim:
                 W.set_icon(b, "play", "ON_PRIMARY", 16); b.setIconSize(QSize(16, 16))
             lay.addWidget(b)
+        self.b_live = QPushButton("Live"); self.b_live.setObjectName("simbtn"); self.b_live.setProperty("primary", False)
+        self.b_live.setFixedSize(96, 32); self.b_live.setToolTip(self.a_live.toolTip()); self.b_live.clicked.connect(self.live)
+        W.set_icon(self.b_live, "pulse", "TEXT_2", 16); self.b_live.setIconSize(QSize(16, 16))
+        lay.addWidget(self.b_live)
         self.state_lbl = W.StateBadge(); lay.addWidget(self.state_lbl)
         lay.addWidget(W.vline(24))
         db = QToolButton(); db.setObjectName("iconbtn"); db.setDefaultAction(self.a_dark); db.setToolButtonStyle(Qt.ToolButtonIconOnly)
@@ -171,17 +205,29 @@ class MainWindow(QMainWindow):
 
     def _sync_controls(self):
         """Enable and label the run controls per the Run / Re-run / Reset table (design R2) and show the notice."""
-        s, running = self.state, self.state == "running"
+        s, live = self.state, self.session is not None
+        running = s == "running" or live          # batch Run, Re-run, Reset and the run settings wait for a live run
         stale = self.stale and self.result is None and s == "idle"
         valid = not self.invalid
-        run = valid and s == "idle" and not stale
-        rerun = valid and (s in ("completed", "failed") or stale)
-        reset = valid and (s in ("completed", "failed") or stale)
+        run = valid and s == "idle" and not stale and not live
+        rerun = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
+        reset = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         for b, on in ((self.b_run, run), (self.b_rerun, rerun), (self.b_reset, reset)): b.setEnabled(on)
         for w in (self.tstop, self.tstep, *self.field_labels): w.setEnabled(not running)
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
-        self.a_reset.setEnabled(self.result is not None or stale)
+        self.b_live.setText("Stop" if live else "Live"); self.b_live.setEnabled(valid and s != "running")
+        W.set_icon(self.b_live, "stop" if live else "pulse", "TEXT_2", 16); self.a_live.setEnabled(s != "running")
+        self.a_pause.setEnabled(live); self.a_pause.setText("Resume live run" if self.paused else "Pause live run")
+        r = self.results
+        r.pace.setEnabled(not live)
+        r.live_row.setVisible(live); r.ok_banner.setVisible(not live)
+        r.live_pause.setText("Resume" if self.paused else "Pause")
+        W.set_icon(r.live_pause, "play" if self.paused else "pause", "TEXT_2", 14)
+        res = self.result   # a finished live run with changes can be replayed as a batch run
+        r.live_replay.setVisible(not live and res is not None and res is self.live_result and bool(res.changes)
+                                 and self.last_session is not None)
+        self.a_reset.setEnabled((self.result is not None or stale) and not live)
         msg = next(iter(self.invalid.values()), None)
         # A failed/blocked run is shown in the results area only (design: results-running-blocked): a banner floating over
         # the canvas covered part badges (t9-blocked.png).
@@ -196,10 +242,11 @@ class MainWindow(QMainWindow):
         self.notice.setVisible(bool(notice))
 
     def resizeEvent(self, e):
-        compact = self.width() < 1240   # below the full top bar's width: no analysis chip, narrower fields and buttons
+        compact = self.width() < 1360   # below the full top bar's width: no analysis chip, narrower fields and buttons
+        for fl in self.field_labels: fl.setHidden(self.width() < 1150)   # narrower still: the fields keep their tooltips
         if compact != self.analysis.isHidden():
             self.analysis.setHidden(compact)
-            for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset):
+            for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset, self.b_live):
                 x.setProperty("compact", compact); theme.repolish(x)
         super().resizeEvent(e); self._sync_controls()
 
@@ -291,6 +338,7 @@ class MainWindow(QMainWindow):
 
     # --- documents / files ---
     def _reset(self, doc):
+        self.end_live()
         self.doc, self.result, self.sel, self.sel_wire, self.stale = doc, None, None, None, False
         self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict(); self.open_banner.hide()
         self._show_result(); self.refresh()
@@ -361,7 +409,9 @@ class MainWindow(QMainWindow):
         return True
 
     def closeEvent(self, e):
-        e.accept() if self.maybe_save() else e.ignore()
+        if not self.maybe_save(): return e.ignore()
+        self.end_live()
+        e.accept()
 
     def _title(self):
         name, dirty = os.path.basename(self.path) if self.path else "untitled", self.dirty()
@@ -394,9 +444,12 @@ class MainWindow(QMainWindow):
 
     def _check_stale(self):
         if self.result is not None and self._key() != self.ran_key:
+            if self.session:   # an edit stops a live run: the circuit it simulates no longer exists
+                self.session.cancel()
             self.result, self.state, self.stale = None, "idle", True
             self._show_result()
-            self.set_status("results out of date - press Re-run", True)
+            self.set_status(("Live run stopped: the circuit changed. " if self.session else "")
+                            + "results out of date - press Re-run", True)
 
     def edit_param(self, n, k, v):
         if n in self.doc.parts:
@@ -410,6 +463,7 @@ class MainWindow(QMainWindow):
         self._sync_controls()
 
     def run(self):
+        if self.session: return   # batch runs wait for a live run (the engine is claimed; the controls are disabled)
         fw = self.focusWidget()
         if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
         self.cfg_changed()
@@ -428,8 +482,131 @@ class MainWindow(QMainWindow):
                                           if self.doc.definition(n) for k, v in self.doc.definition(n).animate_when):
             self.play()
 
+    # --- live runs (task 9.5b; engine contract: docs/plans/ngspice-library/LIVE.md) ---
+    def _pace(self):
+        """Sim seconds per wall second for the chosen pace, or None (as fast as possible)."""
+        r = self.pace.currentData()
+        return RUN_PARAMS["tstop"].parse(self.doc.tstop, "Run") / FIT_SECONDS if r == "fit" else r
+
+    def live(self):
+        """Start a live run, or stop the one in progress (the Live button toggles)."""
+        if self.session: return self.stop_live()
+        if self.state == "running": return
+        fw = self.focusWidget()
+        if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
+        self.cfg_changed()
+        if self.invalid: return
+        self.stale, self.last_session = False, None
+        try:
+            s = LiveSession(self.doc, realtime=self._pace())
+        except Exception as e:   # never raises by contract; a raise is an app bug and is shown, not hidden
+            s = None; r = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}", details=traceback.format_exc())
+        if s is None or s.result.status != "running":   # blocked by the pre-check, or refused by the core
+            self.result, self.ran_key = (r if s is None else s.result), self._key()
+            self.set_status(("BLOCKED: " if self.result.status == "blocked" else "FAILED: ") + self.result.message, True)
+            return self._show_result()
+        f = s.result   # the window's own copy grows on the Qt thread from chunk payloads (rule 4)
+        self.live_result = RunResult(True, "running", "live run", {k: [] for k in f.series}, f.findings, f.diagnostics,
+                                     f.signals, f.details, f.excluded)
+        self.live_vals = {(p["part"], p["key"]): self.doc.definition(p["part"]).param(p["key"]).parse(
+            self.doc.parts[p["part"]]["params"][p["key"]], p["part"])
+            for p in sorted(live_params(self.doc), key=lambda p: not p["stimulus"])}
+        self.session, self.paused, self.live_pending, self.live_t, self.live_rtf = s, False, {}, 0.0, 0.0
+        self.result, self.ran_key = self.live_result, self._key()
+        self.results.xlim = (0.0, self.doc.config()["tstop"])
+        self.worker = LiveWorker(s)
+        self.worker.chunk.connect(self._live_chunk); self.worker.finished.connect(self._live_done)
+        self.worker.start()
+        self._show_result(); self._live_label(); self.refresh()
+        pace = self.pace.currentText().removeprefix("Pace: ")
+        self.set_status(f"Live run started (pace {pace}). Select a sensor, pot, switch or source to change it.")
+
+    def pause_live(self):
+        if not self.session: return
+        self.paused = not self.paused
+        self.session.pause() if self.paused else self.session.resume()
+        self.set_state("paused" if self.paused else "live"); self._live_label()
+        self.set_status("Live run paused: changes wait for Resume." if self.paused else "Live run resumed.")
+
+    def stop_live(self):
+        """Stop at the next chunk boundary (at once when paused); the worker then finishes and _live_done tidies up."""
+        if self.session:
+            self.session.cancel(); self.set_status("Stopping the live run...")
+
+    def end_live(self):
+        """Stop a live run and wait for its worker (window close, New/Open): never leave the worker blocked in a
+        paused run or holding the engine (LIVE.md rule 3). Waits for at most the chunk in progress."""
+        if self.worker:
+            self.session.cancel(); self.worker.wait(); self._live_done()
+
+    def live_set(self, part, key, value):
+        """A live control moved: coalesce (last value per param wins) and hand it to the session at most every 50 ms."""
+        if not self.session: return
+        self.live_vals[(part, key)] = value; self.live_pending[(part, key)] = value
+        if not self.live_flush.isActive(): self.live_flush.start()
+
+    def _live_flush(self):
+        pending, self.live_pending = self.live_pending, {}
+        for (part, key), v in pending.items():
+            if not self.session: return
+            try:
+                self.session.set_stimulus(part, v, key)
+            except ModelError as e:   # refused value, or the run just ended: say so, the run goes on
+                self.set_status(f"Live change refused: {e}", True)
+
+    def _live_chunk(self, c):
+        r = self.live_result
+        if r is not self.result: return   # dropped meanwhile (an edit made it stale): the worker is stopping
+        for n, pts in c["series"].items(): r.series[n].extend(pts)
+        r.changes += c["changes"]
+        self.live_t, self.live_rtf = c["t"], c["rtf"]
+        if not self.live_redraw.isActive(): self.live_redraw.start()
+
+    def _live_redraw(self):
+        if self.result is self.live_result and self.result is not None:
+            self.results.grow(); self._live_label(); self.draw()
+
+    def _live_label(self):
+        tstop = self.results.xlim[1] if self.results.xlim else self.live_t
+        what = "paused" if self.paused else f"{self.live_rtf:.3g}× real time" if self.live_rtf else "starting"
+        self.results.live_lbl.setText(f"t = {format_si(self.live_t, 's', 4)} / {format_si(tstop, 's', 3)}   {what}")
+
+    def _live_done(self):
+        """The worker finished (completed, stopped, failed, or dropped by an edit): release the session and show
+        the outcome. The streamed result stays for scrubbing and replay; a failure is shown like a batch failure."""
+        if self.session is None: return   # end_live already did it
+        s, w = self.session, self.worker
+        self.session = self.worker = None; self.paused = False
+        self.live_flush.stop(); self.live_redraw.stop(); self.live_pending = {}
+        w.wait()                          # finished is queued from the thread's last moments: let it exit first
+        s.close()                         # idempotent; the worker is done, so this never waits
+        self.last_session, self.results.xlim = s, None
+        r, f = self.live_result, s.result
+        if r is self.result and r is not None:
+            if w.error:
+                r.ok, r.status, r.message, r.details = False, "failed", "Internal error in the live run", w.error
+            else:
+                r.ok, r.status, r.message, r.details = f.status in ("success", "cancelled"), f.status, f.message, f.details
+            r.changes = s.changes
+            self.set_status({"success": "LIVE: ", "cancelled": "LIVE STOPPED: "}.get(r.status, "FAILED: ") + r.message,
+                            not r.ok)
+            self._show_result(); self.draw()
+        self.refresh()
+
+    def replay_live(self):
+        """Re-run the last live run's recorded changes as one batch run (deterministic) and show it as the result."""
+        s = self.last_session
+        if s is None or self.session: return
+        self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
+        r = s.replay()
+        self.result, self.ran_key = r, self._key()
+        self.set_status(("REPLAY: " if r.ok else "FAILED: ") + r.message + (f" ({len(r.changes)} changes)" if r.ok else ""),
+                        not r.ok)
+        self._show_result(); self.draw()
+
     def reset(self):
         """Drop the results (circuit, settings and the picked signal are kept)."""
+        if self.session: return
         self.result, self.stale = None, False; self._show_result(); self.draw(); self.set_status("Results cleared")
 
     def rerun(self):
@@ -438,8 +615,10 @@ class MainWindow(QMainWindow):
     def _show_result(self):
         """Sync the viewer, state badge and controls with self.result (None = idle, or stale after an edit)."""
         r = self.result
-        self.results.set_view(r, "idle" if r is None else r.state, self.stale)
-        self.set_state("idle" if r is None else r.state)
+        s = ("idle" if r is None else ("paused" if self.paused else "live") if self.session and r is self.live_result
+             else r.state)
+        self.results.set_view(r, s, self.stale)
+        self.set_state(s)
 
     def part_current(self, name):
         """Core current series I(part) at the cursor time, or None."""
@@ -488,7 +667,9 @@ class MainWindow(QMainWindow):
         has = self.sel in doc.parts
         self.a_delete.setEnabled(has or self.sel_wire in doc.wires); self.a_rotate.setEnabled(has)
         self.a_undo.setEnabled(self.hist.can_undo()); self.a_redo.setEnabled(self.hist.can_redo())
-        self.inspector.show_selection(doc, self.sel, self.sel_wire, ("Transient", self._si(doc.tstop), self._si(doc.tstep)))
+        live = {k: v for (p, k), v in self.live_vals.items() if p == self.sel} if self.session else None
+        self.inspector.show_selection(doc, self.sel, self.sel_wire, ("Transient", self._si(doc.tstop), self._si(doc.tstep)),
+                                      live)
         self._problems()
         n, m = len(doc.parts), len(doc.wires)
         self.counts.setText(f"{n} part{'s' * (n != 1)}   {m} wire{'s' * (m != 1)}   grid 20 px")
