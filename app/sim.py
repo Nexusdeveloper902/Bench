@@ -111,9 +111,16 @@ def _derive(series, nl):
     return series
 
 
-def _ok_message(series, nl):
+def _ok_message(series, nl, warnings=()):
     note = f"; not simulated: {', '.join(nl['excluded'])}" if nl["excluded"] else ""
+    note += "".join(f"; warning: {w}" for w in warnings)
     return f"ok, {len(next(iter(series.values())))} points{note}"
+
+
+def _runtime_findings(res):
+    """The core's plausibility warnings on a successful run (G15: a runaway internal node) as core findings."""
+    return [{"code": "IMPLAUSIBLE-NODE", "severity": "warn", "message": w, "nodes": [], "devices": [], "layer": "runtime",
+             "class": "value", "scope": ""} for w in res.get("warnings", ())]
 
 
 def run_document(doc: Document) -> RunResult:
@@ -127,12 +134,13 @@ def run_document(doc: Document) -> RunResult:
     try:
         s = _simulation(cfg, nl)
         findings = list(s.validate())
-        s.run()
+        warned = _runtime_findings(s.run())
         series = {n: list(s.observable(n)) for n in nl["observables"]}
     except SIM_ERRORS as e:
         return _failed(e, findings, diags, nl)
     _derive(series, nl)
-    return RunResult(True, "success", _ok_message(series, nl), series, findings, diags, nl["signals"],
+    findings += warned
+    return RunResult(True, "success", _ok_message(series, nl, [f["message"] for f in warned]), series, findings, diags, nl["signals"],
                      _details("ok", f"{cfg}", findings, diags, _deck(nl)), nl["excluded"])
 
 

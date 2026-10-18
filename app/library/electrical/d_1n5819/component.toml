@@ -12,7 +12,7 @@ tags = ["semiconductor"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Project-authored fit to the Vishay datasheet, not a vendor SPICE model. 0.45 V at 1 A is below the datasheet maximum of 0.60 V (1N5819).",
-               "Breakdown starts at 40 V (the rating); below it the leakage is the model's saturation current (about 1.5 uA), well under the datasheet's 1 mA maximum at 40 V.",
+               "Breakdown starts at 40 V (the rating); below it the leakage is the model's saturation current (about 1.5 uA), well under the datasheet's 1 mA maximum at 40 V. ngspice silently raises the card's IBV (1 mA) to Is·BV/Vt = 2.32 mA, so the knee current at 40 V is 2.32 mA (validator warning MODEL-IBV).",
                "Junction capacitance fitted to 110 pF at 4 V.",
                "Temperature dependence, noise and self-heating are not modelled."]
 docs = ["https://www.vishay.com/docs/88525/1n5817.pdf", "https://ngspice.sourceforge.io/docs.html"]

@@ -77,6 +77,7 @@ fn result_dict(py: Python<'_>, res: SimResult) -> PyResult<Bound<'_, PyDict>> {
     d.set_item("npts", res.npts as u64)?;
     d.set_item("wall_ms", res.wall_ms)?;
     d.set_item("used_pauses", res.used_pauses)?;
+    d.set_item("warnings", PyList::new(py, res.warnings.clone())?)?;
     match res.fallback_reason {
         Some(s) => d.set_item("fallback_reason", s)?,
         None => d.set_item("fallback_reason", py.None())?,

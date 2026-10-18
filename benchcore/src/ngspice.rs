@@ -371,6 +371,30 @@ pub fn all_vecs_count(plot: &str) -> usize {
     }
 }
 
+/// Names of every vector in `plot` (nodes, `x#branch` currents, saved `@dev[param]`s, `time`).
+pub fn vec_names(plot: &str) -> Vec<String> {
+    let Ok(st) = sim().lock() else { return vec![] };
+    let Some(lib) = st.lib.as_ref() else { return vec![] };
+    let Ok(c) = CString::new(plot) else { return vec![] };
+    let mut out = vec![];
+    unsafe {
+        let p = (lib.all_vecs)(c.as_ptr());
+        if p.is_null() {
+            return out;
+        }
+        let mut i = 0;
+        while i < 100_000 {
+            let s = *p.add(i);
+            if s.is_null() {
+                break;
+            }
+            out.push(CStr::from_ptr(s).to_string_lossy().into_owned());
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Read observable + time from the CURRENT plot (stale-plot safe).
 pub fn read_series(observables: &[String]) -> (HashMap<String, Vec<f64>>, Vec<f64>) {
     read_series_from(observables, 0)

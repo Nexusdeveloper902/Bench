@@ -14,7 +14,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Butterworth-Van Dyke equivalent: a lower-Q (about 1000) element than a quartz crystal, with a wider resonance. Overtones, drive level, temperature and ageing are not modelled.",
                "Typical values, not a datasheet fit: Ls 198 µH, Cs 0.5 pF, Rs 20 Ω, Cp 40 pF, which give fs = 16 MHz.",
-               "The two pins have no DC path through the resonator: wire one of them to a DC path, or the validator reports NO-DC-PATH."]
+               "The two pins have no DC path through the resonator: a pin wired only to it starts at 0 V and follows through its capacitances (Bench runs with UIC); give it a DC path where its bias matters."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

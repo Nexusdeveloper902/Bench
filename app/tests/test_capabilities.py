@@ -119,8 +119,10 @@ def test_device_name_collision_reported_before_run(extra_root):
 
 def test_core_error_is_failed_not_blocked():
     d = Document()
-    for k in ("V", "R", "C", "GND"): d.add_part(k)
-    for a, b in (("V1.p", "R1.a"), ("R1.b", "C1.a"), ("V1.n", "GND1.g")): d.connect(a, b)   # C1.b floats
+    # a source straight across an inductor: the core's V-LOOP. (Task 9.6, G1: the trigger was a capacitor with a floating
+    # far side, which every Bench run solves under UIC and the core now accepts.)
+    for k in ("V", "L", "GND"): d.add_part(k)
+    for a, b in (("V1.p", "L1.a"), ("L1.b", "V1.n"), ("V1.n", "GND1.g")): d.connect(a, b)
     r = run_document(d)
     assert r.status == "failed" and r.state == "failed" and "--- netlist" in r.details and r.excluded == []
 

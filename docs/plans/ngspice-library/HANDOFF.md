@@ -1205,3 +1205,70 @@ contract: `LIVE.md`.
 - **G37:** typed values below a log slider's floor can still break the solve.
 - **G38:** close/New/Open wait for the chunk in progress on the Qt thread.
 - **G39:** slider values are not written back, and there is no save-session.
+
+## Task 9.6: gap fixes (done, not committed)
+
+Every GAPS.md row has a final status:
+- **16 fixed**: G1 G2 G7 G8 G12 G13 G14 G15 G16 G23 G26 G30 G32 G36, plus G18 and G31, which earlier tasks fixed.
+  G13 covers the current EXP/SFFM modes; its AC source is deferred with G17.
+- **7 wontfix**, each with its reason: G3 G4 G5 G6 G11 G33 G37. A test pins G11.
+- **16 deferred**, each saying what it would take: G9 G10 G17 G19 G20 G21 G22 G24 G25 G27 G28 G29 G34 G35 G38 G39.
+
+### Notable fixes (each reproduced first, against real ngspice, and kept as a test)
+- **G32 crash.** `pause_at` plus an unsaved `@v1[dc]` killed the process (rc -11). One shared guard,
+  `kernel::refuse_unsaved_device_observables`, now runs on the batch path and the live path.
+- **G7 hang.** A lossy LTRA limits the step to its delay, and its convolution is quadratic in the step count (1e4 steps:
+  2.2 s; 2e4: 9 s; 5e4: 55 s; 3e5: never). A watchdog is not possible in-process: libngspice exports only the API, Python
+  owns SIGINT, and bg_halt was rejected. The validator now refuses a run needing more than 2e4 steps
+  (`tstop / min(tmax, len*sqrt(LC))`). Package probe decks use `.tran 1u 10u`, so a body line under 0.5 ns is refused at load.
+- **G15 silent runaway.** Kernel runs scan the plot's node vectors after success. A subcircuit-internal node whose peak
+  exceeds max(10x, +100 V) of every circuit node becomes `SimResult.warnings` (PyO3 `warnings`). The app adds it to
+  findings as IMPLAUSIBLE-NODE and to the message. Live chunks and replays do not scan.
+  - The scan found that the **shipped bench_scr** (SCR, TRIAC, DIAC) still ran its internal nodes to 833 V when it dropped
+    out below IH.
+  - Fix: `CAK ax k 10p` (MANIFEST sha updated). Junction capacitances were tried first, but they let the UIC start step
+    fire the DIAC.
+- **G1.** Under `.tran ... uic` (every Bench run, and the package probe decks), C counts as a connection for NO-DC-PATH.
+  Probed: a C divider, a C-C-C chain and an I charging a C solve, while a capacitor island is still singular and still an
+  error. Three app tests used a floating capacitor as their "core error" trigger. They now use a source across an
+  inductor (V-LOOP), with the same assertions. `test_floating_pin`'s second case now runs with warnings, and a C island case
+  was added.
+- **Validator additions** (Rust, all probed):
+  - G8: K misuse forms. K to a C or D also dumps core.
+  - G16: MODEL-SIGN warning.
+  - G14: MODEL-IBV warning. The floor is exactly IS*BV/Vt, whatever N. D_1N5819 and D_BAT54 carry it: changing their
+    IBV changed their tested leakage, so the cards stayed as they were and their limitations explain it.
+    `test_every_shipped_part_passes_the_static_validator` pins exactly those two warnings.
+  - G26: XSPICE port shapes. A trailing output may be left off a flip-flop, which ngspice accepts.
+  - G2: names per expression context. `{}` reads no constant, R/C/L values read time/temper/hertz, and B has no
+    sqr/arctan/int.
+- **G30.** `Simulation.configure(method="gear")` adds `.options method=gear`. The setting is exposed as
+  `Document.method` and Simulation > Gear integration. It is saved as `simulation.method` only when it is not the
+  default, it is part of the stale key, and docs/persistence.md describes it. Gear removes the trap artefact on a
+  32 kHz crystal; it also damps the real ring by about 1.5 % over 2 ms.
+- **G20 is worse than logged, and deferred.** The shipped LM324 macro spikes 1.5 V at 2 us steps on a gain-2 falling
+  step. A 5 MHz macro needs steps of about 1/(40*GBW) at edges. Neither gear nor a larger internal capacitance fixes it.
+  The 7 op-amp packages now state this in their limitations.
+- **Library and data.** G12: param kind `points`, plus VSRC_PWL and ISRC_PWL (catalog 175). G13: ISRC_WAVE gains EXP
+  and SFFM. G23: search matches at word starts. G36: 12 stimulus limitations reworded. Crystal limitations follow G1.
+  docs/library.md is regenerated, and adding-components.md and LIVE.md are updated.
+
+### Contracts kept
+- Golden netlists are byte-identical. `build_netlist` is unchanged, and `config()` and `sim_config()` add `method` only
+  for gear.
+- Task-2 guarantees and batch/live behaviour are unchanged, except for the new refusals and warnings above.
+- The wheel was rebuilt and reinstalled after the last Rust change.
+
+### Tests
+| Suite | Before | After |
+|---|---|---|
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | 1367 | 1378 (+8 `test_gaps_96.py`, +1 GUI gear test, +2 contract rows for the PWL sources) |
+| `cd benchcore && cargo test` | 71 | 79 (correctness t71-t78) |
+| `cd benchcore && python3 -m pytest -q tests/python` | 21 | 23 |
+Count-pin changes, none of them weakened:
+- batch E's catalog size is now `>=`; the exact 175 is in test_gaps_96;
+- the Electrical simulated set in test_catalog adds the two PWL sources;
+- the contract test's kind list adds `points`.
+
+The first baseline app run printed a Python fatal-error footer (exit code hidden by `tail`); 5 later full runs were clean.
+Watch for a shutdown crash.

@@ -16,6 +16,8 @@ Implemented in `app/model.py` (`Document.to_dict` / `from_dict` / `save` / `load
 - `type` is the exact catalog id, `version` the definition version it was saved with, `params` the text as typed.
 - Pins are not stored; `connections` name them (`Part.pin`). `layout` is rendering data only.
 - Simulation support is not stored: placing, wiring and saving work for every part, including interface-only ones.
+- `simulation.method` (`"gear"`) is written only when the integration method is not the default trapezoidal rule
+  (Simulation > Gear integration); a missing key reads as `"trap"`, any other value is a bad file.
 
 ## Reading
 

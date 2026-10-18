@@ -15,7 +15,8 @@ limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
                "Four bench_opamp_macro instances sharing the supply pins; the ±40 mA short-circuit limit, crossover distortion and the 30 µA sink limit near ground are not modelled.",
                "Output resistance 50 Ω is an assumption; the datasheet does not list it.",
                "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
-               "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only."]
+               "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only.",
+               "Large-signal edges can ring numerically: with a time step above about 1/(40·GBW) the output can spike towards a rail just after a fast input step (seen: an LM324 gain-2 stage, falling step, 2 µs steps). Shorten the time step to check a fast edge (GAPS G20)."]
 docs = ["https://www.ti.com/lit/ds/symlink/lm324.pdf", "https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

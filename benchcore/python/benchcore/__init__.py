@@ -65,6 +65,7 @@ class Simulation:
         self._tstart = 0.0
         self._tmax = None
         self._uic = True
+        self._method = "trap"
         self._stops = []
         self._observables = []
         self._last = None
@@ -90,7 +91,9 @@ class Simulation:
         return self
 
     # -- configuration ----------------------------------------------------
-    def configure(self, tstep=None, tstop=None, tstart=None, tmax=None, uic=None):
+    def configure(self, tstep=None, tstop=None, tstart=None, tmax=None, uic=None, method=None):
+        """method: integration method, "trap" (ngspice's default) or "gear" (damps trapezoidal ringing: the
+        alternating-sample artefact sharp edges excite on high-Q nodes; it also damps real high-Q ringing slightly)."""
         if tstep is not None:
             self._tstep = float(tstep)
         if tstop is not None:
@@ -101,6 +104,10 @@ class Simulation:
             self._tmax = float(tmax)
         if uic is not None:
             self._uic = bool(uic)
+        if method is not None:
+            if method not in ("trap", "gear"):
+                raise InvalidConfigError(f"integration method must be 'trap' or 'gear', not {method!r}")
+            self._method = method
         return self
 
     def observe(self, *names):
@@ -124,8 +131,9 @@ class Simulation:
         tran += " {}".format(self._tmax) if self._tmax is not None else " "
         if self._uic:
             tran += " uic"
+        opts = [".options method=gear"] if self._method == "gear" else []
         return (
-            [self._title] + self._devices + self._models + [tran, ".end"]
+            [self._title] + self._devices + self._models + opts + [tran, ".end"]
         )
 
     def validate(self):

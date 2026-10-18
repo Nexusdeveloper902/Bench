@@ -92,6 +92,10 @@ class MainWindow(QMainWindow):
         self.a_live = act("Live", self.live, "F6", tip="Live run (F6): the transient runs while you move sliders on "
                           "sensors, pots, switches and sources; F6 again stops it")
         self.a_pause = act("Pause live run", self.pause_live, "F7", tip="Pause or resume the live run (F7)")
+        self.a_gear = act("Gear integration", self.set_gear, tip="Integrate with Gear instead of the trapezoidal rule: "
+                          "damps the alternating-sample ringing sharp edges excite on high-Q nodes (crystals, LC tanks), "
+                          "and real high-Q ringing slightly too")
+        self.a_gear.setCheckable(True)
         self.a_zoom_in = act("Zoom in", lambda: self.canvas.zoom_by(1.25), "Ctrl+=", "Ctrl++")
         self.a_zoom_out = act("Zoom out", lambda: self.canvas.zoom_by(1 / 1.25), "Ctrl+-")
         self.a_fit = act("Fit all parts", self.canvas.fit, "Ctrl+0")
@@ -157,7 +161,8 @@ class MainWindow(QMainWindow):
         menu = QMenu(app)
         for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
                             ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
-                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset, None, self.a_live, self.a_pause)),
+                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset, None, self.a_live, self.a_pause,
+                                            None, self.a_gear)),
                             ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit, None, self.a_dark))):
             sub = menu.addMenu(title)
             for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
@@ -213,7 +218,8 @@ class MainWindow(QMainWindow):
         rerun = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         reset = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         for b, on in ((self.b_run, run), (self.b_rerun, rerun), (self.b_reset, reset)): b.setEnabled(on)
-        for w in (self.tstop, self.tstep, *self.field_labels): w.setEnabled(not running)
+        for w in (self.tstop, self.tstep, *self.field_labels, self.a_gear): w.setEnabled(not running)
+        self.a_gear.setChecked(self.doc.method == "gear")
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
         self.b_live.setText("Stop" if live else "Live"); self.b_live.setEnabled(valid and s != "running")
@@ -437,10 +443,15 @@ class MainWindow(QMainWindow):
                 mark(ed, str(e)); self.invalid[k] = str(e)
         self._check_stale(); self._title(); self._sync_controls()
 
+    def set_gear(self):
+        """Simulation > Gear integration: a run setting, saved with the circuit (GAPS G30)."""
+        self.doc.method = "gear" if self.a_gear.isChecked() else "trap"
+        self._check_stale(); self._title(); self._sync_controls()
+
     def _key(self):
         d = self.doc
         return repr(({n: (p["kind"], p["params"]) for n, p in d.parts.items()}, sorted(map(sorted, d.wires)),
-                     d.tstop, d.tstep))
+                     d.tstop, d.tstep, d.method))
 
     def _check_stale(self):
         if self.result is not None and self._key() != self.ran_key:

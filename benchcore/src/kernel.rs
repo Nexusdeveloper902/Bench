@@ -32,6 +32,8 @@ pub struct SimResult {
     pub wall_ms: f64,
     pub used_pauses: bool,
     pub fallback_reason: Option<String>,
+    /// Plausibility warnings on a run that otherwise succeeded (G15): see `implausible_internal_nodes`.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -270,7 +272,9 @@ pub(crate) fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[
     })
 }
 
-fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, Vec<(f64, f64)>>, Vec<f64>, f64), SimError> {
+type FullRun = (HashMap<String, Vec<(f64, f64)>>, Vec<f64>, f64, Vec<String>);
+
+fn full_run_inner(lines: &[String], obs: &[String]) -> Result<FullRun, SimError> {
     ngspice::ensure_init().map_err(|e| SimError::BackendFailure { message: e })?;
     ngspice::teardown();
     let t0 = std::time::Instant::now();
@@ -323,7 +327,53 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
             });
         }
     }
-    Ok((series, t, wall))
+    Ok((series, t, wall, implausible_internal_nodes()))
+}
+
+/// G15: a node inside a subcircuit instance (`x1.ax`) whose peak |V| exceeds every circuit-level node's by far (more
+/// than 10x and 100 V) is a runaway, not a result: the probed case is an SCR model whose floating internal nodes ran to
+/// its 1000 V diode breakdown after turn-off on a 12 V circuit, reported as success. ngspice gives no error, so the run
+/// stays a success with a warning naming the node. Reads the plot's saved node vectors only (never `@` vectors).
+fn implausible_internal_nodes() -> Vec<String> {
+    let plot = ngspice::cur_plot_name();
+    if plot.is_empty() {
+        return vec![];
+    }
+    let peak = |name: &str| {
+        ngspice::read_vec_qualified(&format!("{}.{}", plot, name)).map_or(0.0, |v| v.iter().fold(0.0f64, |m, x| m.max(x.abs())))
+    };
+    let (mut outer, mut inner) = (0.0f64, vec![]);
+    for n in ngspice::vec_names(&plot) {
+        if n.contains('#') || n.starts_with('@') || n.eq_ignore_ascii_case("time") {
+            continue;
+        }
+        if n.contains('.') {
+            inner.push((peak(&n), n));
+        } else {
+            outer = outer.max(peak(&n));
+        }
+    }
+    let limit = (10.0 * outer).max(outer + 100.0);
+    let mut bad: Vec<(f64, String)> = inner.into_iter().filter(|(v, _)| *v > limit).collect();
+    bad.sort_by(|a, b| b.0.total_cmp(&a.0));
+    match bad.first() {
+        None => vec![],
+        Some((v, n)) => vec![format!(
+            "implausible internal node: {} reached {:.3e} V while no circuit node exceeded {:.3e} V{}; a part's model ran \
+             away (a numerical artefact, or the model outside its valid range): do not trust this result",
+            n, v, outer, if bad.len() > 1 { format!(" ({} such nodes)", bad.len()) } else { String::new() }
+        )],
+    }
+}
+
+/// An `@dev[param]` observable with no `.save` line naming it. Read through ngGet_Vec_Info at a pause it corrupts
+/// ngspice and the next resume dumps core (probed, LIVE.md; G32), so batch and live runs refuse it up front.
+pub(crate) fn refuse_unsaved_device_observables(lines: &[String], observables: &[String]) -> Result<(), SimError> {
+    let saves: String = lines.iter().filter(|l| l.trim().to_lowercase().starts_with(".save")).map(|l| l.to_lowercase()).collect();
+    match observables.iter().find(|o| o.starts_with('@') && !saves.contains(&o.to_lowercase())) {
+        Some(o) => Err(SimError::InvalidConfig { message: format!("observable {} needs a .save line naming it", o) }),
+        None => Ok(()),
+    }
 }
 
 /// Run a request: native pauses when requested and exactly achievable,
@@ -375,6 +425,7 @@ pub(crate) fn gates(netlist: &[String]) -> Result<(), SimError> {
 fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
     // 0. static gates first (fail fast, before touching the backend)
     gates(&req.netlist)?;
+    refuse_unsaved_device_observables(&req.netlist, &req.observables)?;
     let mut lines = req.netlist.clone();
     let obs = req.observables.clone();
     let stops_in = req.stops.clone();
@@ -408,7 +459,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
 
     // No stops: ordinary full simulation.
     if stops.is_empty() {
-        let (series, t, wall) = full_run_inner(&lines, &obs)?;
+        let (series, t, wall, warnings) = full_run_inner(&lines, &obs)?;
         let n = t.len();
         return Ok(SimResult {
             series,
@@ -417,12 +468,13 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             wall_ms: wall,
             used_pauses: false,
             fallback_reason: None,
+            warnings,
         });
     }
 
     // Validate stop schedule upfront.
     let fb = |reason: &str| -> Result<SimResult, SimError> {
-        let (series, t, wall) = full_run_inner(&lines, &obs)?;
+        let (series, t, wall, warnings) = full_run_inner(&lines, &obs)?;
         Ok(SimResult {
             npts: t.len(),
             time: t.clone(),
@@ -430,6 +482,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             wall_ms: wall,
             used_pauses: false,
             fallback_reason: Some(reason.to_string()),
+            warnings,
         })
     };
     let t_stop = match t_stop {
@@ -533,6 +586,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             log_hint: log.join("\n"),
         });
     }
+    let warnings = implausible_internal_nodes();
     ngspice::teardown();
     let n = t.len();
     Ok(SimResult {
@@ -542,5 +596,6 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
         wall_ms: wall,
         used_pauses: true,
         fallback_reason: None,
+        warnings,
     })
 }

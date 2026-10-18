@@ -410,6 +410,9 @@ def test_rust_validator_reads_the_emitted_deck_without_errors():
 NOT_SIMULATED = {"ARDUINO_UNO_R3", "DHT22", "ESP32_DEVKITC", "PIEZO_BUZZER", "SSD1306_I2C"}
 
 
+IBV_RAISED = {"D_1N5819", "D_BAT54"}
+
+
 def test_every_shipped_part_passes_the_static_validator():
     """The 3 reference packages, the 17 originals and the 37 batch-A parts: every simulated part's probe deck (instance
     with default params, a 1 GΩ leak per pin, its models and definition text) is fully analysed with no finding, except
@@ -426,6 +429,8 @@ def test_every_shipped_part_passes_the_static_validator():
         status, errors, warnings, limits = electrical.validate_bodies(sec.get("_units", ()), sec, c.pins, c.params)
         if i in LIMITED:
             assert status == "limited" and errors == [] and warnings == [] and limits, i
+        elif i in IBV_RAISED:   # task 9.6 (G14): ngspice raises these cards' IBV to Is*BV/Vt; their limitations say so
+            assert (status, errors, limits) == ("full", [], []) and [w[0].split(":")[0] for w in warnings] == ["MODEL-IBV"], i
         else:
             assert (status, errors, warnings, limits) == ("full", [], [], []), i
         assert sec.get("_status", "full") == ("limited" if i in {"MOV", "SAT_AMP"} | BATCH_D_LIMITED | BATCH_E_LIMITED else "full"), i   # stored for X parts only

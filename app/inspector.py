@@ -276,7 +276,8 @@ class Inspector(QWidget):
         else:
             box = QFrame(); box.setObjectName("fieldbox"); box.setFixedHeight(theme.CONTROL_H)
             bl = QHBoxLayout(box); bl.setContentsMargins(0, 0, 0, 0); bl.setSpacing(0)
-            e = FieldEdit(value, box); e.setPlaceholderText("e.g. 1k, 10u, 4.7n"); bl.addWidget(e, 1)
+            e = FieldEdit(value, box); bl.addWidget(e, 1)
+            e.setPlaceholderText("time value pairs, e.g. 0 0, 1m 5" if m.kind == "points" else "e.g. 1k, 10u, 4.7n")
             if m.unit:
                 u = W.label(m.unit, "unit"); u.setAlignment(Qt.AlignCenter); u.setMinimumWidth(43); bl.addWidget(u)
             e.editingFinished.connect(lambda n=n, k=m.key, e=e: self.param_edited.emit(n, k, e.text()))

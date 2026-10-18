@@ -9,6 +9,10 @@ Build the deck (`build_circuit`/`add`/`add_model`), declare what to watch
 `used_pauses`, `fallback_reason`. `modify` edits the deck between runs;
 `reset` clears results + stops; `destroy` clears everything.
 
+`configure(method="gear")` adds `.options method=gear` (default `"trap"` adds nothing). `run()`'s dict has
+`warnings`: plausibility warnings on a run that succeeded, today a subcircuit-internal node that ran far beyond every
+circuit node (GAPS G15). An `@dev[param]` observable needs a `.save` naming it, or the run is refused (G32).
+
 ## Example
 
 ```python

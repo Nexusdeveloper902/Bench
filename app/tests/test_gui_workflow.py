@@ -198,15 +198,16 @@ def test_no_ground_shows_diagnostics_and_details(win):
 
 
 def test_core_error_is_surfaced_with_details(win):
-    """A capacitor whose far side goes nowhere passes the app checks (warning only) but the core rejects the
-    floating node. The core's message and the netlist sent must reach the user, not be swallowed."""
+    """A source wired straight across an inductor passes the app checks but the core rejects the loop (V-LOOP). The
+    core's message and the netlist sent must reach the user, not be swallowed. (Task 9.6, G1: the trigger used to be a
+    capacitor with a floating far side, which every Bench run solves under UIC and the core now accepts.)"""
     w = win
-    place(w, "V", 40, 120); place(w, "R", 160, 40); place(w, "C", 300, 120); place(w, "GND", 200, 280)
-    for a, b in (("V1.p", "R1.a"), ("R1.b", "C1.a"), ("V1.n", "GND1.g")): wire(w, a, b)
+    place(w, "V", 40, 120); place(w, "L", 300, 120); place(w, "GND", 200, 280)
+    for a, b in (("V1.p", "L1.a"), ("L1.b", "V1.n"), ("V1.n", "GND1.g")): wire(w, a, b)
     w.a_run.trigger()
-    assert w.state == "failed" and "NO-DC-PATH" in w.err.text()
+    assert w.state == "failed" and "V-LOOP" in w.err.text()
     det = w.details.toPlainText()
-    assert "InvalidCircuitError" in det and "netlist sent to the core" in det and "C1" in det
+    assert "InvalidCircuitError" in det and "netlist sent to the core" in det and "L1" in det
 
 
 def test_click_wire_plots_its_node(win):
@@ -254,3 +255,19 @@ def test_unsaved_prompt_and_save_error(win, tmp_path, monkeypatch):
     monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Discard))
     w.a_open.trigger()
     assert "cannot open" in errors[-1] and "R1" in w.doc.parts       # failed open keeps the current circuit
+
+
+def test_gear_integration_menu_action_is_a_saved_run_setting(win):
+    """G30 (task 9.6): Simulation > Gear integration sets the document's integration method, makes the circuit dirty
+    and the last result stale, and follows the document on New."""
+    w = win; build_rc(w); w.a_run.trigger()
+    assert w.state == "completed" and w.doc.method == "trap" and not w.a_gear.isChecked()
+    trap = w.result.get("V(C1)")
+    w.a_gear.trigger()
+    assert w.doc.method == "gear" and w.a_gear.isChecked() and w.result is None and w.stale and w.dirty()
+    w.a_rerun.trigger()
+    assert w.state == "completed"
+    gear = w.result.get("V(C1)")                                          # an RC charges the same under gear
+    assert abs(gear[-1][1] - trap[-1][1]) < 1e-3 and max(abs(v - VF * (1 - math.exp(-t / TAU))) for t, v in gear) < TOL
+    w.a_gear.trigger()
+    assert w.doc.method == "trap"

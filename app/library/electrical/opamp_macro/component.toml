@@ -14,7 +14,8 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
                "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only.",
-               "One dominant pole (90° phase margin at any gain); no second pole, noise, offset drift, CMRR or PSRR; the slew limit is symmetric."]
+               "One dominant pole (90° phase margin at any gain); no second pole, noise, offset drift, CMRR or PSRR; the slew limit is symmetric.",
+               "Large-signal edges can ring numerically: with a time step above about 1/(40·GBW) the output can spike towards a rail just after a fast input step (seen: an LM324 gain-2 stage, falling step, 2 µs steps). Shorten the time step to check a fast edge (GAPS G20)."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

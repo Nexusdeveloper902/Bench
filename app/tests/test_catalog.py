@@ -186,7 +186,7 @@ def test_category_filter_and_simulated_only(extra_root):
     assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222", "OPAMP", "OPAMP_DUAL"} | {
         "POT", "RHEOSTAT", "RNET4_ISO", "RNET4_BUS", "R_TOL", "IND_DCR", "IND_COUPLED", "XFMR_1N", "XFMR_CT", "T_LINE",
         "CAP_CERAMIC", "CAP_ELECTROLYTIC", "CAP_TANTALUM", "CAP_FILM", "FUSE", "PTC", "MOV", "SPDT", "DPST", "DPDT",
-        "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VCVS",
+        "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VSRC_PWL", "ISRC_PWL", "VCVS",
         "VCCS", "CCCS", "CCVS", "SAT_AMP"} | set(BATCH_B) | set(BATCH_C) | set(BATCH_D) | {i for i in BATCH_E if CATALOG.get(i).category == "Electrical"}     # batch A (test_library_batch_a.py), B, C, D and E (test_library_batch_[bcde].py)
     assert CATALOG.search(category="Communication") == []
 

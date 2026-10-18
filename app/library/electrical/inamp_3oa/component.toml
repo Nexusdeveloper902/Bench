@@ -14,7 +14,8 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Built from three generic bench_opamp_macro amplifiers (GBW 1 MHz, 0.5 V/µs, 1.5 V swing loss) and ideal matched 25 kΩ / 10 kΩ resistors: CMRR is limited only by the op-amps' finite gain.",
                "Not a fit to any commercial part (INA128, AD620 and similar use different internal values and current-feedback inputs).",
-               "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation)."]
+               "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
+               "Large-signal edges can ring numerically: with a time step above about 1/(40·GBW) the output can spike towards a rail just after a fast input step (seen: an LM324 gain-2 stage, falling step, 2 µs steps). Shorten the time step to check a fast edge (GAPS G20)."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

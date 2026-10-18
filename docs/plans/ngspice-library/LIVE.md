@@ -34,8 +34,8 @@ deterministically as one blocking run that pauses only at the change times.
 - **Resistor alters** (switch state, pot wiper `r.xrv1.r1` + `r.xrv1.r2`) take effect mid-run. So does an I source's DC.
 - **Readback.** `print @dev[param]` is safe and prints the value with 7 significant digits.
 - **Unsaved `@dev[param]` reads.** Reading one through `ngGet_Vec_Info` at a pause corrupts ngspice: the next
-  resume, or the next `time` read, dumps core. Live runs therefore refuse an `@` observable with no `.save`. The batch
-  pause path still has this crash (`pause_at` plus an unsaved `@v1[dc]` observable): **G32**.
+  resume, or the next `time` read, dumps core. Live runs and batch runs refuse an `@` observable with no `.save`
+  (the batch check was added in task 9.6, G32).
 - **Fired stops accumulate** and are rescanned every step. 300 accumulated stops on a 30k-point RC cost 2.6× a plain
   run (208 vs 78 ms).
 - **`delete all` while paused** keeps the list at one stop: 96 ms against 78 ms plain for 300 chunks, about 8 µs of

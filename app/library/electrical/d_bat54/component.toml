@@ -12,7 +12,7 @@ tags = ["semiconductor"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Project-authored fit to the STMicroelectronics datasheet maxima, not a vendor SPICE model: the curve passes below every listed maximum (0.20 V at 0.1 mA, 0.28 V at 1 mA, 0.38 V at 10 mA, 0.45 V at 30 mA, 0.62 V at 100 mA).",
-               "Leakage below the 30 V rating is the saturation current (about 0.3 uA; datasheet maximum 1 uA). Junction capacitance is 10 pF at 1 V. Reverse recovery is not modelled (the datasheet's 5 ns is below this model's resolution).",
+               "Leakage below the 30 V rating is the saturation current (about 0.3 uA; datasheet maximum 1 uA). ngspice silently raises the card's IBV (0.7 uA) to Is·BV/Vt = 0.38 mA, so the knee current at 30 V is 0.38 mA (validator warning MODEL-IBV). Junction capacitance is 10 pF at 1 V. Reverse recovery is not modelled (the datasheet's 5 ns is below this model's resolution).",
                "Temperature dependence, noise and self-heating are not modelled."]
 docs = ["https://sy-dep-epc-lpc.web.cern.ch/components/datasheets/epc-lpc%20(converters)/BAT54%20Diode%20(ST).pdf", "https://ngspice.sourceforge.io/docs.html"]
 

@@ -7,6 +7,7 @@ from .electrical import build_netlist, device_name
 FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
               "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
+METHODS = ("trap", "gear")   # integration method; gear damps trapezoidal ringing (GAPS G30), trap is ngspice's default
 
 
 # Run size limits (a result is kept as Python (t, v) tuples, ~100 B per sample, and the core runs on the GUI thread):
@@ -59,6 +60,7 @@ class Document:
         self.wires = []      # [("R1.b", "C1.a"), ...]
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
+        self.method = "trap"
         self.path = None     # file last saved to / loaded from (Save target; Save As = save(new_path))
         self._count = {}
         self.extra = {}      # unknown top-level keys of a loaded file, written back unchanged (newer writers)
@@ -189,11 +191,13 @@ class Document:
         if pts > MAX_POINTS or pts * series > MAX_SAMPLES:
             raise ModelError(f"Run: too many points ({pts:.3g} points x ~{series} signals; limit {MAX_POINTS:,} points "
                              f"/ {MAX_SAMPLES:,} samples): increase the time step or shorten the stop time")
-        return {"tstep": tstep, "tstop": tstop, "tmax": tstep}
+        return {"tstep": tstep, "tstop": tstop, "tmax": tstep, **({"method": self.method} if self.method != "trap" else {})}
 
     def sim_config(self):
-        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core."""
-        return {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
+        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core. `method` is
+        written only when it is not the default, so files without it stay byte-identical."""
+        out = {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
+        return {**out, "method": self.method} if self.method != "trap" else out
 
     def netlist(self):
         """-> electrical.build_netlist(...) dict over the modeled parts, plus "excluded": the unmodeled parts left out
@@ -404,6 +408,9 @@ class Document:
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
         if sim.get("analysis", "transient") != "transient":
             raise ModelError(f"unsupported analysis {sim['analysis']}")
+        doc.method = sim.get("method", "trap")
+        if doc.method not in METHODS:
+            raise ModelError(f"unknown integration method {doc.method!r} (use one of {', '.join(METHODS)})")
         for kind, c in CATALOG.defs.items():  # keep auto-naming collision free
             k = len(c.designator)
             doc._count[kind] = max([int(n[k:]) for n, p in doc.parts.items()

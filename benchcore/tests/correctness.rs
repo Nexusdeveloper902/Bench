@@ -1348,3 +1348,263 @@ fn t70_rejected_decks_are_ones_ngspice_misbehaves_on() {
     }
     divider_ok();
 }
+
+// ---- task 9.6 gap fixes (docs/plans/ngspice-library/GAPS.md) ----
+
+fn deck_with(lines: &[&str], tran: &str) -> Vec<String> {
+    let mut d: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    d.push(tran.to_string());
+    d.push(".end".to_string());
+    d
+}
+
+fn run_deck(deck: Vec<String>, obs: &[&str]) -> Result<benchcore::SimResult, benchcore::SimError> {
+    run_simulation(SimRequest { netlist: deck, observables: obs.iter().map(|s| s.to_string()).collect(), stops: vec![] })
+}
+
+/// G7: a lossy LTRA limits the step to its delay and ngspice's lossy convolution is quadratic in the step count, so a
+/// short lossy line over a long run never finishes (31.6 ps over 10 us: killed after 60 s). Such a run is refused
+/// statically, in a body too; a lossy line within the step budget runs to the matched-load value, and a lossless line
+/// (linear cost) is never refused.
+#[test]
+fn t71_lossy_ltra_step_budget() {
+    fn line(card: &str) -> Vec<&str> {
+        vec!["ltra", "V1 in 0 PULSE(0 1 0 1n 1n 1 2)", "R1 in a 50", "O1 a 0 b 0 lline", "R2 b 0 50", card]
+    }
+    let slow = deck_with(&line(".model lline ltra R=0.1 L=1n C=1p len=1"), ".tran 1u 10u 0 1u uic");
+    match run_deck(slow, &["v(b)"]) {
+        Err(benchcore::SimError::InvalidCircuit { code, message }) => {
+            assert!(code.contains("UNSUPPORTED") && message.contains("lossy LTRA"), "{} {}", code, message)
+        }
+        other => panic!("expected a static refusal, got {:?}", other.map(|r| r.npts)),
+    }
+    let ok = deck_with(&line(".model lline ltra(R=0.1 L=250n C=100p len=4)"), ".tran 1u 10u 0 1u uic");
+    let r = run_deck(ok, &["v(b)"]).expect("lossy line within the step budget runs");
+    let last = r.series["v(b)"].last().unwrap().1;
+    assert!((last - 0.4979).abs() < 1e-3, "lossy matched line {}", last);
+    let lossless = deck_with(&line(".model lline ltra R=0 L=1n C=1p len=1"), ".tran 1u 10u 0 1u uic");
+    assert!(!has(&validate(&lossless), "UNSUPPORTED"));
+    // the same budget through a body, and a param expression is left to LIMITED-ANALYSIS
+    let body = |card: &str| {
+        deck_with(&["t", "V1 in 0 1", "R1 in a 50", "X1 a b tl", "R2 b 0 50", ".subckt tl p q", "O1 p 0 q 0 lline", card, ".ends"],
+                  ".tran 1u 10u 0 1u uic")
+    };
+    assert!(has(&validate(&body(".model lline ltra R=0.1 L=1n C=1p len=1")), "UNSUPPORTED"));
+    assert!(!has(&validate(&body(".model lline ltra R={r} L=1n C=1p len=1")), "UNSUPPORTED"));
+}
+
+/// G8: the other K misuse forms, each probed in its own process on ngspice 47. Self-coupling and two K lines on one
+/// pair run silently (the factors add), |k| > 1 runs to a 1e43 V runaway, K naming a C or D dumps core like a resistor
+/// (spGetElement assertion), and a third name aborts the run. All are refused statically; |k| <= 1 (sign = dot
+/// convention, 1 = ideal) and a parameter factor stay accepted and run.
+#[test]
+fn t72_k_misuse_forms() {
+    let base = ["k", "V1 in 0 SIN(0 1 1k)", "R1 in a 10", "L1 a 0 1m", "L2 b 0 1m", "R2 b 0 100", "C1 b 0 1n", "D1 b 0 dd", ".model dd d"];
+    let with = |k: &[&str]| -> Vec<String> {
+        let mut d: Vec<&str> = base.to_vec();
+        d.extend_from_slice(k);
+        deck_with(&d, ".tran 10u 1m 0 10u uic")
+    };
+    for (k, code) in [
+        (vec!["K1 L1 L1 0.5"], "MALFORMED"),
+        (vec!["K1 L1 L2 1.5"], "BAD-COUPLING"),
+        (vec!["K1 L1 L2 -1.01"], "BAD-COUPLING"),
+        (vec!["K1 L1 L2 0.5", "K2 L2 L1 0.3"], "MALFORMED"),
+        (vec!["K1 L1 C1 0.5"], "MALFORMED"),
+        (vec!["K1 L1 D1 0.5"], "MALFORMED"),
+        (vec!["K1 L1 R2 0.5"], "MALFORMED"),
+        (vec!["K1 L1 L2 L3 0.5"], "MALFORMED"),
+        (vec!["K1 L1 L2"], "MALFORMED"),
+    ] {
+        let f = validate(&with(&k));
+        assert!(f.iter().any(|x| x.code == code && x.severity == "error"), "{:?}: {:?}", k, f);
+    }
+    let mut seen = vec![];
+    for k in [vec!["K1 L1 L2 0.5"], vec!["K1 L1 L2 -0.5"], vec!["K1 L1 L2 1"], vec!["K1 L1 L2 {kk}", ".param kk=0.5"]] {
+        let r = run_deck(with(&k), &["v(b)"]).unwrap_or_else(|e| panic!("{:?}: {:?}", k, e));
+        seen.push(r.series["v(b)"].last().unwrap().1);
+    }
+    assert!((seen[0] + seen[1]).abs() < 1e-9 && (seen[0] - seen[3]).abs() < 1e-12, "{:?}", seen); // sign flips the dot
+}
+
+/// G16: the threshold sign. Probed: PJF/NJF with VTO = +2.5 conduct 5e-12 A at Vgs = 0 (dead), with -2.5 IDSS; a PMOS
+/// or pchan VDMOS with VTO = +2.5 is on at Vgs = 0. A literal positive VTO on those cards is a MODEL-SIGN warning (the
+/// run still goes ahead); negative VTO, N-channel MOSFETs and parameter expressions give none.
+#[test]
+fn t73_p_type_threshold_sign_is_flagged() {
+    let card = |c: &str| findings(&["t", "V1 d 0 1", "R1 d 0 1k", c]);
+    for c in [".model pj pjf(vto=2.5 beta=1m)", ".model nj NJF vto=0.5", ".model pm pmos(level=1 vto=2.5 kp=1m)",
+              ".model pv vdmos(pchan vto=2.5 kp=1)"] {
+        let f = card(c);
+        assert!(f.iter().any(|x| x.code == "MODEL-SIGN" && x.severity == "warn"), "{}: {:?}", c, f);
+        assert!(!benchcore::validate::has_error(&f), "{}", c);
+    }
+    for c in [".model pj pjf(vto=-2.5)", ".model pm pmos(level=1 vto=-1)", ".model nm nmos(vto=1)", ".model pv vdmos(pchan vto=-2.5)",
+              ".model nv vdmos(vto=2.5)", ".model pm pmos(vto={v})"] {
+        assert!(!has(&card(c), "MODEL-SIGN"), "{}", c);
+    }
+    // the dead device behind the rule: VTO = +2.5 on a PJF passes ~5e-12 A where VTO = -2.5 gives IDSS = 6.25 mA
+    let idss = |vto: &str| {
+        let r = run_deck(deck_with(&["t", "Vd d 0 -5", "Vg g 0 0", "J1 d g 0 pj", &format!(".model pj pjf(vto={} beta=1m)", vto)],
+                                   ".tran 1u 10u 0 1u uic"), &["i(vd)"]).unwrap();
+        r.series["i(vd)"].last().unwrap().1
+    };
+    assert!(idss("2.5").abs() < 1e-9 && (idss("-2.5") - 6.25e-3).abs() < 1e-6);
+}
+
+/// Raw adapter: circ + run with no static gate -> the log's first `stderr Error` line, if any (rc 0 either way).
+fn raw_error(lines: &[&str]) -> Option<String> {
+    use benchcore::ngspice as ng;
+    let _op = ng::op_lock();
+    ng::ensure_init().unwrap();
+    ng::teardown();
+    let mut deck: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
+    deck.extend([".tran 0.1u 20u 0 0.1u".to_string(), ".end".to_string()]);
+    let _ = ng::do_circ(&deck);
+    let _ = ng::do_command("run");
+    let (log, _) = ng::take_logs();
+    ng::teardown();
+    log.into_iter().find(|l| l.to_lowercase().starts_with("stderr error"))
+}
+
+/// G26: XSPICE port shapes are checked statically from a probed table. Before, `A1 [a] y buf` (a vector where
+/// d_buffer wants a scalar) passed the validator and failed only in ngspice. Every library form (NULL ports, trailing
+/// outputs left off, `%vd (a b)`, `~` inversion) still passes, and a wrong shape is MALFORMED at load and at run time.
+#[test]
+fn t74_xspice_port_shapes() {
+    let a = |line: &str, model: &str| -> Vec<String> {
+        vec!["t".into(), "V1 a 0 PULSE(0 1 1u 1n 1n 5u 10u)".into(), "R1 a 0 1k".into(), line.into(), format!(".model m1 {}", model)]
+    };
+    let bad = |line: &str, model: &str| -> bool {
+        validate(&a(line, model)).iter().any(|f| f.code == "MALFORMED" && f.message.contains(model))
+    };
+    for (line, model) in [("A1 [a] y m1", "d_buffer"), ("A1 a b y m1", "d_and"), ("A1 [a b] [y] m1", "d_nand"),
+                          ("A1 [a] y m1", "dac_bridge"), ("A1 a [y] m1", "adc_bridge"), ("A1 a b c d e f g m1", "d_dff"),
+                          ("A1 a y z m1", "d_inverter"), ("A1 [a b] m1", "adc_bridge")] {
+        assert!(bad(line, model), "{} {}", line, model);
+        let owned = a(line, model);
+        let refs: Vec<&str> = owned.iter().map(|s| s.as_str()).collect();
+        assert!(raw_error(&refs).is_some(), "ngspice accepted {} {}", line, model);
+    }
+    for (line, model) in [("A1 a y m1", "d_buffer"), ("A1 ~a y m1", "d_inverter"), ("A1 [a ~b] y m1", "d_or"),
+                          ("A1 [a] [y] m1", "adc_bridge"), ("A1 [ a b ] [ y z ] m1", "dac_bridge"),
+                          ("A1 dd le NULL NULL dq NULL m1", "d_dlatch"), ("A1 a c NULL NULL q nq m1", "d_dff"),
+                          ("A1 a c NULL NULL q m1", "d_dff"), ("A1 %vd (a 0) y m1", "d_buffer"), ("A1 a b y m1", "d_tristate"),
+                          ("A1 a y m1", "gain")] {
+        assert!(!bad(line, model), "{} {}", line, model);
+    }
+}
+
+/// G14: ngspice raises IBV to IS*BV/Vt without a word. Probed here: a BAT54-class card asking IBV = 0.7 uA breaks
+/// down exactly like the same card with IBV = 3.7e-4 A (both under IS*BV/Vt = 3.79e-4 A), unlike one just above it. Such a
+/// card is a MODEL-IBV warning; cards with IBV at or above the floor, without BV, or with expressions give none.
+#[test]
+fn t75_diode_ibv_floor_is_flagged() {
+    let card = |ibv: &str| format!(".model db D(Is=327n N=1.34 BV=30 IBV={})", ibv);
+    let warns = |c: &str| has(&findings(&["t", "V1 a 0 1", "R1 a 0 1k", c]), "MODEL-IBV");
+    assert!(warns(&card("0.7u")));
+    assert!(!warns(&card("1m")) && !warns(".model db D(Is=327n)") && !warns(".model db D(Is=327n BV={b} IBV=1n)"));
+    assert!(warns(".model db D(Is=1.5u N=1.05 BV=40)")); // IBV default 1 mA < 2.3 mA
+    let vrev = |c: &str| {
+        let r = run_deck(deck_with(&["t", "I1 0 k 1m", "D1 0 k db", c], ".tran 1u 10u 0 1u uic"), &["v(k)"]).unwrap();
+        r.series["v(k)"].last().unwrap().1
+    };
+    // every IBV below the floor (bisected: IS*BV/Vt within 4e-6, whatever N) gives the same knee; above it, IBV counts
+    let (asked, below, above) = (vrev(&card("0.7u")), vrev(&card("3.7e-4")), vrev(&card("3.9e-4")));
+    assert!((asked - below).abs() < 1e-9 && (asked - above).abs() > 1e-2, "{} {} {}", asked, below, above);
+}
+
+/// G1: under `.tran ... uic` (every Bench run) a node joined only by capacitors to a driven node solves, so it is no
+/// longer NO-DC-PATH: a capacitive divider (0.5 V), a C-C-C chain (2/3 V) and a current source charging a C (ramp
+/// I*t/C) run to their hand values. Without UIC (an operating point first) and for a floating capacitor island
+/// (singular, probed) it stays an error.
+#[test]
+fn t76_capacitor_only_nodes_under_uic() {
+    let step = "V1 a 0 PULSE(0 1 10u 1u 1u 1 2)";
+    for (lines, want) in [
+        (vec!["t", step, "C1 a n 1u", "C2 n 0 1u"], 0.5),
+        (vec!["t", step, "C1 a n 1u", "C2 n m 1u", "C3 m 0 1u"], 2.0 / 3.0),
+        (vec!["t", "I1 0 n 1m", "C1 n 0 1u", "V9 x 0 1", "R9 x 0 1k"], 0.1),
+    ] {
+        let uic = deck_with(&lines, ".tran 1u 100u 0 1u uic");
+        assert!(!has(&validate(&uic), "NO-DC-PATH"), "{:?}", lines);
+        let r = run_deck(uic, &["v(n)"]).unwrap_or_else(|e| panic!("{:?}: {:?}", lines, e));
+        let v = r.series["v(n)"].last().unwrap().1;
+        assert!((v - want).abs() < 1e-6, "{:?}: {} vs {}", lines, v, want);
+        assert!(has_on(&validate(&deck_with(&lines, ".tran 1u 100u")), "NO-DC-PATH", "n"), "{:?} without uic", lines);
+    }
+    let island = deck_with(&["t", "V1 a 0 1", "R1 a 0 1k", "C1 n m 1u"], ".tran 1u 100u 0 1u uic");
+    assert!(has_on(&validate(&island), "NO-DC-PATH", "n"));
+}
+
+/// G15: the runaway is reproduced exactly as task 6 met it: an SCR subcircuit (BJT pair, Tf = Tr = 1 us, an anode
+/// diode with BV = 1000, no leak resistor) dropping out below its holding current on a 12 V supply leaves its internal
+/// anode nodes floating, and trapezoidal integration drives them to the diode's 1000 V breakdown. ngspice reports
+/// success; the run now carries a warning naming the node. The library's version (100 Meg leak, Tf = Tr = 10 ns,
+/// 10 pF anode-cathode capacitance) and a plain subcircuit carry none.
+#[test]
+fn t77_runaway_internal_node_is_flagged() {
+    fn scr(leak: bool) -> Vec<String> {
+        let mut d: Vec<String> = ["scr", "Vs vs 0 DC 12", "RL vs a 5000", "X1 a 0 g scr", "Vg gp 0 PULSE(0 5 100u 1u 1u 300u 1)",
+            "Rg gp g 1k", ".subckt scr a k g", ".model scrd D(Is=1e-12 N=1 BV=1000 IBV=1u)",
+            ".model scrn NPN(Is=1e-14 Bf=100 Br=1 Ikf=20 Ise=1e-12 Ne=1.5 Rb=0.1 Tf=1u Tr=1u)",
+            ".model scrp PNP(Is=1e-14 Bf=40 Br=1 Ikf=20 Ise=1e-12 Ne=1.5 Rb=0.1 Tf=1u Tr=1u)",
+            "DA a ay scrd", "RA ay ax 20m", "QP gi x ax scrp", "QN x gi kx scrn", "RXA ax x 130", "RK kx k 1m",
+            "RG g gi 100", "RGK gi k 3.3k"].iter().map(|s| s.to_string()).collect();
+        if leak {
+            // the library's bench_scr: a leak across the anode, Tf = Tr = 10 ns and a 10 pF anode-cathode capacitance. The
+            // leak and the shorter Tf alone still let the internal nodes run to 833 V (found by this check; 9.6 added CAK)
+            d.push("RLK a ax 100Meg".into());
+            d.push("CAK ax k 10p".into());
+            d = d.into_iter().map(|l| l.replace("Tf=1u Tr=1u", "Tf=10n Tr=10n")).collect();
+        }
+        d.extend([".ends scr".into(), ".tran 5u 1.5m 0 5u uic".into(), ".end".into()]);
+        d
+    }
+    let r = run_deck(scr(false), &["v(a)"]).expect("ngspice runs it");
+    assert_eq!(r.warnings.len(), 1, "{:?}", r.warnings);
+    assert!(r.warnings[0].contains("implausible internal node: x1.") && r.warnings[0].contains("e3 V"), "{}", r.warnings[0]);
+    let ok = run_deck(scr(true), &["v(a)"]).expect("runs");
+    assert!(ok.warnings.is_empty(), "{:?}", ok.warnings);
+    let plain = deck_with(&["t", "V1 a 0 5", "X1 a b div", "R2 b 0 1k", ".subckt div p q", "R1 p m 1k", "R3 m q 1k", ".ends div"],
+                          ".tran 1u 10u 0 1u uic");
+    assert!(run_deck(plain, &["v(b)"]).unwrap().warnings.is_empty());
+}
+
+/// G2: function and constant names are checked per expression context, from a probe of every builtin in each one.
+/// A name valid only elsewhere used to pass statically and fail in ngspice ("no such function", "Error in netlist
+/// line"); now it is UNDEFINED-PARAM saying where it is available. Valid uses in each context still pass and run.
+#[test]
+fn t78_expression_names_per_context() {
+    let deck = |lines: &[&str]| deck_with(&[&["t", "V0 z 0 1", "R0 z 0 1k"][..], lines].concat(), ".tran 1u 2u 0 1u uic");
+    let refused = |lines: &[&str]| {
+        let f = validate(&deck(lines));
+        f.iter().any(|x| x.code == "UNDEFINED-PARAM" && x.message.contains("not available in"))
+    };
+    for lines in [
+        vec!["B1 a 0 V=sqr(2)", "R1 a 0 1k"],
+        vec!["B1 a 0 V=int(2.5)", "R1 a 0 1k"],
+        vec!["E1 a 0 VALUE={arctan(1)}", "R1 a 0 1k"],
+        vec!["V1 a 0 {u(1)}", "R1 a 0 1k"],
+        vec![".param p={pwl(0.5,0,0,1,1)}", "V1 a 0 {p}", "R1 a 0 1k"],
+        vec![".param p={pi}", "V1 a 0 {p}", "R1 a 0 1k"],
+        vec!["V1 a 0 {time}", "R1 a 0 1k"],
+        vec!["V1 a 0 1", "R1 a 0 {1k+e}"],
+    ] {
+        assert!(refused(&lines), "{:?}", lines);
+        let raw: Vec<String> = deck(&lines);
+        let refs: Vec<&str> = raw.iter().map(|s| s.as_str()).take(raw.len() - 2).collect();
+        assert!(raw_error(&refs).is_some(), "ngspice accepted {:?}", lines);
+    }
+    for (lines, want) in [
+        (vec!["B1 a 0 V=u(1)+pi-pi+uramp(0)", "R1 a 0 1k"], 1.0),
+        (vec![".param p={sqr(2)+int(0.5)}", "V1 a 0 {p}", "R1 a 0 1k"], 4.0),
+        (vec!["E1 a 0 VALUE={ddt(1)+e-e+2}", "R1 a 0 1k"], 2.0),
+        (vec!["V1 a 0 1", "R1 a b {1k+temper-temper}", "R2 b 0 1k"], 1.0),
+        (vec![".func f(x) {sqr(x)}", "B1 a 0 V=1+0*time", "R1 a 0 1k"], 1.0),
+    ] {
+        assert!(!refused(&lines), "{:?}", lines);
+        let r = run_deck(deck(&lines), &["v(a)"]).unwrap_or_else(|e| panic!("{:?}: {:?}", lines, e));
+        assert!((r.series["v(a)"].last().unwrap().1 - want).abs() < 1e-9, "{:?}", lines);
+    }
+}

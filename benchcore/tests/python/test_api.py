@@ -154,3 +154,42 @@ def test_validate_reports_class_and_scope_through_nested_subcircuits():
         ("UNDEFINED-MODEL", "dependency", ".subckt outer/inner", "error"),
         *[("NO-DC-PATH", "connectivity", f"{x}.xa", "error") for x in ("x1", "x2") for _ in "mn"],
     ]), got
+
+
+PAUSE_UNSAVED_PROBE = """
+import benchcore
+s = benchcore.Simulation("g32").build_circuit(["V1 a 0 DC 4", "R1 a b 1k", "R2 b 0 3k"])
+s.configure(tstep=1e-6, tstop=1e-3).observe("v(b)", "@v1[dc]").pause_at(5e-4)
+try:
+    s.run(); print("RAN")
+except benchcore.InvalidConfigError as e:
+    print("REFUSED", e)
+s = benchcore.Simulation("after").build_circuit(["V1 a 0 DC 4", "R1 a b 1k", "R2 b 0 3k"])
+s.configure(tstep=1e-6, tstop=2e-5).observe("v(b)").run()
+print("AFTER", s.observable("v(b)")[-1][1])
+"""
+
+
+def test_pause_with_an_unsaved_device_observable_is_refused_not_a_crash():
+    """G32 (task 9.6): reading an unsaved @dev[param] through ngGet_Vec_Info at a pause corrupts ngspice and the next
+    resume dumped core. The batch pause path now refuses it before the engine, like live runs (and like the full path,
+    which fails after the run with the same error class). Run in a subprocess: the old behaviour kills the process."""
+    import subprocess, sys
+    out = subprocess.run([sys.executable, "-c", PAUSE_UNSAVED_PROBE], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, f"process died (rc {out.returncode}): {out.stdout}{out.stderr}"
+    lines = out.stdout.splitlines()
+    assert lines[0].startswith("REFUSED") and "@v1[dc]" in lines[0] and ".save" in lines[0], out.stdout
+    assert lines[1] == "AFTER 3.0", out.stdout
+
+
+def test_gear_method_is_one_options_line():
+    """G30 (task 9.6): configure(method="gear") adds `.options method=gear` before the .tran line; trap (the default)
+    adds nothing, so existing decks are unchanged; anything else is a config error."""
+    s = rc()
+    assert not any(l.startswith(".options") for l in s._deck())
+    deck = s.configure(method="gear")._deck()
+    assert deck[-3:-1] == [".options method=gear", deck[-2]] and deck[-2].startswith(".tran")
+    s.observe("v(out)").run()
+    assert abs(s.observable("v(out)")[-1][1] - 5 * (1 - math.exp(-5))) < 0.02
+    with pytest.raises(InvalidConfigError):
+        rc().configure(method="euler")

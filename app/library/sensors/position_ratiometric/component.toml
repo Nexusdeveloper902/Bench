@@ -13,7 +13,7 @@ tags = ["sensor", "position"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Ratiometric output between VLO and VHI (generic 10 % and 90 % of the supply). Linear in the stroke, no non-linearity, no hysteresis or wear.",
-               "Output impedance is a series resistor; the supply current is ideal. The position is fixed for the whole run."]
+               "Output impedance is a series resistor; the supply current is ideal. The position is fixed during a batch run (a live run can change it)."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

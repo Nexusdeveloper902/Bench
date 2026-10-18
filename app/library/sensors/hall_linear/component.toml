@@ -13,7 +13,7 @@ tags = ["sensor", "magnetic"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Linear transfer around Vcc/2 with generic sensitivity (2.5 mV/mT); not a datasheet fit. No saturation at the rails, no offset drift, no noise, no hysteresis.",
-               "Supply current and the output stage are not modelled beyond a series output resistance; the field is fixed for the whole run."]
+               "Supply current and the output stage are not modelled beyond a series output resistance; the field is fixed during a batch run (a live run can change it)."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

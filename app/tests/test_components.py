@@ -57,8 +57,9 @@ def test_catalog_entry_contract(kind):
     vals = c.values(c.defaults(), "X1")              # every default is valid input
     assert set(vals) == set(c.fields(c.defaults()))
     for p in c.params:
-        assert p.label and p.kind in ("number", "choice")
+        assert p.label and p.kind in ("number", "choice", "points")     # points: task 9.6 (G12, PWL sources)
         if p.kind == "choice": assert p.default in p.choices
+        if p.kind == "points": assert isinstance(vals[p.key], str) and len(vals[p.key].split()) % 2 == 0
     sec = c.sim["electrical"]
     if c.ground:
         assert "device" not in sec
@@ -181,13 +182,14 @@ def test_run_document_returns_structured_failure():
 
 
 def test_run_document_core_failure_keeps_details():
-    # passes app checks; the core rejects it (capacitor-only node has no DC path)
-    d = Document(); d.add_part("V"); d.add_part("C"); d.add_part("C"); d.add_part("GND")
-    for a, b in (("V1.p", "C1.a"), ("C1.b", "C2.a"), ("C2.b", "GND1.g"), ("V1.n", "GND1.g")):
+    # passes app checks; the core rejects it (a source straight across an inductor: V-LOOP). Task 9.6 (G1): the
+    # trigger was a capacitive divider (a capacitor-only node), which every Bench run solves under UIC.
+    d = Document(); d.add_part("V"); d.add_part("L"); d.add_part("GND")
+    for a, b in (("V1.p", "L1.a"), ("L1.b", "V1.n"), ("V1.n", "GND1.g")):
         d.connect(a, b)
     res = run_document(d)
-    assert not res.ok and "NO-DC-PATH" in res.message
-    assert "netlist sent to the core" in res.details and "C1 n1 n2" in res.details
+    assert not res.ok and "V-LOOP" in res.message
+    assert "netlist sent to the core" in res.details and "L1 n1 0" in res.details
 
 
 # ---------------- save format v1 ----------------

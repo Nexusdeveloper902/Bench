@@ -13,7 +13,7 @@ tags = ["sensor", "pressure"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Linear equivalent: Vout = S·P·Vex with a generic sensitivity (2 mV/V per bar). Not a datasheet fit: no offset, no non-linearity, no hysteresis or temperature drift.",
-               "The input resistance (5 kΩ) and the output resistance (5 kΩ) are generic. The pressure is fixed for the whole run."]
+               "The input resistance (5 kΩ) and the output resistance (5 kΩ) are generic. The pressure is fixed during a batch run (a live run can change it)."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

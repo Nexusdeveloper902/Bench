@@ -13,7 +13,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Callendar-Van Dusen equation with the A and B coefficients only, valid from 0 °C to 850 °C. The C term used below 0 °C is not modelled, so the temperature range is limited to 0 to 850 °C.",
                "Tolerance classes (A, B) and self-heating are not modelled; the nominal resistance is ideal.",
-               "The temperature is fixed for the whole run: no thermal time constant."]
+               "The temperature is fixed during a batch run (a live run can change it): no thermal time constant."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

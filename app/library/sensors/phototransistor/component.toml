@@ -14,7 +14,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Equivalent: photocurrent SENS·irradiance into an NPN base with BF = 100 and no Early effect (VAF not set). These are generic values, not a datasheet fit.",
                "The base is internal (no pin). Its photocurrent is linear in irradiance; no saturation of the photocurrent, no dark-current model beyond the transistor card.",
-               "Irradiance is fixed for the whole run; no response time, spectral response or temperature dependence."]
+               "Irradiance is fixed during a batch run (a live run can change it); no response time, spectral response or temperature dependence."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

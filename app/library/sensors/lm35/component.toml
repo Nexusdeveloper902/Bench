@@ -13,7 +13,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Behavioural equivalent: Vout = 10 mV/°C × T, with a 0.1 Ω output resistance (generic). The accuracy classes and the ±0.5 °C tolerance are not modelled.",
                "The supply current and the supply range are not modelled; the supply pin is tied with a 1 GΩ leak. Self-heating and the thermal time constant are not modelled.",
-               "Temperature range -55 to 150 °C (the device's range). The temperature is fixed for the whole run."]
+               "Temperature range -55 to 150 °C (the device's range). The temperature is fixed during a batch run (a live run can change it)."]
 docs = ["https://www.ti.com/product/LM35"]
 
 [presentation]

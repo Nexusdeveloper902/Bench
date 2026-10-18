@@ -13,7 +13,7 @@ tags = ["sensor", "passive"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Generic power-law equivalent: R10 and gamma are generic values, not a datasheet fit. The law is an approximation over the lux range it is used for.",
-               "Illuminance is fixed for the whole run: no spectral response, no light or dark response lag, no temperature dependence and no ageing.",
+               "Illuminance is fixed during a batch run (a live run can change it): no spectral response, no light or dark response lag, no temperature dependence and no ageing.",
                "Not a vendor model."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 

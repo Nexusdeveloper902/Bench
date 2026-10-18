@@ -14,7 +14,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Butterworth-Van Dyke equivalent: the electrical response near the series resonance only. Drive level, load capacitance, temperature (the parabolic curve) and ageing are not modelled.",
                "Typical values, not a datasheet fit: Ls 6.74 kH, Cs 3.5 fF, Rs 50 kΩ, Cp 1.5 pF, which give fs = 32.768 kHz and Q near 28 000. A real part with a different load capacitance pulls the frequency.",
-               "The two pins have no DC path through the crystal: wire one of them to a DC path, or the validator reports NO-DC-PATH."]
+               "The two pins have no DC path through the crystal: a pin wired only to it starts at 0 V and follows through its capacitances (Bench runs with UIC); give it a DC path where its bias matters."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

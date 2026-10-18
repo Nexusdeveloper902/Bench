@@ -13,7 +13,7 @@ tags = ["sensor", "passive"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Linear gauge equation R = R0·(1 + GF·ε) with a generic gauge factor (2.0); no nonlinearity, transverse sensitivity or temperature compensation.",
-               "The strain is fixed for the whole run. The gauge is an ideal resistor; no bonding, creep or fatigue."]
+               "The strain is fixed during a batch run (a live run can change it). The gauge is an ideal resistor; no bonding, creep or fatigue."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

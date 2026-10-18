@@ -129,7 +129,7 @@ Each `[[params]]` table maps to one editable field.
 | `label` | field label |
 | `unit` | one of `""`, `Ω`, `F`, `H`, `V`, `A`, `s`, `Hz` |
 | `default` | text, exactly as a user would type it (`"1k"`, `"5"`), not a number |
-| `kind` | `"number"` (default) or `"choice"` with a `choices` list |
+| `kind` | `"number"` (default), `"choice"` with a `choices` list, or `"points"`: time-value pairs typed as `0 0, 1m 5, 2m 0` (times in s, strictly increasing from 0; `unit`, `min` and `max` apply to the values), emitted as SPICE text `0.0 0.0 0.001 5.0 ...` for a `PWL({key})` line |
 | `min`, `min_exclusive`, `max` | numeric bounds |
 | `when` | `{param = "choice"}`: the field applies only when those values match |
 | `help` | one-line tooltip |

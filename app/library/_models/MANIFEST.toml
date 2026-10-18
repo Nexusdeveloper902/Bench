@@ -55,7 +55,7 @@ origin = "project"
 source = "Bench project; regenerative NPN/PNP pair SCR subcircuit (not a vendor model)"
 license = "MIT"
 retrieved = "2026-10-11"
-sha256 = "6f05c99c193141fd7a04e3fe59952c8bb2702d7cbccc9f6345996448c0302221"
+sha256 = "4187ceaa507788f52723dcca9150cc87c049f9edb33df4209c7100aab96fc7ff"
 changes = "none"
 
 [[file]]

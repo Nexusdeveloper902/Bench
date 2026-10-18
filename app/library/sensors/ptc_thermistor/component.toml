@@ -13,7 +13,7 @@ tags = ["sensor", "passive"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Generic switching-curve equivalent: R25, the resistance ratio, the switching temperature and the width are generic values, not a datasheet fit.",
-               "The temperature is fixed for the whole run: no self-heating, no thermal time constant and no voltage-dependent switching."]
+               "The temperature is fixed during a batch run (a live run can change it): no self-heating, no thermal time constant and no voltage-dependent switching."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

@@ -13,7 +13,7 @@ tags = ["sensor", "passive"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Generic power-law equivalent with a fixed exponent: RREF, FREF and the exponent are generic values, not a datasheet fit. Force must be positive; the no-load case is the leakage resistance.",
-               "No hysteresis, drift or creep; the force is fixed for the whole run; the sensing area and the load application are not modelled."]
+               "No hysteresis, drift or creep; the force is fixed during a batch run (a live run can change it); the sensing area and the load application are not modelled."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

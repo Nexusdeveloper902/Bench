@@ -14,7 +14,7 @@ domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Photocurrent = SENS·irradiance, linear over the range; SENS is a generic value, not a datasheet fit. The spectral response and the angular response are not modelled.",
                "Junction diode and capacitance are generic (Is = 1 nA, N = 1.2, CJ = 20 pF). Dark current and breakdown are reduced to the diode card.",
-               "Irradiance is fixed for the whole run; no response time or temperature dependence."]
+               "Irradiance is fixed during a batch run (a live run can change it); no response time or temperature dependence."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

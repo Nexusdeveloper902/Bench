@@ -14,7 +14,7 @@
 
 use crate::error::SimError;
 use crate::kernel::{apply_tmax_policy, check_observables, gates, nonfinite_or_short, parse_tstop, pause_exact,
-                    scan_loud_failure, with_reason, SimResult};
+                    refuse_unsaved_device_observables, scan_loud_failure, with_reason, SimResult};
 use crate::ngspice;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -148,11 +148,7 @@ impl LiveSim {
                 message: "live runs are not available with O/U transmission lines or OSDI devices".to_string(),
             });
         }
-        // an unsaved @dev[param] read at a pause corrupts ngspice: the next resume dumps core (probed, LIVE.md)
-        let saves: String = lines.iter().filter(|l| l.trim().to_lowercase().starts_with(".save")).map(|l| l.to_lowercase()).collect();
-        if let Some(o) = observables.iter().find(|o| o.starts_with('@') && !saves.contains(&o.to_lowercase())) {
-            return Err(config(format!("observable {} needs a .save line naming it in a live run", o)));
-        }
+        refuse_unsaved_device_observables(&lines, observables)?;
         let mut devs = HashSet::new();
         for d in devices {
             let d = d.to_lowercase();
@@ -346,6 +342,7 @@ pub fn replay(netlist: &[String], observables: &[String], changes: &[Change]) ->
         wall_ms: wall.elapsed().as_secs_f64() * 1e3,
         used_pauses: true,
         fallback_reason: None,
+        warnings: vec![],
     })
 }
 

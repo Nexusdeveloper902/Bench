@@ -249,6 +249,45 @@ const FUNCS: &[&str] = &[
 ];
 /// Names an expression may read without a `.param` (probed: pi and e only outside `{}`).
 const CONSTS: &[&str] = &["time", "temper", "hertz", "pi", "e"];
+
+/// Where an expression sits, which decides the names ngspice 47 accepts in it (G2, probed one deck per name and
+/// context): B sources and E/G `VALUE=` have no sqr, arctan or int but have u, u2, uramp, ddt, pwl, time, temper, hertz,
+/// pi and e; `{}` in `.param`s, model cards, source values and instance params is the reverse and reads no constant at
+/// all; an R/C/L value `{}` also reads time, temper and hertz. `.func` bodies take the union (they are substituted).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Ctx {
+    Param,
+    Value,
+    Behav,
+    Func,
+}
+
+impl Ctx {
+    fn has(self, id: &str, call: bool) -> bool {
+        let brace_only = ["sqr", "arctan", "int"];
+        let behav_only = ["u", "u2", "uramp", "ddt", "pwl"];
+        match (self, call) {
+            (Ctx::Func, true) => FUNCS.contains(&id),
+            (Ctx::Func, false) => CONSTS.contains(&id),
+            (Ctx::Behav, true) => FUNCS.contains(&id) && !brace_only.contains(&id),
+            (Ctx::Behav, false) => CONSTS.contains(&id),
+            (_, true) => FUNCS.contains(&id) && !behav_only.contains(&id),
+            (Ctx::Value, false) => ["time", "temper", "hertz"].contains(&id),
+            (_, false) => false,
+        }
+    }
+
+    fn what(self) -> &'static str {
+        match self {
+            Ctx::Behav => "a B or VALUE= expression",
+            Ctx::Value => "an R, C or L value {}",
+            _ => "a {} expression (.param, model card, source value or instance parameter)",
+        }
+    }
+}
+
+/// One expression of a definition: (owner, text, local names, context).
+type Expr = (String, String, Vec<String>, Ctx);
 /// Flattening stops past this many elements (LIMITED-ANALYSIS); a guard against exponential nesting.
 const MAX_FLAT: usize = 100_000;
 
@@ -334,6 +373,81 @@ fn xspice_nodes(toks: &[&str]) -> Vec<String> {
         }
     }
     out
+}
+
+/// Port kinds of XSPICE code models (G26; probed one process per model on ngspice 47): `v` a vector `[..]`, `s` a
+/// scalar (a node, `~node`, `NULL`, or `%vd (a b)`), and the fewest ports ngspice accepts (flip-flops and latches
+/// run with trailing outputs left off). A vector where a scalar is due, an extra port, or a missing one fails only
+/// when the run reaches ngspice ("Scalar connection expected"); other code models are left to it.
+const XSPICE_PORTS: &[(&str, &str, usize)] = &[
+    ("d_buffer", "ss", 2), ("d_inverter", "ss", 2), ("d_open_c", "ss", 2), ("d_open_e", "ss", 2),
+    ("d_and", "vs", 2), ("d_nand", "vs", 2), ("d_or", "vs", 2), ("d_nor", "vs", 2), ("d_xor", "vs", 2), ("d_xnor", "vs", 2),
+    ("d_tristate", "sss", 3), ("d_pullup", "s", 1), ("d_pulldown", "s", 1),
+    ("d_dff", "ssssss", 1), ("d_tff", "ssssss", 1), ("d_dlatch", "ssssss", 1),
+    ("d_jkff", "sssssss", 1), ("d_srff", "sssssss", 1), ("d_srlatch", "sssssss", 1),
+    ("adc_bridge", "vv", 2), ("dac_bridge", "vv", 2),
+];
+
+/// Port groups of an A line's connection tokens: 'v' for `[..]`, 's' for anything else.
+fn xspice_groups(toks: &[&str]) -> Vec<char> {
+    let text = toks.join(" ");
+    let c: Vec<char> = text.chars().collect();
+    let mut out = vec![];
+    let mut i = 0;
+    while i < c.len() {
+        match c[i] {
+            ' ' => i += 1,
+            '[' => {
+                while i < c.len() && c[i] != ']' {
+                    i += 1;
+                }
+                i += 1;
+                out.push('v');
+            }
+            '%' => {
+                // `%vd (a b)`, `%d a`, `%gd(a b)`: the modifier, then one node or one parenthesised pair
+                while i < c.len() && c[i] != ' ' && c[i] != '(' && c[i] != '[' {
+                    i += 1;
+                }
+                while i < c.len() && c[i] == ' ' {
+                    i += 1;
+                }
+                if i < c.len() && c[i] == '[' {
+                    continue; // `%d [a b]`: the vector group follows
+                }
+                if i < c.len() && c[i] == '(' {
+                    while i < c.len() && c[i] != ')' {
+                        i += 1;
+                    }
+                    i += 1;
+                } else {
+                    while i < c.len() && c[i] != ' ' {
+                        i += 1;
+                    }
+                }
+                out.push('s');
+            }
+            _ => {
+                while i < c.len() && c[i] != ' ' {
+                    i += 1;
+                }
+                out.push('s');
+            }
+        }
+    }
+    out
+}
+
+fn xspice_port_problem(ty: &str, conn: &[&str]) -> Option<String> {
+    let (_, want, min) = XSPICE_PORTS.iter().find(|(t, _, _)| *t == ty)?;
+    let got = xspice_groups(conn);
+    let kind = |k: char| if k == 'v' { "a vector [..]" } else { "a scalar node" };
+    if got.len() > want.len() || got.len() < *min {
+        return Some(format!("{} takes {} connections, got {}", ty, if *min == want.len() { want.len().to_string() } else { format!("{} to {}", min, want.len()) }, got.len()));
+    }
+    want.chars().zip(&got).enumerate().find(|(_, (w, g))| w != *g).map(|(i, (w, g))| {
+        format!("{} connection {} takes {}, got {}", ty, i + 1, kind(w), kind(*g))
+    })
 }
 
 /// `POLY(n)` starting at `parts[i]` (also `POLY (n)`) -> (n, the tokens after it).
@@ -776,7 +890,7 @@ struct Def {
     ports: Vec<String>,
     params: Vec<(String, String)>,              // header params: name, default
     lines: Vec<String>,                         // element lines
-    exprs: Vec<(String, String, Vec<String>)>,  // directive expressions: (owner, text, local names)
+    exprs: Vec<Expr>,                           // directive expressions
     names: HashSet<String>,                     // header params, .param and .func names (expressions)
     models: HashMap<String, (String, u32)>,     // local .model cards: type, level
     cards: HashMap<String, String>,             // local .model cards, normalised (DUP-MODEL)
@@ -819,7 +933,7 @@ fn parse_deck(lines: &[String]) -> Deck {
             let label = if cur == 0 { name.clone() } else { format!("{}/{}", dk.defs[cur].label, name) };
             let mut d = Def { name: name.clone(), label, parent: cur, ports, ..Default::default() };
             d.names = params.iter().map(|(k, _)| k.clone()).collect();
-            d.exprs = params.iter().map(|(k, v)| (format!("default of {}", k), v.clone(), vec![])).collect();
+            d.exprs = params.iter().map(|(k, v)| (format!("default of {}", k), v.clone(), vec![], Ctx::Param)).collect();
             d.params = params;
             if name.is_empty() {
                 dk.errors.push(finding("MALFORMED", "error", "'.subckt' needs a name".into(), vec![], vec![], "authoring"));
@@ -874,7 +988,7 @@ fn parse_deck(lines: &[String]) -> Deck {
                         def.models.insert(name.clone(), card_type(&tok[2..]));
                     }
                 }
-                def.exprs.extend(brace_groups(&s).into_iter().map(|e| (format!(".model {}", name), e, vec![])));
+                def.exprs.extend(brace_groups(&s).into_iter().map(|e| (format!(".model {}", name), e, vec![], Ctx::Param)));
             }
             ".param" => {
                 for (k, v) in args(rest).1 {
@@ -883,11 +997,11 @@ fn parse_deck(lines: &[String]) -> Deck {
                             // `.param f(x) = {..}`: a function
                             let locals = k[p + 1..].trim_end_matches(')').split(',').map(|a| a.trim().to_string()).collect();
                             def.names.insert(k[..p].trim().to_string());
-                            def.exprs.push((format!(".param {}", k), v, locals));
+                            def.exprs.push((format!(".param {}", k), v, locals, Ctx::Func));
                         }
                         None => {
                             def.names.insert(k.clone());
-                            def.exprs.push((format!(".param {}", k), v, vec![]));
+                            def.exprs.push((format!(".param {}", k), v, vec![], Ctx::Param));
                         }
                     }
                 }
@@ -897,7 +1011,7 @@ fn parse_deck(lines: &[String]) -> Deck {
                     let name = rest[..o].trim().to_lowercase();
                     let locals = rest[o + 1..c].split(',').map(|a| a.trim().to_lowercase()).collect();
                     def.names.insert(name.clone());
-                    def.exprs.push((format!(".func {}", name), rest[c + 1..].trim().trim_start_matches('=').to_string(), locals));
+                    def.exprs.push((format!(".func {}", name), rest[c + 1..].trim().trim_start_matches('=').to_string(), locals, Ctx::Func));
                 }
                 _ => def.notes.push(finding("MALFORMED", "error", format!("'{}' must be .func name(args) {{expression}}", s), vec![], vec![], "authoring")),
             },
@@ -938,7 +1052,7 @@ fn parse_deck(lines: &[String]) -> Deck {
 struct DefInfo {
     devices: Vec<Device>,                       // local names and nodes
     b_exprs: Vec<(String, Vec<String>, String, bool)>, // name, pnodes, expr, is_v
-    exprs: Vec<(String, String, Vec<String>)>,  // every expression: (owner, text, local names)
+    exprs: Vec<Expr>,                           // every expression
     findings: Vec<Finding>,
 }
 
@@ -966,7 +1080,7 @@ fn analyse_def(dk: &Deck, idx: usize, has_tran: bool) -> DefInfo {
             info.findings.push(bad("DUP-NAME", format!("parameter '{}' is declared twice; ngspice silently uses the last", k)));
         }
     }
-    for (owner, e, _) in &def.exprs {
+    for (owner, e, _, _) in &def.exprs {
         if let Some(f) = pspice_only_fn(&e.split_whitespace().collect::<Vec<_>>(), None) {
             info.findings.push(bad("UNSUPPORTED", format!("{}: {}() is PSpice syntax, not an ngspice 47 function", owner, f)));
         }
@@ -975,6 +1089,18 @@ fn analyse_def(dk: &Deck, idx: usize, has_tran: bool) -> DefInfo {
     let mut refs: Vec<(String, char, Vec<String>)> = vec![];
     for s in &def.lines {
         element(s, dk, &models, &subckts, &mut seen, &mut refs, &mut info);
+    }
+    // two K lines on one pair: ngspice adds their factors silently (probed: 0.5 + 0.3 runs as 0.8)
+    let mut pairs: HashMap<Vec<String>, &str> = HashMap::new();
+    for (el, _, names) in refs.iter().filter(|(_, k, n)| *k == 'K' && n.len() == 2) {
+        let mut key = names.clone();
+        key.sort();
+        if let Some(first) = pairs.insert(key, el.as_str()) {
+            info.findings.push(bad(
+                "MALFORMED",
+                format!("{} and {} both couple {} and {}; ngspice silently adds their factors", first, el, names[0], names[1]),
+            ));
+        }
     }
     // K, F, H, W name other elements; ngspice resolves those names inside the same body only (probed)
     for (el, kind, names) in &refs {
@@ -998,6 +1124,9 @@ fn analyse_def(dk: &Deck, idx: usize, has_tran: bool) -> DefInfo {
         }
     }
     values(&mut info);
+    info.findings.extend(ltra_steps(dk, idx, &info.devices));
+    info.findings.extend(vto_sign(def));
+    info.findings.extend(ibv_raise(def));
     let mut terms: HashSet<String> = info.devices.iter().flat_map(|d| d.nodes.iter().cloned()).collect();
     terms.extend(def.ports.iter().cloned());
     terms.extend(dk.globals.iter().cloned());
@@ -1151,9 +1280,22 @@ fn element(
             two(&parts)
         }
         Tail::Couple => {
+            // probed (G8): K L1 L1 runs silently with a self-coupled winding; |k| > 1 runs to a 1e43 V runaway; a
+            // 5th token is a parse error or (an inductor name) aborts the run
             if parts.len() < 4 {
                 errors.push(err("MALFORMED", format!("{}: K needs two inductor names + coupling factor", name), &[]));
+            } else if parts.len() > 4 {
+                errors.push(err("MALFORMED", format!("{}: K takes exactly two inductor names and one coupling factor", name), &[]));
+            } else if parts[1].eq_ignore_ascii_case(parts[2]) {
+                errors.push(err("MALFORMED", format!("{}: K couples '{}' with itself (ngspice runs it silently)", name, parts[1]), &[]));
             } else {
+                if parse_value(parts[3]).is_some_and(|k| k.abs() > 1.0) {
+                    errors.push(err(
+                        "BAD-COUPLING",
+                        format!("{}: coupling factor {} is outside -1..1 (non-physical; ngspice runs it to a numerical runaway)", name, parts[3]),
+                        &[],
+                    ));
+                }
                 refs.push((name.clone(), kind, lower_nodes(&parts[1..3])));
             }
             vec![]
@@ -1198,7 +1340,11 @@ fn element(
                 errors.push(err("MALFORMED", format!("{}: A needs ports + model", name), &[]));
                 vec![]
             } else {
-                errors.extend(check_model(&name, spec, &parts[parts.len() - 1].to_lowercase(), 0, models, has_include, &[], s));
+                let model = parts[parts.len() - 1].to_lowercase();
+                errors.extend(check_model(&name, spec, &model, 0, models, has_include, &[], s));
+                if let Some(why) = models.get(&model).and_then(|(ty, _)| xspice_port_problem(ty, &parts[1..parts.len() - 1])) {
+                    errors.push(err("MALFORMED", format!("{}: {} (ngspice fails only when the run starts)", name, why), &[]));
+                }
                 xspice_nodes(&parts[1..parts.len() - 1])
             }
         }
@@ -1267,14 +1413,14 @@ fn element(
     if model.as_ref().and_then(|m| models.get(m)).is_some_and(|(_, lv)| *lv == 0) {
         errors.push(limited(&name, format!("{}: model '{}' has a level that is not a literal number; level and node-count checks skipped", name, model.unwrap())));
     }
-    let exprs = if kind == 'B' {
-        extract_b_expr(s).map(|(_, e)| vec![e]).unwrap_or_default()
+    let (exprs, ctx) = if kind == 'B' {
+        (extract_b_expr(s).map(|(_, e)| vec![e]).unwrap_or_default(), Ctx::Behav)
     } else if behav == Some("expression") {
-        s.find('=').map(|i| vec![s[i + 1..].to_string()]).unwrap_or_default()
+        (s.find('=').map(|i| vec![s[i + 1..].to_string()]).unwrap_or_default(), Ctx::Behav)
     } else {
-        brace_groups(s)
+        (brace_groups(s), if matches!(kind, 'R' | 'C' | 'L') { Ctx::Value } else { Ctx::Param })
     };
-    info.exprs.extend(exprs.into_iter().map(|e| (name.clone(), e, vec![])));
+    info.exprs.extend(exprs.into_iter().map(|e| (name.clone(), e, vec![], ctx)));
     info.findings.extend(errors);
     let dc = dc_rule(kind, s, &nodes);
     info.devices.push(Device { name, nodes, raw: s.to_string(), kind, dc, sub });
@@ -1301,6 +1447,120 @@ fn values(info: &mut DefInfo) {
             Some(_) => continue,
         });
     }
+}
+
+/// `key=value` pairs of a normalised `.model` card (`ltra r=0.1 l = 1n c=1p len=1`, parens allowed), keys lower case.
+fn card_params(card: &str) -> HashMap<String, String> {
+    let mut s = card.replace(['(', ')'], " ");
+    while s.contains(" =") || s.contains("= ") {
+        s = s.replace(" =", "=").replace("= ", "=");
+    }
+    s.split_whitespace().filter_map(|t| t.split_once('=')).map(|(k, v)| (k.to_lowercase(), v.to_string())).collect()
+}
+
+/// (tstop, smallest step the run allows) from the deck's `.tran tstep tstop [tstart [tmax]]`, when literal.
+fn tran_window(analyses: &[String]) -> Option<(f64, f64)> {
+    let a = analyses.iter().find(|a| a.trim().to_lowercase().starts_with(".tran"))?;
+    let v: Vec<f64> = a.split_whitespace().skip(1).filter(|t| !t.eq_ignore_ascii_case("uic")).map_while(parse_value).collect();
+    let (tstep, tstop) = (*v.first()?, *v.get(1)?);
+    let dt = v.get(3).copied().unwrap_or(tstep.min(tstop / 50.0)); // ngspice's default tmax
+    (tstop > 0.0 && dt > 0.0).then_some((tstop, dt))
+}
+
+/// Lossy LTRA (O) lines limit the step to the line delay, and ngspice's lossy convolution costs grow with the square
+/// of the step count (measured, ngspice 47: 1e4 steps 2.2 s, 2e4 9 s, 5e4 55 s, 3e5 never finished). A run that would
+/// need more than LTRA_MAX_STEPS is refused here: nothing can interrupt ngspice once the run has started (G7).
+const LTRA_MAX_STEPS: f64 = 2e4;
+
+fn ltra_steps(dk: &Deck, idx: usize, devices: &[Device]) -> Vec<Finding> {
+    let Some((tstop, dt)) = tran_window(&dk.analyses) else { return vec![] };
+    let mut out = vec![];
+    for d in devices.iter().filter(|d| d.kind == 'O') {
+        let Some(model) = positional(&d.raw.split_whitespace().collect::<Vec<_>>()).get(5).cloned() else { continue };
+        let Some(card) = chain(dk, idx).iter().rev().find_map(|&c| dk.defs[c].cards.get(&model)) else { continue };
+        let p = card_params(card);
+        let num = |k: &str| p.get(k).map_or(Some(0.0), |v| parse_value(v)); // absent = ngspice default 0 (len 1)
+        let (Some(r), Some(g), Some(l), Some(c), Some(len)) = (num("r"), num("g"), num("l"), num("c"), p.get("len").map_or(Some(1.0), |v| parse_value(v))) else {
+            continue; // a parameter expression: LIMITED-ANALYSIS already says the line is not checked
+        };
+        if r == 0.0 && g == 0.0 {
+            continue; // lossless: linear in the step count
+        }
+        let td = len * (l * c).sqrt();
+        let step = if td > 0.0 { dt.min(td) } else { dt };
+        let n = tstop / step;
+        if n > LTRA_MAX_STEPS {
+            out.push(finding(
+                "UNSUPPORTED",
+                "error",
+                format!(
+                    "{}: lossy LTRA '{}' (delay {:.3e} s) needs about {:.1e} time steps over this {:.3e} s run, and ngspice's lossy line \
+                     costs grow with their square (2e4 steps take about 9 s; this run would not finish, and nothing can stop it once \
+                     started); keep tstop / min(time step, line delay) under {:.0e}, or use a lossless line",
+                    d.name, model, td, n, tstop, LTRA_MAX_STEPS
+                ),
+                d.nodes.clone(),
+                vec![d.name.clone()],
+                "authoring",
+            ));
+        }
+    }
+    out
+}
+
+/// G16: SPICE's threshold sign convention is not the datasheet's. ngspice 47 (probed): a JFET (NJF or PJF) with
+/// VTO > 0 is an enhancement device that is off at Vgs = 0 (1e-11 A where IDSS was meant), while datasheets print a
+/// P-channel Vgs(off) as positive; a PMOS or a `pchan` VDMOS with VTO > 0 is a depletion device, on at Vgs = 0.
+/// A warning per card with a literal positive VTO: legitimate for a deliberate depletion PMOS, a slip otherwise.
+fn vto_sign(def: &Def) -> Vec<Finding> {
+    let mut names: Vec<&String> = def.cards.keys().collect();
+    names.sort();
+    names
+        .into_iter()
+        .filter_map(|name| {
+            let card = &def.cards[name];
+            let (ty, _) = card_type(&card.split_whitespace().collect::<Vec<_>>());
+            let vto = card_params(card).get("vto").and_then(|v| parse_value(v)).filter(|v| *v > 0.0)?;
+            let what = match ty.as_str() {
+                "njf" | "pjf" => "a JFET with VTO > 0 is an enhancement device, off at Vgs = 0; ngspice wants VTO < 0 for a normal (depletion) JFET, N or P channel (a datasheet's P-channel Vgs(off) is printed positive)",
+                "pmos" => "a PMOS with VTO > 0 is a depletion device, on at Vgs = 0; an enhancement P-channel MOSFET needs VTO < 0",
+                "vdmos" if card.replace(['(', ')'], " ").split_whitespace().any(|t| t == "pchan") => {
+                    "a pchan VDMOS with VTO > 0 is a depletion device, on at Vgs = 0; an enhancement P-channel MOSFET needs VTO < 0"
+                }
+                _ => return None,
+            };
+            Some(finding("MODEL-SIGN", "warn", format!(".model {}: VTO = {}: {}", name, vto, what), vec![], vec![name.clone()], "authoring"))
+        })
+        .collect()
+}
+
+/// G14: when a diode card states BV, ngspice 47 silently raises IBV to IS * BV / Vt if the card asks for less (diotemp.c,
+/// no warning outside a TRACE build), so the breakdown knee is not where the card says. A warning per card with
+/// literal values (IS default 1e-14, IBV default 1e-3, Vt at 27 °C).
+fn ibv_raise(def: &Def) -> Vec<Finding> {
+    let mut names: Vec<&String> = def.cards.keys().collect();
+    names.sort();
+    names
+        .into_iter()
+        .filter_map(|name| {
+            let card = &def.cards[name];
+            if card_type(&card.split_whitespace().collect::<Vec<_>>()).0 != "d" {
+                return None;
+            }
+            let p = card_params(card);
+            let num = |k: &str, default: f64| p.get(k).map_or(Some(default), |v| parse_value(v));
+            let (bv, is, ibv) = (p.get("bv").and_then(|v| parse_value(v))?, num("is", 1e-14)?, num("ibv", 1e-3)?);
+            let floor = is * bv.abs() / 0.025865;
+            (ibv < floor).then(|| {
+                let msg = format!(
+                    ".model {}: IBV = {:e} A is below IS * BV / Vt = {:.3e} A, so ngspice silently raises it to that value: the \
+                     breakdown current at BV is {:.3e} A, not the card's",
+                    name, ibv, floor, floor
+                );
+                finding("MODEL-IBV", "warn", msg, vec![], vec![name.clone()], "authoring")
+            })
+        })
+        .collect()
 }
 
 fn extract_b_expr(s: &str) -> Option<(bool, String)> {
@@ -1409,16 +1669,20 @@ impl Flat<'_> {
             (i.exprs.clone(), i.devices.clone())
         };
         let visible: HashSet<&str> = chain.iter().flat_map(|&c| dk.defs[c].names.iter().map(|s| s.as_str())).collect();
-        for (owner, e, locals) in &exprs {
+        for (owner, e, locals, ctx) in &exprs {
             for (id, call) in expr_idents(e) {
-                let known = visible.contains(id.as_str())
-                    || locals.contains(&id)
-                    || if call { FUNCS.contains(&id.as_str()) } else { CONSTS.contains(&id.as_str()) };
+                let known = visible.contains(id.as_str()) || locals.contains(&id) || ctx.has(&id, call);
                 if known || !self.reported.insert((idx, owner.clone(), id.clone())) {
                     continue;
                 }
                 let at = if idx == 0 { String::new() } else { format!("instance {} of .subckt {}: ", path, dk.defs[idx].label) };
-                let msg = if call {
+                let elsewhere = Ctx::Func.has(&id, call);
+                let msg = if elsewhere {
+                    format!(
+                        "{}{}: '{}{}' is not available in {} (ngspice 47 accepts it only in other expression contexts, and fails the run here)",
+                        at, owner, id, if call { "()" } else { "" }, ctx.what()
+                    )
+                } else if call {
                     format!("{}{}: '{}()' is neither an ngspice function nor a .func visible here (ngspice aborts the circuit)", at, owner, id)
                 } else {
                     format!(
@@ -1484,7 +1748,10 @@ fn scope_of(f: &Finding) -> String {
 }
 
 /// Connectivity of the flattened circuit: the pre-subcircuit checks, now over every instance's elements.
-fn topology(devices: &[Device]) -> Vec<Finding> {
+/// `uic`: the deck's `.tran` has UIC, so ngspice skips the operating point and a node reached from ground only through
+/// capacitors solves (probed, G1: a capacitive divider, a series C-C-C chain and a charged C all run; a capacitor island
+/// with no path to ground stays singular). C then counts as a connection for NO-DC-PATH.
+fn topology(devices: &[Device], uic: bool) -> Vec<Finding> {
     let mut out = vec![];
     let mut nodes: HashSet<String> = HashSet::new();
     for d in devices {
@@ -1565,7 +1832,8 @@ fn topology(devices: &[Device]) -> Vec<Finding> {
     // DC path BFS
     let mut adj: HashMap<String, Vec<String>> = HashMap::new();
     for d in devices {
-        for (i, j) in dc_edges(d) {
+        let cap = (uic && d.kind == 'C' && d.nodes.len() == 2).then_some((0, 1));
+        for (i, j) in dc_edges(d).into_iter().chain(cap) {
             let a = d.nodes[i].clone();
             let b = d.nodes[j].clone();
             adj.entry(a.clone()).or_default().push(b.clone());
@@ -1870,7 +2138,11 @@ pub fn validate(lines: &[String]) -> Vec<Finding> {
     fl.expand(0, "", &HashMap::new(), &mut vec![0]);
     let mut out = dk.errors.clone();
     out.extend(fl.findings);
-    out.extend(topology(&fl.devices));
+    let uic = dk.analyses.iter().any(|a| {
+        let a = a.to_lowercase();
+        a.starts_with(".tran") && a.split_whitespace().any(|t| t == "uic")
+    });
+    out.extend(topology(&fl.devices, uic));
     out
 }
 

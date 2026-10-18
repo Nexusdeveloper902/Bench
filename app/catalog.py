@@ -240,13 +240,13 @@ def load_definition(path, root=None, cache=None):
         elif not isinstance(default, str): bad("DEF-PARAM", f"default must be a string such as \"1k\"; got {default!r}", f"{f}.default"); default = None
         unit = typed(t, "unit", str, f"{f}.unit", "a unit symbol", default="")
         if unit not in UNITS: bad("DEF-PARAM", f"unknown unit {unit!r}; use one of {', '.join(repr(u) for u in UNITS)}", f"{f}.unit"); unit = ""
-        kind = typed(t, "kind", str, f"{f}.kind", "\"number\" or \"choice\"", default="number")
-        if kind not in ("number", "choice"): bad("DEF-PARAM", f"kind must be \"number\" or \"choice\"; got {kind!r}", f"{f}.kind"); kind = "number"
+        kind = typed(t, "kind", str, f"{f}.kind", "\"number\", \"choice\" or \"points\"", default="number")
+        if kind not in ("number", "choice", "points"): bad("DEF-PARAM", f"kind must be \"number\", \"choice\" or \"points\"; got {kind!r}", f"{f}.kind"); kind = "number"
         choices = strs(t, "choices", f"{f}.choices")
         for c in choices:
             if not CHOICE_RE.match(c): bad("DEF-PARAM", f"bad choice {c!r}; use letters, digits and _.+-", f"{f}.choices")
         if kind == "choice" and not choices: bad("DEF-PARAM", "a choice parameter needs 'choices'", f"{f}.choices")
-        if kind == "number" and choices: bad("DEF-PARAM", "'choices' is only for kind = \"choice\"", f"{f}.choices")
+        if kind != "choice" and choices: bad("DEF-PARAM", "'choices' is only for kind = \"choice\"", f"{f}.choices")
         lo, hi = t.get("min"), t.get("max")
         for k, v in (("min", lo), ("max", hi)):
             if v is not None and not _num(v): bad("DEF-PARAM", f"{k} must be a number", f"{f}.{k}")
@@ -379,14 +379,16 @@ class Catalog:
         return [c for c in TAXONOMY if c in have] + sorted(have - set(TAXONOMY), key=str.lower)
 
     def search(self, text="", category=None, simulated_only=False):
-        """Case-insensitive AND over whitespace tokens, each a substring of the metadata. Ranking: exact name/id/alias,
-        then name prefix, then the rest; ties by name."""
-        q, toks = text.strip().lower(), text.lower().split()
+        """Case-insensitive AND over whitespace tokens, each matching the metadata at the start of a word ("esp" finds
+        ESP32, never "response"; "wid" finds "widget", not "bandwidth"). Ranking: exact name/id/alias, then name prefix,
+        then the rest; ties by name."""
+        q = text.strip().lower()
+        toks = [re.compile(r"(?<![a-z0-9])" + re.escape(t)) for t in text.lower().split()]
         out = []
         for d in self.defs.values():
             if (category and d.category != category) or (simulated_only and not d.simulated): continue
             hay = "\n".join([d.id, d.name, *d.aliases, *d.keywords, *d.tags, d.description, d.category, d.subcategory]).lower()
-            if not all(t in hay for t in toks): continue
+            if not all(t.search(hay) for t in toks): continue
             exact = q and q in (d.id.lower(), d.name.lower(), *(a.lower() for a in d.aliases))
             out.append((0 if exact else 1 if q and d.name.lower().startswith(q) else 2, d.name.lower(), d))
         return [d for *_, d in sorted(out, key=lambda x: x[:2])]
