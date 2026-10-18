@@ -6,7 +6,9 @@ from .components import ROTATIONS, ModelError, Param
 from .electrical import build_netlist, device_name
 FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
-              "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
+              "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True),
+              "live": Param("duration", "Live run duration", "s", "", min=0, min_exclusive=True)}
+LIVE_STOP_TIME, LIVE_INDEFINITE = ("", "stop time"), ("indefinite", "inf", "∞")   # live duration words
 METHODS = ("trap", "gear")   # integration method; gear damps trapezoidal ringing (GAPS G30), trap is ngspice's default
 
 
@@ -15,6 +17,14 @@ MAX_POINTS = 100_000        # tstop / tstep; normal examples use 500-2000
 MAX_SAMPLES = 2_000_000     # points x estimated series (~3 per part): ~200 MB worst case
 NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")   # part names reach the SPICE deck verbatim: keep them inert
 MAX_COORD = 1e6             # canvas coordinates; larger overflows hit-testing
+
+
+def size_error(tstop, tstep, nparts):
+    """None, or why a batch run of tstop at tstep would exceed the result limits (MAX_POINTS, MAX_SAMPLES)."""
+    pts, series = tstop / tstep, 3 * nparts + 1
+    if pts > MAX_POINTS or pts * series > MAX_SAMPLES:
+        return (f"too many points ({pts:.3g} points x ~{series} signals; limit {MAX_POINTS:,} points "
+                f"/ {MAX_SAMPLES:,} samples)")
 
 
 def check_name(name):
@@ -61,6 +71,7 @@ class Document:
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
         self.method = "trap"
+        self.live_tstop = ""  # live-run duration as typed: "" = the stop time, "indefinite", or a time ("30", "2m")
         self.path = None     # file last saved to / loaded from (Save target; Save As = save(new_path))
         self._count = {}
         self.extra = {}      # unknown top-level keys of a loaded file, written back unchanged (newer writers)
@@ -187,17 +198,24 @@ class Document:
         tstep = RUN_PARAMS["tstep"].parse(self.tstep, "Run")
         if tstep > tstop:
             raise ModelError("Run tstep must be <= tstop")
-        pts, series = tstop / tstep, 3 * len(self.parts) + 1
-        if pts > MAX_POINTS or pts * series > MAX_SAMPLES:
-            raise ModelError(f"Run: too many points ({pts:.3g} points x ~{series} signals; limit {MAX_POINTS:,} points "
-                             f"/ {MAX_SAMPLES:,} samples): increase the time step or shorten the stop time")
+        if err := size_error(tstop, tstep, len(self.parts)):
+            raise ModelError(f"Run: {err}: increase the time step or shorten the stop time")
         return {"tstep": tstep, "tstop": tstop, "tmax": tstep, **({"method": self.method} if self.method != "trap" else {})}
 
+    def live_duration(self):
+        """Live-run duration in seconds: the stop time when unset, math.inf for indefinite. Raises ModelError."""
+        t = self.live_tstop.strip().lower()
+        if t in LIVE_STOP_TIME:
+            return RUN_PARAMS["tstop"].parse(self.tstop, "Run")
+        return math.inf if t in LIVE_INDEFINITE else RUN_PARAMS["live"].parse(self.live_tstop, "Live run")
+
     def sim_config(self):
-        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core. `method` is
-        written only when it is not the default, so files without it stay byte-identical."""
+        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core. `method`
+        and `live_tstop` are written only when they are not the default, so files without them stay byte-identical."""
         out = {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
-        return {**out, "method": self.method} if self.method != "trap" else out
+        if self.method != "trap": out["method"] = self.method
+        if self.live_tstop.strip(): out["live_tstop"] = self.live_tstop   # live-run duration (task 9.7)
+        return out
 
     def netlist(self):
         """-> electrical.build_netlist(...) dict over the modeled parts, plus "excluded": the unmodeled parts left out
@@ -408,6 +426,7 @@ class Document:
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
         if sim.get("analysis", "transient") != "transient":
             raise ModelError(f"unsupported analysis {sim['analysis']}")
+        doc.live_tstop = str(need(sim.get("live_tstop", ""), (str, int, float), "live_tstop"))
         doc.method = sim.get("method", "trap")
         if doc.method not in METHODS:
             raise ModelError(f"unknown integration method {doc.method!r} (use one of {', '.join(METHODS)})")

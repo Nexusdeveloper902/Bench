@@ -339,3 +339,53 @@ fn xspice_flip_flop_runs_live_with_the_same_edges() {
     let shift = b.iter().zip(&l).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max);
     assert!(shift < 1e-6, "edges move by less than one 1 us step: {}", shift);
 }
+
+fn rss_kb() -> u64 {
+    std::fs::read_to_string("/proc/self/status")
+        .unwrap()
+        .lines()
+        .find_map(|l| l.strip_prefix("VmRSS:"))
+        .and_then(|v| v.split_whitespace().next()?.parse().ok())
+        .unwrap()
+}
+
+/// Task 9.7: an indefinite live run is a huge tstop driven chunk by chunk. ngspice keeps one point per vector
+/// (`.save none`, points streamed through SendData) and its per-command memory is released, so 30000 chunks
+/// (300k points) leave RSS flat; every pause stays exact and a change lands exactly at its boundary.
+#[test]
+fn a_long_live_run_keeps_ngspice_memory_flat_and_changes_exact() {
+    let _g = serial();
+    let chunk = 1e-4;
+    let run = LiveRun::start(&rc_deck("1e7"), &["v(out)".into()], &["v1".into()], Some(chunk), None).unwrap();
+    let (mut base, mut prev, mut points) = (0, 0.0, 0usize);
+    for k in 1..=30_000u64 {
+        if k == 25_001 {
+            run.set(&[("v1".into(), 0.0)]).unwrap(); // applied at the start of this chunk: t = 2.5 s
+        }
+        let c = run.next_chunk().unwrap().unwrap();
+        assert_eq!(c.t_end, k as f64 * chunk, "the pause is exact at chunk {}", k);
+        let s = &c.series["v(out)"];
+        let end = s.last().unwrap().0; // the grid's last point is the pause, to float resolution
+        assert!((k == 1 || s[0].0 > prev) && (end - c.t_end).abs() <= 1e-12 * c.t_end, "chunk {} ends at {}", k, end);
+        if k == 25_001 {
+            assert_eq!(c.changes, vec![Change { t: 2.5, device: "v1".into(), value: 0.0 }]);
+            assert!((prev - 2.5f64).abs() < 1e-12 && s[0].0 > 2.5);
+            for (t, v) in s {   // discharging from 5 V from exactly t = 2.5
+                assert!((v - 5.0 * (-(t - 2.5) / 1e-3).exp()).abs() < 2e-3, "{} at {}", v, t);
+            }
+        }
+        prev = c.t_end;
+        points += s.len();
+        if k == 2_000 {
+            base = rss_kb();
+        }
+    }
+    let grew = rss_kb() as i64 - base as i64;
+    assert!(points > 290_000, "{} points", points);
+    assert!(grew < 4_000, "ngspice memory grew by {} kB over 28000 chunks", grew);
+    assert!(!matches!(run.state(), "done" | "failed"));
+    run.cancel();
+    assert!(run.next_chunk().unwrap().is_none());
+    // `.save none` is sticky in libngspice: the engine was reloaded, so a batch run keeps all its points again
+    assert!(batch(rc_deck("1m"), "v(out)").unwrap().len() > 100);
+}

@@ -18,6 +18,9 @@ Implemented in `app/model.py` (`Document.to_dict` / `from_dict` / `save` / `load
 - Simulation support is not stored: placing, wiring and saving work for every part, including interface-only ones.
 - `simulation.method` (`"gear"`) is written only when the integration method is not the default trapezoidal rule
   (Simulation > Gear integration); a missing key reads as `"trap"`, any other value is a bad file.
+- `simulation.live_tstop` is the live-run duration as typed (`"indefinite"`, or a time such as `"30"` or `"2m"`), written
+  only when it is set. A missing key (every older file) reads as unset: live runs last the stop time, as before. A
+  non-text value is a bad file; a text that does not parse loads and is flagged in the field, like `tstop`.
 
 ## Reading
 

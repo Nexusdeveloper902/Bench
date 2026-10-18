@@ -85,6 +85,57 @@ deterministically as one blocking run that pauses only at the change times.
 on an LDR + 100 nF run with two changes, and a replay of a replay is bit-identical. The difference comes from the live
 run's extra chunk breakpoints.
 
+## Indefinite runs and the live duration (task 9.7)
+
+A live run lasts `Document.live_duration()`: the batch stop time by default, a time of its own (`doc.live_tstop`,
+saved as `simulation.live_tstop`), or indefinitely, until the user stops it. Probes: `probes/indefinite_probe.py`.
+
+**Decision: a huge tstop, driven chunk by chunk, with ngspice's storage switched off.** An indefinite run is a
+transient of `tstep × 1e12` (`app.sim.INDEFINITE_STEPS`; 1e7 s at 10 µs, never reached in practice). Nothing about
+stimulus timing changes: changes still apply at verified `stop when` boundaries, so they land exactly, and the
+replay guarantee is the same as for a finite run.
+
+| option | evidence | verdict |
+|---|---|---|
+| huge tstop, storage as before | No preallocation at load (tstop/tstep = 1e11 loads in 1 ms), but the plot grows: 515k points (5000 chunks) took RSS from 22 to 61 MB, about 80 B per point for 4 vectors, unbounded (`huge`) | memory unbounded |
+| huge tstop + `.save none` + SendData | ngspice keeps one point per vector (manual: "useful if shared ngspice is used and data are transferred via the shared interface"). The SendData rows are **bitwise** the stored vectors of a normal run, the LDR alter included (`exact`). Pauses stay exact; readback (`print @dev[param]`) still works; `.save all @r1[i]` after it still streams `@r1[i]` (`saveall`) | **chosen** |
+| extend tstop at runtime | no ngspice command changes a running analysis' final time | not available |
+| chunked continuation with `.ic`/uic | restarts lose device state that `.ic` cannot carry (inductor currents need `IC=`, XSPICE digital state, charge in junctions) and restart time at 0, which shifts every time function | not exact |
+
+**ngspice facts probed (ngspice-47):**
+- **`.save none` is sticky.** It sets a static `savenone` in outitf.c that nothing resets (source read: only
+  `= TRUE`; probed: `destroy all`, `reset`, `remcirc`, `save all`, a later `.save` line: every later plot still
+  keeps one point). So a live run ends by unloading the library (`ngspice::unload`, the same dlclose the poison
+  path uses); the next run loads a fresh copy (about 1 ms more on its first run).
+- **Per-command memory.** ngspice keeps every command sent; a live run sends 3+ per chunk: +0.8 kB per chunk
+  (22 MB over 28000 chunks). `ngSpice_Command(NULL)` frees it (manual 15.3.2.6); sent every 100 chunks, RSS stays
+  flat over 20000 chunks and pauses stay exact (`null`, `nonull`).
+- **SendData names**: `v(n)` arrives as `n`, `i(v1)` as `v1#branch`, `@dev[p]` verbatim (`ngspice::vec_is`). No
+  point at t = 0 under `uic`, in batch and live alike.
+- Engine changes: the `tstop/chunk <= 100000` limit is gone (chunks are free now), and "a chunk must end after the
+  last" uses ngspice's time resolution (1e-12 relative), not the pause tolerance, which would refuse a fixed chunk
+  once an indefinite run's time grows past ~10^4 chunks of it.
+
+**App side (`app/sim.py`, `app/window.py`).**
+- **Window.** `LiveSession.window` = min(stop time, live duration). The chunk is window/100 (paced: at most
+  0.05 × pace), so a run of the stop time behaves exactly as before.
+- **Memory cap.** `trim` drops points older than `t - window` after each chunk, from the session's result and from
+  the window's copy, and keeps at most `cap` = min(MAX_POINTS, MAX_SAMPLES / series) points per series (100 000 for
+  small circuits; about 10 MB of tuples per series). A run no longer than the stop time trims nothing.
+- **Plot.** The axis is (0, duration) while the run is within its window, then scrolls: (t - window, t). Change
+  ticks older than the retained data are not drawn. Cursor, slider, readout and stats work on the retained window,
+  during the run and after Stop.
+- **Replay.** A finite run replays its live duration. An indefinite run replays the change log up to the time it
+  reached, as a batch run of that length. Either is refused ("Replay refused: the live run lasted ...", status
+  blocked, the live result stays) when that run would exceed the batch limits (`model.size_error`: MAX_POINTS
+  tstop/tstep, MAX_SAMPLES).
+- **Pace "10 s run"** spreads the live duration over 10 s; for an indefinite run, the stop time.
+
+**Measured.** `tests/live.rs::a_long_live_run_keeps_ngspice_memory_flat_and_changes_exact`: 30000 chunks, 300k
+points, RSS growth under 4 MB (22 MB without the command release); a change at 2.5 s lands exactly.
+`app/tests/test_live_duration.py`: 8000 chunks at max pace, 400k points through, at most ~250 retained per series
+and RSS growth under 15 MB.
+
 ## What is live (derived from package data, no new package field)
 
 `app/electrical.live_devices(section, part, values)`:
@@ -112,3 +163,7 @@ run's extra chunk breakpoints.
   below a log slider's floor still can (G37).
 - XSPICE edges can move by up to about a third of a time step between a live run and its batch or replay run (G33).
 - One live run at a time. Parallel runs need processes (REPORT §6).
+- An indefinite run ends at tstep × 1e12 of sim time (it reports done there). PULSE/SIN sources that leave their
+  period or width to the tstop default would follow the huge tstop (the app's sources give theirs; G40).
+- Only the last window (the stop time) of a long or indefinite run is kept: earlier points are gone after Stop;
+  Replay as batch run reproduces them when the run is within the batch limits.

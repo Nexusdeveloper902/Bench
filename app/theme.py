@@ -182,6 +182,8 @@ QLineEdit#topfield[invalid="true"] { border: 2px solid $ERR_BORDER; background: 
 QPushButton#simbtn { padding: 0 8px; min-width: 78px; max-width: 78px; min-height: 30px; max-height: 30px; }
 QPushButton#simbtn[compact="true"] { min-width: 54px; max-width: 54px; }
 QLineEdit#topfield[compact="true"] { min-width: 50px; max-width: 50px; }
+QComboBox#topcombo { padding: 0 2px 0 4px; min-height: 26px; max-height: 26px; min-width: 76px; max-width: 76px; }
+QComboBox#topcombo[compact="true"] { min-width: 62px; max-width: 62px; }
 QPushButton[primary="true"]:disabled { background: $DISABLED_BG; color: $TEXT_DISABLED; border-color: $DISABLED_BG; }
 QLabel#notice { border-radius: ${R_SM}px; padding: 3px 10px; font-size: ${CAPTION_PX}px; border: 1px solid $ERR_BORDER; background: $ERR_BG; color: $ERR_FG; }
 QLabel#notice[kind="warn"] { border-color: $WARN_BORDER; background: $WARN_BG; color: $WARN_FG; }

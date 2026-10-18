@@ -1272,3 +1272,73 @@ Count-pin changes, none of them weakened:
 
 The first baseline app run printed a Python fatal-error footer (exit code hidden by `tail`); 5 later full runs were clean.
 Watch for a shutdown crash.
+
+## Task 9.7: live-run duration and indefinite live runs (done, not committed)
+
+User request: control how long the real-time (live) simulation runs, and let it run indefinitely. Design, probes and
+limits: LIVE.md "Indefinite runs and the live duration (task 9.7)". Probe script: `probes/indefinite_probe.py`.
+
+### Behaviour
+- **Live for** field (top bar, just before Live; editable combo, `objectName` `topcombo`): type a time (`2`, `500m`),
+  or pick **Stop time** (the default, unset: live runs last the batch stop time, as before) or **Indefinite** (until
+  Stop). Invalid text marks the field red and disables Live only (batch Run is unaffected); F6 then says why in the
+  status bar. Disabled while a run is in progress. Saved with the circuit (`simulation.live_tstop`, only when set);
+  older files load unchanged. Not part of the stale key (it does not change the circuit or batch results).
+- **Scrolling plot.** The plot window is the batch stop time. A run longer than that (or indefinite) scrolls:
+  the axis shows (t - stop time, t), only that window is kept (and at most `LiveSession.cap` points per series), and
+  after Stop the retained window can be scrubbed (cursor, slider, readout, stats). The live strip reads
+  `t = 72.6 ms / ∞` for an indefinite run.
+- **Replay as batch run**: a finite run replays its live duration; an indefinite run replays up to the time it
+  reached. Past the batch limits it is refused in the status bar (`REPLAY BLOCKED: Replay refused: the live run
+  lasted 1.1 s; ... limit 100,000 points ...`) and the live result stays.
+- Pace "10 s run" spreads the live duration over 10 s (the stop time when indefinite).
+
+### Engine (benchcore)
+- `live.rs`: decks get `.save none` (inserted after the title); chunk points come from SendData
+  (`ngspice::capture_start/take/stop`), bitwise the stored vectors (probed). `ngSpice_Command(NULL)` every 100
+  chunks (`ngspice::release_commands`) frees ngspice's per-command memory. The `tstop/chunk <= 100000` limit is gone;
+  the "chunk must end after the last" guard uses 1e-12 relative. Every live run, finite or not, takes this path.
+- `.save none` is sticky in libngspice (static `savenone`, never reset), so `LiveSim::shutdown` unloads the library
+  (`ngspice::unload`); the next run reloads it (~1 ms). Batch runs are otherwise untouched.
+- No API change. An indefinite run is `tstop = tstep × 1e12` plus an explicit chunk, chosen in `app/sim.py`.
+
+### App
+- `app/model.py`: `Document.live_tstop`, `live_duration()`, `RUN_PARAMS["live"]`, `LIVE_STOP_TIME`/`LIVE_INDEFINITE`,
+  `size_error()` (extracted from `config()`, same message).
+- `app/sim.py`: `LiveSession.tstop/window/indefinite/cap`, chunk = window/100 (paced: min with 0.05 × pace),
+  `trim()`, `INDEFINITE_STEPS`, replay length and limit.
+- `app/window.py`: Live-for field, `live_for_changed`, `_live_for_text`, scrolling `xlim`, trim of the window copy,
+  replay refusal. Top-bar thresholds: full layout from 1520 px (was 1360); the Live-for caption shows only there; below
+  1150 px the dark-mode button hides (View > Dark mode stays) and the field and file label shrink. Bar minimum: 1505
+  full, 1232 compact (fits 1280), 1018 narrow (fits 1024).
+- `app/results.py`: `LIVE_FOR` presets, change ticks older than the retained data are not drawn. `app/theme.py`:
+  `QComboBox#topcombo`.
+- Docs: LIVE.md, persistence.md, frontend-architecture.md, benchcore/docs/api.md.
+
+### Screenshots (offscreen, 1280×800, light and dark)
+Indefinite run at pace 1× with the LDR selected: field reads "Indefinite" (disabled while live), the axis scrolled to
+about 52-72 ms with the change tick, live strip `t = 72.6 ms / ∞`. Top bar idle at 1600 (caption), 1280 and 1024
+("Indefin", G41). Nothing overlaps.
+
+### Tests
+- `benchcore/tests/live.rs` +1: `a_long_live_run_keeps_ngspice_memory_flat_and_changes_exact` (30000 chunks at
+  max pace on a 1e7 s tstop, RSS growth < 4 MB, every pause at its boundary, a change at 2.5 s lands exactly, a batch
+  run afterwards keeps all its points). Fails with 22 MB growth if the command release is removed.
+- `app/tests/test_live_duration.py` (10): the duration sets the live tstop (default, shorter, longer, invalid);
+  an indefinite run goes 25× past the stop time until cancelled; 8000 fast chunks keep retained samples under the cap
+  and RSS growth under 15 MB; `trim`; a change 15× past the stop time lands exactly and replays to the reached time;
+  replay past the batch limit is refused; save/load round trip; an old file without the key; the UI field (validate,
+  presets, unset); an indefinite UI run scrolls and its window is scrubbed after Stop.
+
+| Suite | Before | After |
+|---|---|---|
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests` | 1378 | 1388 (+10 `test_live_duration.py`) |
+| `cd benchcore && cargo test` | 79 | 80 |
+| `cd benchcore && python3 -m pytest -q tests/python` | 23 | 23 |
+
+The wheel was rebuilt and reinstalled after the last Rust change.
+
+### Gaps (appended to GAPS.md)
+- **G40:** tstop-defaulted source parameters would follow the indefinite tstop (none ship).
+- **G41:** the Live-for field clips its text below 1150 px; its caption shows only from 1520 px.
+- **G42:** only the last window of a long live run is kept.

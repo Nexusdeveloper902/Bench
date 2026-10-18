@@ -1,12 +1,15 @@
 """The only module that imports benchcore: Document -> Simulation -> RunResult, and live runs (LiveSession). No SPICE
 text is built here; netlist lines, models, .save lines and vector names come from app.electrical.build_netlist, and
 the devices a live run may change from app.electrical.live_devices (docs/plans/ngspice-library/LIVE.md)."""
+import bisect
+import math
 import threading
 from dataclasses import dataclass, field
 import benchcore
 from .catalog import get
 from .electrical import live_devices
-from .model import Document, ModelError
+from .components import format_si
+from .model import MAX_POINTS, MAX_SAMPLES, Document, ModelError, size_error
 
 
 @dataclass
@@ -173,6 +176,21 @@ def _start_params(doc, nl):
     return {n: (d["kind"], dict(d["params"])) for n, d in doc.parts.items() if n not in nl["excluded"]}
 
 
+INDEFINITE_STEPS = 1e12   # an indefinite live run is a transient of tstep x this, never reached (LIVE.md)
+
+
+def trim(series, t_from, cap):
+    """Drop points before t_from from every series (they share one time base), keeping at most cap per series:
+    a live run retains a scrolling window of sim time, so memory is bounded however long it runs."""
+    ser = next(iter(series.values()), None)
+    if not ser:
+        return
+    cut = max(bisect.bisect_left(ser, (t_from,)), len(ser) - cap)
+    if cut > 0:
+        for pts in series.values():
+            del pts[:cut]
+
+
 def live_params(doc):
     """[{"part", "key", "label", "unit", "stimulus"}]: what a live run of doc can change, at the parts' current
     values, in part order. stimulus: a sensor's physical input (lux, °C, N, mT, ...); the others are R values,
@@ -201,15 +219,33 @@ class LiveSession:
 
     `result` is a RunResult that grows on the worker thread: status "running", then "success" / "cancelled" /
     "failed" (series so far are kept) / "blocked" (never started; iterating yields nothing). Core errors never
-    raise from iteration: they end it and land in `result`, as in run_document."""
+    raise from iteration: they end it and land in `result`, as in run_document.
+
+    Duration (task 9.7): `tstop` is doc.live_duration() (the stop time unless the document sets its own live
+    duration; math.inf = indefinite, until cancelled). `window` = min(stop time, tstop): `result` keeps only the
+    last `window` of sim time, and at most `cap` points per series, so a long or indefinite run has bounded memory
+    (a run no longer than the stop time keeps everything, as before)."""
 
     def __init__(self, doc, chunk=None, realtime=None):
         self._lock = threading.Lock()
         self._run, self._pending, self._log, self._t = None, [], [], 0.0
         prep, self.result = _prepare(doc)
+        if not self.result:
+            try:
+                self.tstop = doc.live_duration()
+            except ModelError as e:
+                self.result = RunResult(False, "blocked", str(e), diagnostics=prep[0],
+                                        details=_details("ModelError", e, (), prep[0]))
         if self.result:
             return
-        self._diags, self._cfg, nl = prep
+        self._diags, cfg, nl = prep
+        self._nparts = len(doc.parts)
+        self.window = min(cfg["tstop"], self.tstop)
+        self.indefinite = math.isinf(self.tstop)
+        self._cfg = {**cfg, "tstop": cfg["tstep"] * INDEFINITE_STEPS if self.indefinite else self.tstop}
+        # the chunk follows the window (the plot's time span), as the engine's default follows tstop
+        chunk = chunk or (min(self.window / 100, 0.05 * realtime) if realtime else self.window / 100)
+        self.cap = min(MAX_POINTS, MAX_SAMPLES // (len(nl["observables"]) + len(nl["derived"]) or 1))
         self._nl, self._findings = nl, []
         self._start = _start_params(doc, nl)
         self._parts = {n: (k, dict(p)) for n, (k, p) in self._start.items()}
@@ -252,6 +288,7 @@ class LiveSession:
         series = _derive({n: c["series"][n] for n in self._nl["observables"]}, self._nl)
         for n, pts in series.items():
             self.result.series[n].extend(pts)
+        trim(self.result.series, c["t"] - self.window, self.cap)
         if c["done"]:
             self._end()
         return {"t": c["t"], "time": c["time"], "series": series, "changes": changes, "done": c["done"],
@@ -322,11 +359,19 @@ class LiveSession:
         return list(self._log)
 
     def replay(self):
-        """This session's change log replayed on the circuit it started from -> RunResult (blocking). A session that
-        never started returns its own blocked / failed result."""
+        """This session's change log replayed on the circuit it started from -> RunResult (blocking): a batch run of
+        the live duration, or of the time reached for an indefinite run. 'blocked' when that run would exceed the
+        batch result limits (size_error). A session that never started returns its own blocked / failed result."""
         if self._run is None:
             return self.result
-        return _replay(self._diags, self._cfg, self._nl, self._start, self._log)
+        cfg = {**self._cfg, "tstop": self._t} if self.indefinite else self._cfg
+        err = size_error(cfg["tstop"], cfg["tstep"], self._nparts) if cfg["tstop"] > 0 else "it never ran"
+        if err:
+            msg = (f"Replay refused: the live run lasted {format_si(cfg['tstop'], 's', 4)}; as one batch run that is "
+                   f"{err}. Replay a shorter live run, or increase the time step.")
+            return RunResult(False, "blocked", msg, diagnostics=self._diags, details=_details("ReplayTooLong", msg),
+                             changes=list(self._log))
+        return _replay(self._diags, cfg, self._nl, self._start, self._log)
 
 
 def replay_document(doc, changes):

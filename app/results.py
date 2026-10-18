@@ -27,6 +27,7 @@ QUANTITY = {"V": "Voltage", "A": "Current"}
 PACES = (("Pace: 10 s run", "fit"), ("Pace: 1×", 1.0), ("Pace: 0.1×", 0.1), ("Pace: 0.01×", 0.01),
          ("Pace: 0.001×", 1e-3), ("Pace: 0.0001×", 1e-4), ("Pace: max", None))
 FIT_SECONDS = 10.0
+LIVE_FOR = ("Stop time", "Indefinite")   # live-duration presets (top bar); any typed time works too
 
 
 def eng(m):
@@ -71,7 +72,7 @@ class ResultsPanel(QWidget):
         self.result, self.want = None, None   # want: the signal the user picked; kept across reruns
         self.cur_t, self.cur_line, self.cur_dot, self.t_rng = None, None, None, (0.0, 1.0)
         self.bg, self._last = None, 0.0
-        self.xlim = None      # (0, tstop) during a live run: the plot grows into a fixed time axis
+        self.xlim = None      # during a live run: (0, tstop), or the scrolling window of an indefinite or long run
         root = QVBoxLayout(self); root.setContentsMargins(16, 8, 16, 8); root.setSpacing(4)
         # header: title, signal picker, details link
         head = QHBoxLayout(); head.setSpacing(10)
@@ -86,7 +87,8 @@ class ResultsPanel(QWidget):
         self.pace = QComboBox(); self.pace.setMaximumWidth(130)
         for text, r in PACES: self.pace.addItem(text, r)
         self.pace.setToolTip("Live run pacing: simulated time per wall-clock second (1× = real time). "
-                             "\"10 s run\" spreads the stop time over 10 s; \"max\" runs as fast as possible.")
+                             "\"10 s run\" spreads the live duration (the stop time when indefinite) over 10 s; "
+                             "\"max\" runs as fast as possible.")
         head.addWidget(self.probe, 1); head.addStretch(1); head.addWidget(self.pace); head.addWidget(self.details_btn)
         root.addLayout(head)
         self.pages = QStackedWidget(); root.addWidget(self.pages, 1)
@@ -242,7 +244,8 @@ class ResultsPanel(QWidget):
             self.ax.plot(t, v, color=theme.WIRE, lw=1.6)
             if self.xlim: self.ax.set_xlim(*self.xlim)
             for tc, *_ in r.changes:   # live-run changes: a short tick on the time axis (hover: what changed)
-                self.ax.axvline(tc, 0, 0.1, color=theme.SEL, lw=1.6)
+                if tc >= t[0]:         # a scrolling live run drops older points: their ticks go too
+                    self.ax.axvline(tc, 0, 0.1, color=theme.SEL, lw=1.6)
             (ts, tp), (vs, vp) = eng(max(abs(t[0]), abs((self.xlim or t)[-1]))), eng(max(map(abs, v)))
             self.ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _, s=ts: f"{x / s:.6g}"))
             self.ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _, s=vs: f"{x / s:.6g}"))

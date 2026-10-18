@@ -11,6 +11,10 @@
 //! a batch run asked for meanwhile is refused (`refuse_if_live`). Every ngspice call goes through the adapter, so
 //! the task-2 guarantees hold per chunk: a poisoned library is reloaded and the chunk fails, `stderr Error` lines
 //! and solver failures are errors, an empty or non-finite grid is an error.
+//!
+//! Bounded memory (task 9.7, for long and indefinite runs): the deck gets `.save none`, so ngspice keeps one point
+//! per vector, and each chunk's points arrive through SendData (`ngspice::capture_*`), bitwise the same as the
+//! stored vectors (probed). ngspice's per-command memory is released every `RELEASE_EVERY` chunks.
 
 use crate::error::SimError;
 use crate::kernel::{apply_tmax_policy, check_observables, gates, nonfinite_or_short, parse_tstop, pause_exact,
@@ -22,6 +26,7 @@ use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
+const RELEASE_EVERY: u64 = 100;
 
 /// Batch runs call this under the op lock: the engine belongs to the live run until it ends.
 pub(crate) fn refuse_if_live() -> Result<(), SimError> {
@@ -124,7 +129,7 @@ pub struct LiveSim {
     devices: HashSet<String>,
     tstop: f64,
     t_now: f64,
-    read: usize,
+    chunks: u64,
     started: bool,
     open: bool,
 }
@@ -137,7 +142,7 @@ impl LiveSim {
         let _op = ngspice::op_lock();
         refuse_if_live()?;
         gates(netlist)?;
-        let lines = apply_tmax_policy(netlist.to_vec())?;
+        let mut lines = apply_tmax_policy(netlist.to_vec())?;
         let tstop = parse_tstop(&lines).ok_or_else(|| config("a live run needs a .tran line with a stop time".into()))?;
         // the batch pause fence, minus XSPICE A devices (probed: same events, see LIVE.md)
         if lines.iter().skip(1).any(|l| {
@@ -149,6 +154,7 @@ impl LiveSim {
             });
         }
         refuse_unsaved_device_observables(&lines, observables)?;
+        lines.insert(1.min(lines.len()), ".save none".to_string()); // points stream out (SendData), none are kept
         let mut devs = HashSet::new();
         for d in devices {
             let d = d.to_lowercase();
@@ -159,7 +165,8 @@ impl LiveSim {
         ngspice::ensure_init().map_err(backend)?;
         ngspice::teardown();
         ACTIVE.store(true, Ordering::SeqCst);
-        let mut sim = LiveSim { obs: observables.to_vec(), devices: devs, tstop, t_now: 0.0, read: 0, started: false, open: true };
+        let mut sim =
+            LiveSim { obs: observables.to_vec(), devices: devs, tstop, t_now: 0.0, chunks: 0, started: false, open: true };
         match sim.load(&lines) {
             Ok(()) => Ok(sim),
             Err(e) => {
@@ -170,6 +177,7 @@ impl LiveSim {
     }
 
     fn load(&mut self, lines: &[String]) -> Result<(), SimError> {
+        ngspice::capture_start(&self.obs);
         let rc = ngspice::do_circ(lines).map_err(backend)?;
         if rc != 0 {
             return Err(backend(with_reason(format!("circ rc={}", rc))));
@@ -208,10 +216,16 @@ impl LiveSim {
 
     fn advance_locked(&mut self, apply: &[(String, f64)], until: f64) -> Result<Chunk, SimError> {
         let tol = |t: f64| (1e-12f64).max(t.abs() * 1e-9);
-        if !until.is_finite() || until <= self.t_now + 4.0 * tol(until) {
+        // a chunk must be longer than ngspice's time resolution at `until` (relative 1e-12, not the pause tolerance,
+        // which would refuse a fixed chunk once an indefinite run's time grows large)
+        if !until.is_finite() || until <= self.t_now + (1e-15f64).max(until.abs() * 1e-12) {
             return Err(config(format!("live chunk end {} must be after {}", until, self.t_now)));
         }
         let last = until >= self.tstop - 4.0 * tol(self.tstop);
+        self.chunks += 1;
+        if self.chunks % RELEASE_EVERY == 0 {
+            ngspice::release_commands().map_err(backend)?;
+        }
         let mut changes = vec![];
         for (dev, v) in apply {
             let dev = dev.to_lowercase();
@@ -246,7 +260,7 @@ impl LiveSim {
             return Err(loud(hint));
         }
         let target = if last { self.tstop } else { until };
-        let (raw, t) = ngspice::read_series_from(&self.obs, self.read);
+        let (raw, t) = ngspice::capture_take(&self.obs);
         match t.last() {
             Some(&end) if pause_exact(end, target) => {}
             got => {
@@ -265,13 +279,12 @@ impl LiveSim {
             })
             .collect();
         check_observables(&series, &t)?;
-        if nonfinite_or_short(&t, &raw) || (self.read > 0 && t[0] <= self.t_now) {
+        if nonfinite_or_short(&t, &raw) || (self.chunks > 1 && t[0] <= self.t_now) {
             return Err(SimError::SolverFailure {
                 message: "non-finite or non-monotonic grid in a live chunk".to_string(),
                 log_hint: log.join("\n"),
             });
         }
-        self.read += t.len();
         self.t_now = target;
         Ok(Chunk { time: t, series, changes, t_end: target, done: last, wall: 0.0, rtf: 0.0, seq: 0 })
     }
@@ -279,7 +292,9 @@ impl LiveSim {
     /// Release the engine (op lock held by the caller).
     fn shutdown(&mut self) {
         if self.open {
+            ngspice::capture_stop();
             ngspice::teardown();
+            ngspice::unload(); // `.save none` is sticky in libngspice: the next run gets a fresh copy
             self.open = false;
             ACTIVE.store(false, Ordering::SeqCst);
         }
@@ -381,8 +396,8 @@ impl LiveRun {
         let sim = LiveSim::start(netlist, observables, devices)?;
         let tstop = sim.tstop();
         let chunk = chunk.unwrap_or_else(|| rtf.map_or(tstop / 100.0, |r| (tstop / 100.0).min(0.05 * r)));
-        if !(chunk.is_finite() && chunk > 0.0 && tstop / chunk <= 100_000.0) {
-            return Err(config(format!("chunk must be positive and at least tstop/100000 (got {})", chunk)));
+        if !(chunk.is_finite() && chunk > 0.0) {
+            return Err(config(format!("chunk must be a positive number of seconds (got {})", chunk)));
         }
         Ok(LiveRun {
             devices: sim.devices.clone(),

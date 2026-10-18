@@ -60,4 +60,7 @@ s.replay(run.changes)        # the change log as one blocking run, like run()
 
 A live run owns the engine until it ends: `run`/`replay`/another `live` raise
 `BackendError` meanwhile. Only declared R (resistance) and V/I DC values change.
+Memory is bounded however long a run lasts: the deck gets `.save none`, each chunk's points arrive through SendData
+and only the chunk is buffered. An indefinite run is a huge tstop with an explicit `chunk` (any number of chunks).
+`.save none` is sticky in libngspice, so the library is reloaded when a live run ends (about 1 ms).
 Contract, mechanism and limits: `docs/plans/ngspice-library/LIVE.md`.

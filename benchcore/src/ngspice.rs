@@ -136,8 +136,123 @@ unsafe extern "C" fn cb_exit(
     0
 }
 
-unsafe extern "C" fn cb_senddata(_p: *mut c_void, _n: c_int, _id: c_int, _ud: *mut c_void) -> c_int {
+/// The prefix of ngspice's `vecvalues` this adapter reads (name, real value).
+#[repr(C)]
+struct VecValues {
+    name: *const c_char,
+    creal: c_double,
+}
+
+#[repr(C)]
+struct VecValuesAll {
+    count: c_int,
+    _index: c_int,
+    vecs: *const *const VecValues,
+}
+
+/// Points streamed by SendData while a capture is on (live runs: their decks say `.save none`, so ngspice keeps one
+/// point per vector and the points exist only here until taken).
+struct Capture {
+    want: Vec<String>,
+    idx: Option<(usize, Vec<Option<usize>>)>, // (time, each wanted vector): resolved on the first point of a run
+    time: Vec<f64>,
+    data: Vec<Vec<f64>>,
+}
+
+fn capture() -> &'static Mutex<Option<Capture>> {
+    static C: OnceLock<Mutex<Option<Capture>>> = OnceLock::new();
+    C.get_or_init(|| Mutex::new(None))
+}
+
+/// Does SendData's vector `name` carry observable `obs`? `v(n)` is `n`, `i(x)` is `x#branch`, others verbatim.
+fn vec_is(obs: &str, name: &str) -> bool {
+    let inner = |p: &str| obs.strip_prefix(p).and_then(|s| s.strip_suffix(')'));
+    obs == name || inner("v(") == Some(name) || inner("i(").is_some_and(|x| name.strip_suffix("#branch") == Some(x))
+}
+
+unsafe extern "C" fn cb_senddata(p: *mut c_void, _n: c_int, _id: c_int, _ud: *mut c_void) -> c_int {
+    let Ok(mut g) = capture().lock() else { return 0 };
+    let (Some(c), false) = (g.as_mut(), p.is_null()) else { return 0 };
+    let all = &*(p as *const VecValuesAll);
+    if all.count <= 0 || all.vecs.is_null() {
+        return 0;
+    }
+    let vecs = std::slice::from_raw_parts(all.vecs, all.count as usize);
+    if c.idx.is_none() {
+        let names: Vec<String> = vecs
+            .iter()
+            .map(|v| if v.is_null() || (**v).name.is_null() { String::new() } else {
+                CStr::from_ptr((**v).name).to_string_lossy().to_lowercase()
+            })
+            .collect();
+        let Some(t) = names.iter().position(|n| n == "time") else { return 0 };
+        c.idx = Some((t, c.want.iter().map(|o| names.iter().position(|n| vec_is(o, n))).collect()));
+    }
+    let (t, idx) = c.idx.as_ref().unwrap();
+    let val = |i: usize| vecs.get(i).filter(|v| !v.is_null()).map_or(f64::NAN, |v| (**v).creal);
+    c.time.push(val(*t));
+    for (k, i) in idx.iter().enumerate() {
+        if let Some(i) = i {
+            c.data[k].push(val(*i));
+        }
+    }
     0
+}
+
+/// Start collecting `observables` (and time) from SendData; any earlier capture is dropped.
+pub fn capture_start(observables: &[String]) {
+    if let Ok(mut g) = capture().lock() {
+        *g = Some(Capture {
+            want: observables.iter().map(|o| o.to_lowercase()).collect(),
+            idx: None,
+            time: vec![],
+            data: vec![vec![]; observables.len()],
+        });
+    }
+}
+
+/// The points captured since the last take, like `read_series_from` (an observable SendData does not carry reads
+/// as empty).
+pub fn capture_take(observables: &[String]) -> (HashMap<String, Vec<f64>>, Vec<f64>) {
+    let Ok(mut g) = capture().lock() else { return (HashMap::new(), vec![]) };
+    let Some(c) = g.as_mut() else { return (HashMap::new(), vec![]) };
+    let found: Vec<bool> = match &c.idx {
+        Some((_, idx)) => idx.iter().map(Option::is_some).collect(),
+        None => vec![false; observables.len()],
+    };
+    let out = observables
+        .iter()
+        .zip(c.data.iter_mut())
+        .zip(found)
+        .map(|((o, d), f)| (o.clone(), if f { std::mem::take(d) } else { vec![] }))
+        .collect();
+    (out, std::mem::take(&mut c.time))
+}
+
+/// Unload the library (dlclose); the next call loads a fresh copy. A live run's `.save none` sets a process-wide
+/// flag in libngspice that nothing resets (outitf.c `savenone`, probed: every later plot keeps one point), so a
+/// live run ends with this.
+pub fn unload() {
+    if let Ok(mut st) = sim().lock() {
+        st.lib = None;
+        st.inited = false;
+    }
+}
+
+pub fn capture_stop() {
+    if let Ok(mut g) = capture().lock() {
+        *g = None;
+    }
+}
+
+/// `ngSpice_Command(NULL)`: frees the control structures ngspice keeps for every command sent (manual 15.3.2.6).
+/// Long live runs send a few commands per chunk; probed: +0.8 kB per chunk without it, flat with it.
+pub fn release_commands() -> Result<(), String> {
+    load_lib()?;
+    let mut st = sim().lock().map_err(|e| format!("sim lock poisoned: {}", e))?;
+    let lib = st.lib.as_ref().ok_or("lib not loaded")?;
+    unsafe { (lib.command)(std::ptr::null()) };
+    after_call(&mut st)
 }
 
 unsafe extern "C" fn cb_sendinit(_p: *mut c_void, _n: c_int, _ud: *mut c_void) -> c_int {
