@@ -1,6 +1,8 @@
 """Live-run UI (task 9.5b) on a real MainWindow and real ngspice: Live / Pause / Stop, the inspector slider (range from
 package data, G31), streamed plot with change ticks, cleanup on close, errors, edits and replay. Engine contract:
 docs/plans/ngspice-library/LIVE.md; UI notes: HANDOFF.md "Task 9.5b"."""
+import gc
+import threading
 import time
 
 import pytest
@@ -257,3 +259,36 @@ def test_a_bad_scale_is_a_definition_error(tmp_path):
         assert any("log scale needs min >= 0" in p["message"] for p in catalog.CATALOG.problems)
     finally:
         catalog.reload()
+
+
+# ---------------------------------------------------------------- Qt objects are never finalized off the GUI thread
+def test_gc_never_runs_on_the_live_worker_thread(win):
+    """Cyclic gc triggered on the LiveWorker thread finalized Qt wrappers there; PySide deletes a Python-owned
+    non-widget QObject on the collecting thread, racing the GUI thread's event delivery (segfault in notify_helper,
+    task 9.7 follow-up). During a live run gc is disabled and runs from a GUI-thread timer instead."""
+    w, seen, old = win, [], gc.get_threshold()
+    hook = lambda phase, info: phase == "start" and seen.append(threading.current_thread().name)
+    gc.callbacks.append(hook); gc.set_threshold(50, 5, 5)   # without the fix: hundreds of worker-thread collections
+    try:
+        start(w, pace="Pace: 0.1×")
+        disabled = not gc.isenabled()
+        for _ in range(200): [object() for _ in range(5)]; QTest.qWait(2)   # garbage, as an app makes it
+        finished(w)
+    finally:
+        gc.callbacks.remove(hook); gc.set_threshold(*old)
+    assert seen and set(seen) == {"MainThread"}, sorted(set(seen))
+    assert disabled and gc.isenabled() and w.result.ok
+
+
+def test_a_dropped_windows_canvas_scene_is_deleted_on_the_gui_thread(qapp):
+    """The canvas scene is owned by its view. It used to be parentless, so a gc on another thread deleted it there."""
+    where = []
+    for _ in range(3):
+        w = show(MainWindow()); w._reset(ldr_doc()[0])
+        w.canvas.sc.destroyed.connect(lambda *_: where.append(threading.current_thread().name), Qt.DirectConnection)
+        w.hide(); w.close(); w.deleteLater(); del w        # what the window fixture does
+        t = threading.Thread(target=gc.collect, name="other"); t.start()
+        while t.is_alive(): QTest.qWait(1)
+        QTest.qWait(5)
+    gc.collect(); QTest.qWait(5)
+    assert where == ["MainThread"] * 3

@@ -1342,3 +1342,26 @@ The wheel was rebuilt and reinstalled after the last Rust change.
 - **G40:** tstop-defaulted source parameters would follow the indefinite tstop (none ship).
 - **G41:** the Live-for field clips its text below 1150 px; its caption shows only from 1520 px.
 - **G42:** only the last window of a long live run is kept.
+
+### Follow-up: intermittent segfault in the live UI tests (fixed, not committed)
+- **Symptom.** In the full app suite: `Fatal Python error: Segmentation fault`, GUI thread in
+  `QApplicationPrivate::notify_helper` (posted events from `QTest.qWait`), LiveWorker thread in `LiveSession.__next__`,
+  interpreter state "Garbage-collecting".
+- **Root cause.** Python's cyclic gc ran on the LiveWorker thread (its allocations triggered it) and finalized Qt
+  wrappers there. PySide defers deleting widgets to the GUI thread, but it deletes a Python-owned non-widget QObject
+  on the collecting thread (probed: QObject, QTimer, QAction are deleted on the collecting thread; QWidget, QLabel on
+  the GUI thread). The canvas's `QGraphicsScene()` had no parent, so a dropped window's scene was deleted on the worker
+  (3 of 3 times when gc runs on another thread), racing the GUI thread that was delivering the window's DeferredDelete
+  and the scene's events.
+- **Fix.** (1) `canvas.py`: the scene is created with the view as its parent, so it dies with the view on the GUI
+  thread. (2) `window.py`: while a live worker runs, automatic gc is off and a GUI-thread timer collects instead
+  (generations 0-1 every 200 ms, a full collection every 10 s, ~25 ms); `_live_done` turns gc back on. No Qt
+  wrapper is finalized off the GUI thread during a live run.
+- **Tests** (`test_live_ui.py`, +2; both fail deterministically without the fix):
+  - `test_gc_never_runs_on_the_live_worker_thread`: gc threshold 50 during a UI live run. Without the fix, the
+    worker thread collects (`Dummy-1`).
+  - `test_a_dropped_windows_canvas_scene_is_deleted_on_the_gui_thread`: without the fix, the scene is destroyed on the
+    other thread.
+- The crash itself would not reproduce here: 0 in 9 full runs (3 in parallel, 2 under gdb), 12 loops of
+  test_live_ui.py, and 6 low-threshold stress runs. The two tests above reproduce its cause on every run.
+- After the fix: test_live_ui.py passed 32 consecutive runs (29 tests each). Totals: app 1390, cargo 80, py 23.

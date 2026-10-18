@@ -160,8 +160,10 @@ class Canvas(QGraphicsView):
     zoom_changed = Signal(float)
 
     def __init__(self, win):
-        self.sc = QGraphicsScene()
-        super().__init__(self.sc)
+        super().__init__()
+        # owned by the view, so it is deleted with it on the GUI thread. A parentless scene is a Python-owned non-widget
+        # QObject: if gc collected it on another thread (a live run's worker), PySide would delete it there.
+        self.sc = QGraphicsScene(self); self.setScene(self.sc)
         self.win = win
         self.drag = None        # (part, dx, dy) while moving a part
         self.wiring = False     # pressed on a pin, may drag to another

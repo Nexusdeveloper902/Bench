@@ -4,6 +4,7 @@ The window composes the top bar (file actions, undo/redo, run settings, Run / Re
 library panel, the canvas (app.canvas), the inspector, the results dock (app.results) and the status bar. Everything
 per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the app.catalog
 Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
+import gc
 import math
 import os
 import traceback
@@ -67,6 +68,11 @@ class MainWindow(QMainWindow):
         self.live_flush.timeout.connect(self._live_flush)      # slider drags: at most one change per part per 50 ms
         self.live_redraw = QTimer(self); self.live_redraw.setSingleShot(True); self.live_redraw.setInterval(50)
         self.live_redraw.timeout.connect(self._live_redraw)    # chunks: at most one plot redraw per 50 ms
+        # While the worker runs, Python's cyclic gc runs only here, on the GUI thread: gc triggered on the worker thread
+        # would finalize Qt wrappers there, and PySide deletes Python-owned non-widget QObjects on the collecting
+        # thread (probed), racing the GUI thread's event delivery (segfault in notify_helper).
+        self.gc_timer, self.gc_ticks = QTimer(self), 0
+        self.gc_timer.setInterval(200); self.gc_timer.timeout.connect(self._collect)
         self.hist = History()
         self.clean = self.doc.to_dict()
         self.canvas = Canvas(self)
@@ -567,6 +573,7 @@ class MainWindow(QMainWindow):
         self.results.xlim = (0.0, s.window)
         self.worker = LiveWorker(s)
         self.worker.chunk.connect(self._live_chunk); self.worker.finished.connect(self._live_done)
+        gc.disable(); self.gc_timer.start()   # gc on the GUI thread only until _live_done
         self.worker.start()
         self._show_result(); self._live_label(); self.refresh()
         pace = self.pace.currentText().removeprefix("Pace: ")
@@ -589,6 +596,11 @@ class MainWindow(QMainWindow):
         paused run or holding the engine (LIVE.md rule 3). Waits for at most the chunk in progress."""
         if self.worker:
             self.session.cancel(); self.worker.wait(); self._live_done()
+
+    def _collect(self):
+        """GUI-thread gc during a live run: the young generations every 200 ms, everything every 10 s (~25 ms)."""
+        self.gc_ticks += 1
+        gc.collect(2 if self.gc_ticks % 50 == 0 else 1)
 
     def live_set(self, part, key, value):
         """A live control moved: coalesce (last value per param wins) and hand it to the session at most every 50 ms."""
@@ -631,6 +643,7 @@ class MainWindow(QMainWindow):
         if self.session is None: return   # end_live already did it
         s, w = self.session, self.worker
         self.session = self.worker = None; self.paused = False
+        self.gc_timer.stop(); gc.enable()
         self.live_flush.stop(); self.live_redraw.stop(); self.live_pending = {}
         w.wait()                          # finished is queued from the thread's last moments: let it exit first
         s.close()                         # idempotent; the worker is done, so this never waits
