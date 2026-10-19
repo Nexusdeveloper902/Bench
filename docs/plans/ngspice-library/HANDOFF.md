@@ -1365,3 +1365,61 @@ The wheel was rebuilt and reinstalled after the last Rust change.
 - The crash itself would not reproduce here: 0 in 9 full runs (3 in parallel, 2 under gdb), 12 loops of
   test_live_ui.py, and 6 low-threshold stress runs. The two tests above reproduce its cause on every run.
 - After the fix: test_live_ui.py passed 32 consecutive runs (29 tests each). Totals: app 1390, cargo 80, py 23.
+
+## Task 10: adversarial review, G20, final regression (done, not committed)
+
+### Review (branch diff 7a8606f..73cb002)
+Each finding was confirmed by reproduction or by reading the code before any change. Each one is a GAPS row.
+- **G43, provenance (confirmed with a sha256 script).**
+  - The problem:
+    - `_models/MANIFEST.toml` had 23 records for 19 files: 4 stale duplicates (`digital/mux.lib` ×3,
+      `digital/gates.lib` ×1, old sha256s).
+    - `manifest()` keyed records by path, so the last record silently won.
+  - The fix:
+    - The duplicates are removed.
+    - `manifest()` now refuses a manifest that lists a path twice, which rejects every `models:` package in that
+      root.
+    - Test: `test_a_manifest_listing_a_file_twice_is_refused`.
+  - Every remaining record has a license (MIT, project) and a matching sha256.
+- **G44, docs drift.** The README library summary stopped at analog ICs, and live runs were not listed as a
+  feature. Both sentences are updated.
+- **G45, dead code.** Three unused test helpers were removed: `load_pair`, `pins_of` and `SENSORS`.
+- **Checked, no defect found:**
+  - live-run threading and lifetime: `set` takes only the control lock; `close` and `__next__` release the GIL;
+    every `LiveSim` error path unloads ngspice; gc is restored in `_live_done`;
+  - 7 validator edge decks against ngspice: case-insensitive nodes, chained param defaults, undefined defaults,
+    `gnd` in a body, a body model used at top level, subckt params shadowing a global `.param`;
+  - every `analytic` and `reference` part is exercised by named tests;
+  - catalog counts in docs.
+- **Rust warnings.** The two warnings (`Symbol` import, `num_end`) predate the branch and were left.
+
+### G20 (fixed)
+- **Cause.** The slew ramp is linear, so its truncation error is zero and ngspice grows the step to tmax. The hard
+  N=0.01 stage-1 clamp corner where slewing ends then overshoots towards a rail. Gear does not fix it.
+- **Fix.** In `bench_opamp_macro`, D1 and D2 use `bench_dsoft` (N=1). Vcp and Vcn are
+  `10 - Vt·ln(1e-5/1e-15)`, so the clamp sits at 10 V at 10 µA. The rail clamps are unchanged. MANIFEST sha256
+  updated.
+- **Scan.** 600 runs: 5 shipped parameter sets × gains 1, 2, 5, 10 × steps 0.1 to 10 µs × 3 input steps × 2
+  supplies, each compared with a 5 ns reference.
+  - Before: 133 runs bad (> 0.05 V), up to 14.9 V. Under gear: 80 bad.
+  - After: no run above 0.05 V at steps up to 1 µs. Worst 0.09 V at 2 µs, 0.2 V at 5 µs, 0.4 V at 10 µs.
+  - Slew rate within 1 % of SR.
+- **Test.** `test_coarse_time_steps_do_not_spike_the_output_at_an_edge` covers LM324 gain 2 at 2 µs, TL072 gain 10
+  at 1 µs, and MCP6002. All 3 fail on the old macro, by 3 to 5 V.
+- **Limitations.** The 7 op-amp packages' limitation now states the measured residual. `docs/library.md` was
+  regenerated and is unchanged, because limitations are not part of it.
+
+### Tests (real exit codes, `cmd; echo rc=$?`)
+| Suite | Result | rc |
+|---|---|---|
+| `cd benchcore && cargo test` | 80 passed (13 + 3 + 51 + 13) | 0 |
+| `cd benchcore && python3 -m pytest -q tests/python` | 23 passed | 0 |
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`, run 1 | 1394 passed (1390 + 4 new) in 545.75 s | 0 |
+| same, run 2 | 1394 passed in 537.91 s | 0 |
+| `python3 -m app.catalog` | 175 definitions, 0 errors, 0 warnings | 0 |
+
+- Baseline at 73cb002, before any edit: app 1390 passed, rc 0.
+- No Rust changed, so the wheel was not rebuilt.
+- REPORT.md (SPEC §9): the subagent's file-write tool refused to create it ("subagents should return findings as
+  text"). Its full text went to the orchestrator in the handback, to be saved as
+  `docs/plans/ngspice-library/REPORT.md`.

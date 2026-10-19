@@ -35,7 +35,6 @@ NEW = {   # id -> (model_kind, validator status)
     "CERAMIC_RES_16M": ("equivalent", "full"),
 }
 LIMITED = {k for k, v in NEW.items() if v[1] == "limited"}
-SENSORS = {k for k in NEW if CATALOG.get(k).category == "Sensors"}
 # sensors whose stimulus is a VSTIM source on node `stim` (HUMIDITY_CAP keeps RH as a fixed value, see GAPS G27;
 # SOLENOID and the crystals/resonators/speaker have no stimulus)
 STIMULUS = {"LDR", "PTC_THERMISTOR", "RTD_PT100", "RTD_PT1000", "PHOTODIODE", "PHOTOTRANSISTOR", "HALL_LINEAR", "FSR",

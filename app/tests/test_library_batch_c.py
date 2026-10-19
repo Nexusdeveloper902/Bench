@@ -267,6 +267,26 @@ def test_mcp6002_output_is_rail_to_rail_within_25_mv():
     assert 5 - 0.025 <= hi < 5 and 0 < lo <= 0.025
 
 
+@pytest.mark.parametrize("kind, amps, gain, vee, v1, v2, tstep", [
+    ("LM324", 4, 2, 0, 0.5, 3, "2u"),          # GAPS G20 as logged: gain 2, falling step, 2 us steps
+    ("TL072", 2, 10, -15, 0, 1, "1u"),         # spiked to the -15 V rail before the soft stage-1 clamp
+    ("MCP6002", 2, 2, -15, -1, 1, "2u")])      # 5.7 V excursion before
+def test_coarse_time_steps_do_not_spike_the_output_at_an_edge(kind, amps, gain, vee, v1, v2, tstep):
+    """G20: a step much longer than 1/GBW must not overshoot at the end of slewing. The coarse run stays inside the
+    envelope of the same circuit at 5 ns steps (within 0.1 V)."""
+    def out(step):
+        c = Circuit()
+        u = opamp(c, kind, vcc=15, vee=vee)
+        src = c.add("V", mode="PULSE", v1=v1, v2=v2, td="10u", tr="1n", tf="1n", pw="80u", per="200u")
+        c.w(f"{src}.n", "0"); c.w(f"{src}.p", f"{u}.in1p")
+        c.r("10k", f"{u}.in1n", "0"); c.r(f"{10 * (gain - 1)}k", f"{u}.in1n", f"{u}.out1"); c.r("10k", f"{u}.out1", "0")
+        for k in range(2, amps + 1):
+            c.w(f"{u}.in{k}p", "0"); c.w(f"{u}.in{k}n", f"{u}.out{k}")
+        return [v for _, v in c.run("200u", step).series(f"{u}.out1")]
+    fine, coarse = out("5n"), out(tstep)
+    assert min(fine) - 0.1 < min(coarse) and max(coarse) < max(fine) + 0.1
+
+
 def test_lm358_and_mcp6002_slew_rates_and_supply_current():
     c = Circuit()
     u1, u2 = c.add("LM358"), c.add("MCP6002")

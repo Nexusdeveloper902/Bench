@@ -64,7 +64,7 @@ origin = "project"
 source = "Bench project; two-stage op-amp macromodel (clamped transconductance, integrator, rail clamps, output buffer) from linear E/G sources, diodes and passives"
 license = "MIT"
 retrieved = "2026-10-11"
-sha256 = "b4ac04a1ed7d982b6116430c2db741adf526e7965b66dfdcb6ca1d6414f6a979"
+sha256 = "cc75c1592e79c77bfeb7ceed01cdff7de856ea45bc539ad0ef5875cdd33a5059"
 changes = "none"
 
 [[file]]
@@ -110,42 +110,6 @@ source = "Bench project; CMOS analog switch element (voltage-controlled switch w
 license = "MIT"
 retrieved = "2026-10-11"
 sha256 = "9441749330c1238a28b1fac885a71f86cbd30f41607ee421f11a2b2d593b3d97"
-changes = "none"
-
-[[file]]
-path = "digital/mux.lib"
-origin = "project"
-source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
-license = "MIT"
-retrieved = "2026-10-12"
-sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
-changes = "none"
-
-[[file]]
-path = "digital/mux.lib"
-origin = "project"
-source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
-license = "MIT"
-retrieved = "2026-10-12"
-sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
-changes = "none"
-
-[[file]]
-path = "digital/gates.lib"
-origin = "project"
-source = "Bench project; logic gate and buffer cores (XSPICE d_nand/d_nor/d_and/d_or/d_xor/d_inverter/d_buffer behind the digital I/O stages)"
-license = "MIT"
-retrieved = "2026-10-12"
-sha256 = "a9f6ec7c657e539ffa386fe65b3665a1c198a936b7317443bdacf868a480040a"
-changes = "none"
-
-[[file]]
-path = "digital/mux.lib"
-origin = "project"
-source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
-license = "MIT"
-retrieved = "2026-10-12"
-sha256 = "7a7709ce0aadc3f0b1abaaab8d20c759386af2fd9d20bc04301e033c85103a34"
 changes = "none"
 
 [[file]]

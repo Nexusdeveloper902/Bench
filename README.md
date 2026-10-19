@@ -21,6 +21,7 @@
 - **Schematic editor.** Drag parts from a searchable library, wire them, move, rotate, undo and redo. Zoom 25–400 %, pan with middle-drag or <kbd>Space</kbd>+drag.
 - **Real simulation.** Circuits run through [ngspice](https://ngspice.sourceforge.io/) 47 via `benchcore`, not a toy solver.
 - **Live results.** A transient plot with a cursor readout, a time slider and Play. The LED glows by its core current as you scrub.
+- **Live runs.** Live (<kbd>F6</kbd>) runs the circuit while you move sliders for sensor stimuli, pots, switches and DC sources; the plot streams, and the change log replays as a batch run.
 - **Honest about what it can't do.** Each part carries a readiness badge. *Interface only* parts (ESP32, Arduino Uno, SSD1306, DHT22 …) can be placed and wired but are excluded from the run with a clear message, never silently faked.
 - **Data-driven component catalog.** A part is one `component.toml`. Drop it in a folder and it appears in the library, no code change.
 - **Stale-result handling.** Edit after a run and the badge flips to *Out of date* until you re-run.
@@ -125,8 +126,9 @@ Parts backed by a `.subckt` carry it inline or in files, with shared model files
 python3 -m app.catalog ~/my-parts
 ```
 
-The built-in library covers passives, sources, switches and relays, diodes, transistors, thyristors and analog ICs
-(op-amps, comparators, 555, regulators, references, analog switches). The full list, generated from the packages, is
+The built-in library covers passives, sources, switches and relays, diodes, transistors, thyristors, analog ICs
+(op-amps, comparators, 555, regulators, references, analog switches), 74HC/74LS/CD4000 logic and 8-bit converters,
+and sensors, crystals and electromechanical parts. The full list, generated from the packages, is
 in [`docs/library.md`](docs/library.md).
 
 Full guide with worked examples: [`docs/adding-components.md`](docs/adding-components.md).

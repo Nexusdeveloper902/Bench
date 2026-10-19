@@ -1,8 +1,8 @@
 * bench_opamp_macro: supply-powered voltage-feedback op-amp macromodel (project-authored, textbook topology).
 * Ports: inp inn vcc vee out.  Built only from R, C, V, I, D and linear E/G sources.
-* Stage 1: transconductance G1 into R1, clamped to +-10 V by near-ideal diodes (the input stage's limited
-*   linear range). Stage 2: G2 charges C2: the clamp caps the charging current, so the slew rate is SR exactly:
-*   SR = G2 * 10 V / C2.  Small-signal: unity-gain frequency GBW = G1*R1*G2 / (2 pi C2); R2 sets the DC gain AOL.
+* Stage 1: transconductance G1 into R1, clamped to about +-10 V by soft (N=1) diodes (the input stage's limited
+*   linear range). Stage 2: G2 charges C2: the clamp caps the charging current, so the slew rate is SR = G2 * 10 V
+*   / C2 (within about 1 %: the soft clamp sits at 10 V at 10 uA and moves 60 mV per decade of overdrive current).  Small-signal: unity-gain frequency GBW = G1*R1*G2 / (2 pi C2); R2 sets the DC gain AOL.
 * The integrator node n2 is clamped between (vee + VDROPL) and (vcc - VDROPH): the output swing limits.
 * Eout buffers n2 through ROUT. Internal nodes are referenced to node 0, so output current is supplied from ground,
 * not from vcc/vee; the supply pins draw the constant quiescent current IQ and the clamp currents only.
@@ -12,21 +12,24 @@
 .subckt bench_opamp_macro inp inn vcc vee out params: AOL=100k GBW=1meg SR=0.5meg VOS=0 IB=0 ROUT=50 IQ=1m
 + VDROPH=1.5 VDROPL=1.5
 .model bench_dclamp D(Is=1e-15 N=0.01)
+.model bench_dsoft D(Is=1e-15 N=1)
 Rinp inp 0 1e12
 Rinn inn 0 1e12
 Ibp inp 0 DC {IB}
 Ibn inn 0 DC {IB}
 Vos ip inp DC {VOS}
 Iq vcc vee DC {IQ}
-* stage 1: v(n1) = 1meg * G1 * vd, clamped to +-10 V. C1 adds a pole at 100 x GBW (0.6 degree of phase): without
-* it the algebraic stage 1 plus the sharp clamps rang numerically at time steps near 1 / GBW.
+* stage 1: v(n1) = 1meg * G1 * vd, clamped to about +-10 V. C1 adds a pole at 100 x GBW (0.6 degree of phase).
+* The clamp is soft (N=1, its sources offset so it sits at 10 V at 10 uA): with near-ideal clamps (N=0.01) the
+* slew ramp's zero truncation error let ngspice grow the step to tmax, and the hard corner at the end of slewing
+* then overshot towards a rail (GAPS G20: up to 15 V at time steps of 1/GBW and longer).
 G1 0 n1 ip inn {6.283185307179586*GBW*10/SR/1meg}
 R1 n1 0 1meg
 C1 n1 0 {1/(6.283185307179586*100*GBW*1meg)}
-Vcp cp 0 DC 10
-Vcn 0 cn DC 10
-D1 n1 cp bench_dclamp
-D2 cn n1 bench_dclamp
+Vcp cp 0 DC {10-0.025865*ln(1e-5/1e-15)}
+Vcn 0 cn DC {10-0.025865*ln(1e-5/1e-15)}
+D1 n1 cp bench_dsoft
+D2 cn n1 bench_dsoft
 * stage 2: integrator, C2 = 1 nF, G2 = SR * C2 / 10 V
 G2 0 n2 n1 0 {SR*1e-10}
 C2 n2 0 1n

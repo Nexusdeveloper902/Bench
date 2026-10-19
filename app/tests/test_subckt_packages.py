@@ -116,6 +116,13 @@ def test_every_shared_model_file_has_one_matching_provenance_record():
         assert not lic.startswith("LicenseRef-") or (base / "LICENSES" / f"{lic[11:]}.txt").is_file()
 
 
+def test_a_manifest_listing_a_file_twice_is_refused(tmp_path):
+    (tmp_path / "_models").mkdir()
+    rec = '[[file]]\npath = "a.lib"\norigin = "project"\nsource = "x"\nlicense = "MIT"\nsha256 = "%s"\n'
+    (tmp_path / "_models" / "MANIFEST.toml").write_text(rec % "0" * 1 + rec % "1")
+    assert "more than one [[file]] record for a.lib" in electrical.manifest(tmp_path, {})
+
+
 def test_definition_paths_do_not_depend_on_the_working_directory(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     c = catalog.reload()

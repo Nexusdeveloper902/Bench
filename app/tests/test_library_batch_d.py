@@ -99,10 +99,6 @@ class C(Circuit):
         return sum(int(self.hi(p, t, vdd)) << i for i, p in enumerate(pins))
 
 
-def pins_of(id):
-    return [p.id for p in CATALOG.get(id).pins]
-
-
 # ---------------------------------------------------------------- every package loads, validates and records its kind
 @pytest.mark.parametrize("id", sorted(NEW))
 def test_package_loads_validates_and_records_its_kind(id):

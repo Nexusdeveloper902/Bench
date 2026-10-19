@@ -186,6 +186,10 @@ def manifest(root, cache):
         try:
             with open(f, "rb") as fh: recs = tomllib.load(fh).get("file", [])
             cache[key] = {r["path"]: r for r in recs if isinstance(r, dict) and isinstance(r.get("path"), str)}
+            paths = [r["path"] for r in recs if isinstance(r, dict) and isinstance(r.get("path"), str)]
+            dups = sorted({p for p in paths if paths.count(p) > 1})
+            if dups:        # the last record would silently win, so a stale one could hide behind it
+                cache[key] = f"{f} has more than one [[file]] record for {', '.join(dups)}"
         except (OSError, tomllib.TOMLDecodeError, AttributeError) as e:
             cache[key] = f"{f} is missing or unreadable ({e})"
     return cache[key]

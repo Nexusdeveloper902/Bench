@@ -299,11 +299,6 @@ def test_varistor_clamp_current_follows_the_power_law(volts, sign):
 
 
 # ---------------------------------------------------------------- switches and relays
-def load_pair(d, c_pin_node, n):
-    """n resistive 1 kOhm loads from a node to ground, returned as part names."""
-    return [d.add_part("R", R="1k") for _ in range(n)]
-
-
 @pytest.mark.parametrize("state, live", [("NO", 0), ("NC", 1)])
 def test_spdt_connects_common_to_the_selected_throw(state, live):
     d = Document()
