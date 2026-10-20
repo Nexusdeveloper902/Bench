@@ -17,6 +17,7 @@ from test_library_batch_b import NEW as BATCH_B
 from test_library_batch_c import NEW as BATCH_C
 from test_library_batch_d import NEW as BATCH_D
 from test_library_batch_e import NEW as BATCH_E
+from test_converter_widths import WIDTH_PARTS
 
 KINDS = {"R", "C", "L", "V", "BAT", "I", "D", "GND", "LED", "SW"}     # the ten built-ins; seed packages add more
 ALL_CATEGORIES = ["Electrical", "Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # with the seeds
@@ -187,7 +188,7 @@ def test_category_filter_and_simulated_only(extra_root):
         "POT", "RHEOSTAT", "RNET4_ISO", "RNET4_BUS", "R_TOL", "IND_DCR", "IND_COUPLED", "XFMR_1N", "XFMR_CT", "T_LINE",
         "CAP_CERAMIC", "CAP_ELECTROLYTIC", "CAP_TANTALUM", "CAP_FILM", "FUSE", "PTC", "MOV", "SPDT", "DPST", "DPDT",
         "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VSRC_PWL", "ISRC_PWL", "VCVS",
-        "VCCS", "CCCS", "CCVS", "SAT_AMP"} | set(BATCH_B) | set(BATCH_C) | set(BATCH_D) | {i for i in BATCH_E if CATALOG.get(i).category == "Electrical"}     # batch A (test_library_batch_a.py), B, C, D and E (test_library_batch_[bcde].py)
+        "VCCS", "CCCS", "CCVS", "SAT_AMP"} | set(BATCH_B) | set(BATCH_C) | set(BATCH_D) | WIDTH_PARTS | {i for i in BATCH_E if CATALOG.get(i).category == "Electrical"}     # batch A (test_library_batch_a.py), B, C, D and E (test_library_batch_[bcde].py)
     assert CATALOG.search(category="Communication") == []
 
 

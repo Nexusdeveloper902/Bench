@@ -30,7 +30,7 @@ CHOICE_RE = re.compile(r"[A-Za-z0-9_.+\-]+\Z")
 LABEL_RE = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]+\Z")   # default part-type label token: letters and digits
 DESIGNATOR_RE = re.compile(r"[A-Z]+\Z")
 TOP = ("format", "id", "version", "name", "description", "designator", "label", "category", "subcategory", "aliases", "keywords",
-       "tags", "domain", "capabilities", "limitations", "docs", "pins", "params", "presentation", "sim")
+       "tags", "domain", "capabilities", "limitations", "docs", "pins", "nc", "params", "presentation", "sim")
 PIN_KEYS = ("id", "name", "at", "description")
 PARAM_KEYS = ("key", "label", "unit", "default", "kind", "choices", "min", "min_exclusive", "max", "when", "help", "scale")
 PRES_KEYS = ("box", "symbol", "icon", "value", "indicator", "show_current", "animate_when")
@@ -72,10 +72,16 @@ class Definition:
     sim: dict = field(default_factory=dict)   # domain -> opaque section, checked by SIM_DOMAINS[domain]
     path: Path = None               # package directory
     label: str = ""                 # short part type printed on the canvas when there is no value label
+    nc: tuple = ()                  # pin ids with no model port: drawn and wirable, never netlisted or warned about
 
     @property
     def terminals(self):
         return tuple(p.id for p in self.pins)
+
+    @property
+    def model_pins(self):
+        """Pin ids the simulation model has a port for (terminals without the `nc` ones), in pin order."""
+        return tuple(p.id for p in self.pins if p.id not in self.nc)
 
     @property
     def pos(self):
@@ -227,6 +233,11 @@ def load_definition(path, root=None, cache=None):
         pname, pdesc = typed(t, "name", str, f"{f}.name", "a string", default=pid), typed(t, "description", str, f"{f}.description", "a string", default="")
         pins.append(Pin(pid, pname, at, pdesc))
 
+    nc = strs(raw, "nc", "nc")
+    for pid in nc:
+        if pid not in {p.id for p in pins}: bad("DEF-PIN", f"nc lists '{pid}', which is not a pin id of this part", "nc")
+    if len(set(nc)) != len(nc): bad("DEF-PIN", "nc lists a pin id twice", "nc")
+
     # ---- params
     params, rp = [], typed(raw, "params", list, "params", "a list of tables", default=[])
     for i, t in enumerate(rp):
@@ -344,7 +355,7 @@ def load_definition(path, root=None, cache=None):
         if f"sim:{d}" not in caps: bad("DEF-CAPABILITY", f"[sim.{d}] needs the capability 'sim:{d}' (or remove the section)", f"sim.{d}")
         elif d in SIM_DOMAINS:
             where = {"dir": path.parent, "root": root, "cache": {} if cache is None else cache}
-            for x in SIM_DOMAINS[d](sim[d], tuple(pins), tuple(params), where):
+            for x in SIM_DOMAINS[d](sim[d], tuple(p for p in pins if p.id not in nc), tuple(params), where):
                 out.append({**x, "file": str(path), "id": ident[0]})
             if d == "electrical" and (note := electrical.status_note(sim[d])):
                 limits = [*limits, note]
@@ -358,7 +369,7 @@ def load_definition(path, root=None, cache=None):
         return None, out
     return Definition(ident[0], version, name, category, domain, tuple(caps), tuple(pins), tuple(box), description,
                       designator, subcategory, tuple(aliases), tuple(keywords), tuple(tags), tuple(limits), tuple(docs),
-                      tuple(params), sym, icon, value, ind, show, tuple(anim), sim, path.parent, plabel), out
+                      tuple(params), sym, icon, value, ind, show, tuple(anim), sim, path.parent, plabel, tuple(nc)), out
 
 
 # ---------------------------------------------------------------- catalog

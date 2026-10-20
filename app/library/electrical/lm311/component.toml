@@ -12,10 +12,11 @@ tags = ["analog", "ic"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
-               "BALANCE and BAL/STROBE (pins 5, 6) are not part of the symbol: offset nulling and strobing are not modelled.",
+               "BALANCE and BAL/STROBE (pins 5, 6) are drawn but have no model port (nc pins): offset balancing and strobing are not modelled, so wiring a trimmer or a strobe to them does nothing.",
                "The on resistance (15 Ω) matches 0.75 V at 50 mA; at 8 mA the model gives 0.12 V where the datasheet shows 0.23 V. The large-overdrive delay (50 ns) is an assumption.",
                "The input stage is referenced to ground, not to the supply pins: the common-mode range, input protection and output behaviour with the supply off are not modelled."]
 docs = ["https://www.ti.com/lit/ds/symlink/lm311.pdf", "https://ngspice.sourceforge.io/docs.html"]
+nc = ["bal", "strb"]            # no model port
 
 [presentation]
 box = [0, 0, 80, 80]
@@ -56,6 +57,18 @@ id = "emit"
 name = "EMIT"
 at = [80, 60]
 description = "Emitter of the output transistor (pin 1); ground it for a ground-referenced output"
+
+[[pins]]
+id = "bal"
+name = "BAL"
+at = [20, 80]
+description = "Balance (pin 5); no model port, not simulated"
+
+[[pins]]
+id = "strb"
+name = "STRB"
+at = [60, 80]
+description = "Balance / strobe (pin 6); no model port, not simulated"
 
 [sim.electrical]
 device = "X"

@@ -268,13 +268,13 @@ class Document:
             out.append(diag("NO-GROUND", "error", "No ground: place a Ground and wire it to the circuit."))
         for n, d in self.parts.items():
             if n in unm: continue
-            pins = self.pins(n)
+            c = get(d["kind"])
+            pins = [f"{n}.{t}" for t in c.model_pins]     # nc pins have no model port: never warned about
             loose = [p for p in pins if p not in wired]
             if len(loose) == len(pins) and n in devices:
                 out.append(diag("UNCONNECTED-PART", "error", f"{n} is not connected to anything.", n, pins))
             else:
                 out += [diag("UNCONNECTED-PIN", "warning", f"{p} is not connected.", n, [p]) for p in loose]
-            c = get(d["kind"])
             for k in c.fields(d["params"]):
                 try:
                     c.param(k).parse(d["params"][k], n)

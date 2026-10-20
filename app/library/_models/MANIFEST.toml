@@ -118,7 +118,7 @@ origin = "project"
 source = "Bench project; digital I/O stages (supply-ratiometric adc_bridge input stage, dac_bridge output stage with output impedance and tri-state switch, switch-based Schmitt input)"
 license = "MIT"
 retrieved = "2026-10-12"
-sha256 = "ddfcc8bd1f8947997cc962e814b2e4a6508cac121b5b97d01d0a89097a71f612"
+sha256 = "427d0c14a178f083232c38c6f4926c3807f8c4bad76ca5a85d9a9141e2c9390d"
 changes = "none"
 
 [[file]]
@@ -136,7 +136,7 @@ origin = "project"
 source = "Bench project; sequential and counter cores (flip-flops, latches, counters, shift registers) from XSPICE d_dff/d_jkff/d_dlatch behind the digital I/O stages"
 license = "MIT"
 retrieved = "2026-10-12"
-sha256 = "73fcb65d7c9c5959f4f3695ac5291cee8447ab1887da639bbbd44d245f109fd9"
+sha256 = "e1b958a5b14728d175e9483f41ddc0c8ccb8b0e9da8ba8f718f73d8f4cea60ab"
 changes = "none"
 
 [[file]]
@@ -154,7 +154,7 @@ origin = "project"
 source = "Bench project; N-bit ADC (adc_bridge quantiser registered by d_dff) and R-2R DAC ladder"
 license = "MIT"
 retrieved = "2026-10-12"
-sha256 = "dcaae9b46499a69edda2b75fec175182c221ddbdc9b3cadf8e2a3775d71ff169"
+sha256 = "1278daf21317ac4a28366a7fc20052c1e07d780797a29f88d09bed04c763fef2"
 changes = "none"
 
 [[file]]

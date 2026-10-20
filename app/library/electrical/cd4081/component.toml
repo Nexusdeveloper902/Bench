@@ -15,7 +15,7 @@ limitations = ["Behavioral model built from XSPICE digital code models behind an
                "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
                "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
                "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
-               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low, and a clock input that is already high at t = 0 produces one clock edge at power-up (the digital nodes start low)."]
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input."]
 docs = ["https://www.ti.com/lit/ds/symlink/cd4081b.pdf", "https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]

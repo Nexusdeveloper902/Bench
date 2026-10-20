@@ -628,7 +628,7 @@ def build_netlist(parts, nets, defs):
             raise ModelError(f"{name} ({c.name}) has no electrical model")
         if sec.get("ground"):
             continue
-        pins = c.terminals
+        pins = c.model_pins      # nc pins have no model port: not netlisted, not a node of this part
         nodes = {t: nets[f"{name}.{t}"] for t in pins}
         used |= set(nodes.values())
         dev = device_name(sec, name)

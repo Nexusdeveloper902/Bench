@@ -9,6 +9,13 @@
 * bench_dout vc gn d y: output stage. A dac_bridge drives a node that a polynomial source scales to
 *   gn + (VOLF + (VOHF-VOLF)*d) * (vc - gn), followed by ROUT in series (the output impedance). An unknown (X) state drives mid-level.
 * bench_dout3 vc gn d en y: the same, behind a switch that opens while the digital enable en is 0 (high impedance: 1 Gohm to gn).
+* bench_dclk vc gn a d: clock input stage with a power-on gate (G24). Digital nodes start low and a clock that is already high at t = 0
+*   would give every edge-triggered model one clock edge at power-up. This stage lets an edge through only after the clock has been seen
+*   at its idle level. Two bench_din stages read the pin: P at the active level (NEG=0: high, rising edge; NEG=1: low, falling edge) and
+*   N at the idle level. Both start low and only go high once the analog pin really is at that level, so neither has a power-up event.
+*   A d_dlatch with data = constant 1 and enable = N holds `arm` once the clock has been idle, and d = P AND arm. A clock held at its
+*   active level from t = 0 never arms, so it never clocks; the first edge after one idle period is an ordinary edge. An edge within
+*   about 5 ns of t = 0 (before the latch has armed) is ignored. Other parameters as bench_din.
 * bench_dsch vc gn a d: Schmitt-trigger input. d is 1 above VP (fraction of the supply) and 0 below VN; between them it keeps its state.
 *   The hysteresis is a voltage-controlled switch on the normalised input.
 .subckt bench_din vc gn a d params: LO=0.45 HI=0.55 RK=1 AK=0 INV=0 PU=0 TD=1n
@@ -46,3 +53,14 @@ S1 q 0 0 n sch
 A1 [q] [d] adc
 .model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
 .ends bench_dsch
+
+.subckt bench_dclk vc gn a d params: LO=0.45 HI=0.55 RK=1 AK=0 TD=1n NEG=0
+Xp vc gn a dp bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={NEG}
+Xn vc gn a dn bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={1-NEG}
+.model ga d_and(rise_delay={TD} fall_delay={TD})
+.model gl d_dlatch(data_delay={TD} enable_delay={TD} set_delay={TD} reset_delay={TD})
+.model pu d_pullup(load=1p)
+Ap dhi pu
+Al dhi dn NULL NULL arm NULL gl
+Ag [dp arm] d ga
+.ends bench_dclk

@@ -3,7 +3,7 @@
 * A pin that is active low and unconnected reads inactive (pulled to vc); other unconnected pins read low.
 .subckt bench_d_dff vc gn d ck s r q qb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n SA=0 RA=0
 Xd vc gn d dd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
-Xc vc gn ck dc bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn ck dc bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={SA} PU={SA}
 Xr vc gn r dr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={RA} PU={RA}
 A1 dd dc ds dr dq dqn ff
@@ -14,7 +14,7 @@ Xqb vc gn dqn qb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
 .subckt bench_d_jk vc gn j k ck s r q qb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n SA=0 RA=0
 Xj vc gn j dj bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xk vc gn k dk bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
-Xc vc gn ck dc bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn ck dc bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={SA} PU={SA}
 Xr vc gn r dr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={RA} PU={RA}
 A1 dj dk dc ds dr dq dqn ff
@@ -55,8 +55,8 @@ XL8 vc gn d8 dle doe q8 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} V
 .ends bench_d_lat8
 .subckt bench_d_sr595 vc gn ser srclk rclk srclrb oeb qa qb qc qd qe qf qg qh qs params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
 Xser vc gn ser dser bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
-Xsck vc gn srclk dsck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
-Xrck vc gn rclk drck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xsck vc gn srclk dsck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xrck vc gn rclk drck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xclr vc gn srclrb dclr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=1
 Xoe vc gn oeb doe bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=0
 .model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
@@ -89,7 +89,7 @@ XQS vc gn s7 qs bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
 .subckt bench_d_sr4094 vc gn strobe data clock oe q1 q2 q3 q4 q5 q6 q7 q8 qs qsb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
 Xst vc gn strobe dst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xd vc gn data dd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
-Xck vc gn clock dck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xck vc gn clock dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xoe vc gn oe doe bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
 .model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
 .model lat d_dlatch(data_delay={TPD} enable_delay={TPD} set_delay={TPD} reset_delay={TPD})
@@ -125,7 +125,7 @@ XQSB vc gn sn qsb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
 .ends bench_d_sr4094
 .subckt bench_d_cnt161 vc gn clrb clk a b c d enp ent loadb qa qb qc qd rco params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
 Xclr vc gn clrb dclr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=1
-Xck vc gn clk dck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xld vc gn loadb dld bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
 Xep vc gn enp dep bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
 Xet vc gn ent det bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
@@ -173,7 +173,7 @@ Arc [det q0 q1 q2 q3] drco g2
 XRCO vc gn drco rco bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
 .ends bench_d_cnt161
 .subckt bench_d_cd4017 vc gn clk inh rst q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 co params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
-Xck vc gn clk dck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xinh vc gn inh dinh bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 Xrst vc gn rst drst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
 .model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})

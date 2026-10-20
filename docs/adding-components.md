@@ -119,6 +119,27 @@ A part without pins (a documentation-only "Reference only" part) must still writ
 - Convention, not enforced: pins on multiples of 20, and `box` width and height multiples of 40, keep pins on the 20 px grid in every rotation.
 - Electrical parts: pin ids must be plain identifiers that do not start with a digit and are not `dev` or `dev_lc`, because they are template placeholders.
 
+### `nc` pins (drawn, no model port)
+
+A real package often has pins the model has no port for: the LM741 offset-null and NC pins, the LM311 BALANCE and STROBE
+pins. List their ids in the top-level key `nc` (before the first `[table]` header, like `pins`):
+
+```
+nc = ["null1", "null2", "nc8"]      # ids of pins listed in [[pins]]; the part keeps its real pin count and pin numbers
+```
+
+An `nc` pin is an ordinary pin for the user: it is drawn, can be wired, shows in the pin lists, and keeps its position, so
+saved documents stay valid. For the simulation it does not exist:
+
+- it is not a node field of `line` (the node-field rule in `check()` counts only the other pins, so the line has one
+  placeholder per model port) and a template that mentions it is a `DEF-SIM` unknown placeholder;
+- it is not netlisted: wiring it to a net changes nothing in the deck, and a net that only it touches never reaches ngspice;
+- it gets no `UNCONNECTED-PIN` warning when left open (a part whose other pins are all open is still `UNCONNECTED-PART`).
+
+An id that is not a pin, or a repeated id, is `DEF-PIN`. State in `limitations` that the pin is not modelled, so a user
+who wires a trimmer to it knows it does nothing. `Definition.terminals` is every pin; `Definition.model_pins` is the
+terminals without the `nc` ones.
+
 ## Parameters
 
 Each `[[params]]` table maps to one editable field.
@@ -150,7 +171,7 @@ An electrical part is data only; `app/electrical.py` checks it (`DEF-SIM`) and r
 |---|---|
 | `device` | one SPICE letter from the device table below. The device name is the part name, prefixed with the letter if it does not start with it (`SW1` becomes `RSW1`). |
 | `line` | a string, or `{select = "<choice param>", <every choice> = "..."}`. It must start with `{dev} ` and be one line. |
-| node fields | the part has the pin count its letter needs (see the table below), and the fields after `{dev}` are exactly those pin placeholders, once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
+| node fields | the part has the pin count its letter needs (see the table below; `nc` pins do not count), and the fields after `{dev}` are exactly those pin placeholders, once each. A literal node, a pin elsewhere in the line, or `;` / `$` comments are errors: they would attach the part to nets that are not drawn. |
 | placeholders | plain identifiers only: `{dev}`, `{dev_lc}`, pin ids, and params that apply to that branch (a plain line: params without `when`). Numbers arrive as `repr(float)`, choices as text. |
 | `models` | `.model <name> <TYPE>(...)` lines. Placeholders: `{dev}`, `{dev_lc}`, params without `when`. For a letter with model types in the table, the type and `level` of the card the line names must be in the table (write `level` as a number). |
 | `current` | exactly the vector the table lists for the letter (a wrong `.save @dev[x]` can crash ngspice); the vector shown by `show_current` and `indicator`. |
