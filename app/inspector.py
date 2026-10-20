@@ -64,7 +64,7 @@ class Inspector(QWidget):
 
     # ---- entry points
     def show_selection(self, doc, sel, wire, run, live=None):
-        """Render the canvas selection: a part name, a wire (pin, pin) or nothing. `run` = (analysis, stop, step) text.
+        """Render the canvas selection: a part name, a wire (pin, pin) or nothing. `run` = ((label, text), ...).
         live: during a live run, {param key: current value} of the selected part's live params (sliders on top)."""
         self.ctx = (doc, sel, wire, run, live)
         self.live, self.live_sliders, self.live_labels = live, {}, {}
@@ -109,8 +109,8 @@ class Inspector(QWidget):
             lay.addWidget(self._kv(k, str(v)))
         lay.addSpacing(8)
         lay.addWidget(W.section("Simulation"))
-        for k, v in zip(("Analysis", "Stop time", "Time step"), run): lay.addWidget(self._kv(k, v))
-        lay.addWidget(W.label("Edit stop time and time step in the top bar.", "hint", wrap=True))
+        for k, v in run: lay.addWidget(self._kv(k, v))
+        lay.addWidget(W.label("Edit the analysis and its run settings in the top bar.", "hint", wrap=True))
 
     @staticmethod
     def _kv(k, v):

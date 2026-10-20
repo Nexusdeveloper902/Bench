@@ -43,7 +43,7 @@ DEVICES = {     # primitive: no models; model-backed: models; X: subcircuit-back
     "X": Device(range(1, 1000), {}, None),      # node fields = the named .subckt's ports, in order
 }
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-KEYS = ("device", "line", "models", "current", "ground", "defs", "body", "model_kind", "verification", "provenance")
+KEYS = ("device", "line", "models", "current", "ground", "defs", "body", "model_kind", "verification", "provenance", "ac")
 MODEL_KINDS = ("primitive", "model", "third-party-model", "project-subckt", "third-party-subckt", "behavioral",
                "equivalent")
 X_KINDS = ("project-subckt", "third-party-subckt", "behavioral", "equivalent")
@@ -402,6 +402,11 @@ def check(section, pins, params, where=None):
             bad(f"a {letter} device has no current Bench can read; remove 'current'", "current")
         elif cur != spec.current:
             bad(f"a {letter} device's current must be '{spec.current}' (the current into its first node)", "current")
+    if "ac" in section:   # AC-analysis stimulus (G17): appended to the line in AC decks only, so transient decks never change
+        tpl = section["ac"]
+        if letter not in ("V", "I"): bad("only an independent V or I source has an AC stimulus", "ac")
+        elif template(tpl, "ac", {p.key for p in params if not p.when}, "AC ") and (";" in tpl or "$" in tpl):
+            bad("must not contain ';' or '$' (SPICE comments would hide what follows)", "ac")
     kind = section.get("model_kind")
     if "model_kind" in section and kind not in MODEL_KINDS: bad(f"must be one of {', '.join(MODEL_KINDS)}", "model_kind")
     elif letter == "X" and kind not in X_KINDS:
@@ -509,11 +514,13 @@ def _line(section, values):
     return line[values[line["select"]]] if isinstance(line, dict) else line
 
 
-def emit(section, part_name, nodes, values):
-    """-> (lines, models). nodes: {pin id: net}; values: parsed applicable params {key: float | choice}."""
+def emit(section, part_name, nodes, values, ac=False):
+    """-> (lines, models). nodes: {pin id: net}; values: parsed applicable params {key: float | choice}. ac: an AC
+    deck, whose source lines carry the section's `ac` stimulus."""
     dev = device_name(section, part_name)
     kw = {**{k: _r(v) for k, v in values.items()}, **nodes, "dev": dev, "dev_lc": dev.lower()}
-    return [_line(section, values).format(**kw)], [m.format(**kw) for m in section.get("models", [])]
+    line = _line(section, values) + (" " + section["ac"] if ac and "ac" in section else "")
+    return [line.format(**kw)], [m.format(**kw) for m in section.get("models", [])]
 
 
 _VALUE_LINE = re.compile(r"\{dev\}\s+\S+\s+\S+\s+(?:dc\s+)?\{(\w+)\}\Z", re.I)
@@ -608,8 +615,9 @@ def _x_live(section, dev, cur, values):
     return devices, keys
 
 
-def build_netlist(parts, nets, defs):
-    """parts: {name: {"kind", "params", ...}} in creation order; nets: {"Part.pin": net}; defs: a Catalog.
+def build_netlist(parts, nets, defs, ac=False):
+    """parts: {name: {"kind", "params", ...}} in creation order; nets: {"Part.pin": net}; defs: a Catalog; ac: an AC
+    deck (sources emit their `ac` stimulus).
     -> {"lines", "models", "saves", "observables", "derived", "signals"}; raises ModelError on a bad value or a
     part without an electrical binding (never skips one silently).
 
@@ -632,7 +640,7 @@ def build_netlist(parts, nets, defs):
         nodes = {t: nets[f"{name}.{t}"] for t in pins}
         used |= set(nodes.values())
         dev = device_name(sec, name)
-        ls, ms = emit(sec, name, nodes, c.values(d["params"], name))
+        ls, ms = emit(sec, name, nodes, c.values(d["params"], name), ac)
         lines += ls
         for m in ms:
             key, body = model_key(m)

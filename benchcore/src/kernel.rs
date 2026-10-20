@@ -425,6 +425,9 @@ pub(crate) fn gates(netlist: &[String]) -> Result<(), SimError> {
 fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
     // 0. static gates first (fail fast, before touching the backend)
     gates(&req.netlist)?;
+    if analyses(&req.netlist).iter().any(|a| a.starts_with(".ac ")) {
+        return Err(SimError::InvalidConfig { message: "an .ac deck is run with run_ac, not run_simulation".to_string() });
+    }
     refuse_unsaved_device_observables(&req.netlist, &req.observables)?;
     let mut lines = req.netlist.clone();
     let obs = req.observables.clone();
@@ -598,4 +601,142 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
         fallback_reason: None,
         warnings,
     })
+}
+
+// ---------------------------------------------------------------- AC small-signal analysis (G17)
+
+/// An `.ac` run: the frequency grid (Hz) and each observable as (re, im) at every frequency.
+#[derive(Debug, Clone)]
+pub struct AcResult {
+    pub frequency: Vec<f64>,
+    pub series: HashMap<String, Vec<(f64, f64)>>,
+    pub wall_ms: f64,
+}
+
+/// The deck's analysis cards (title line skipped), lowercased.
+fn analyses(lines: &[String]) -> Vec<String> {
+    let cards = [".tran", ".ac", ".dc", ".op", ".noise", ".pz", ".tf", ".sens", ".disto", ".pss", ".sp"];
+    lines
+        .iter()
+        .skip(1)
+        .map(|l| l.trim().to_lowercase())
+        .filter(|l| l.split_whitespace().next().is_some_and(|w| cards.contains(&w)))
+        .collect()
+}
+
+const AC_MAX_POINTS: f64 = 1e6;
+
+/// The sweep of the deck's one `.ac dec|oct|lin <points> <fstart> <fstop>` card, checked: ngspice runs a bad one
+/// without any error (probed: `.ac dec 10 0 1k` leaves no ac plot and logs nothing), so it is refused here.
+pub fn ac_sweep(lines: &[String]) -> Result<(String, f64, f64, f64), SimError> {
+    let bad = |m: String| Err(SimError::InvalidConfig { message: m });
+    let cards = analyses(lines);
+    if cards.len() != 1 || !cards[0].starts_with(".ac ") {
+        return bad(format!("an AC run needs exactly one .ac card and no other analysis; found: {}", cards.join(" | ")));
+    }
+    let t: Vec<&str> = cards[0].split_whitespace().skip(1).collect();
+    let nums: Vec<Option<f64>> = t.iter().skip(1).map(|s| parse_value(s)).collect();
+    let (Some(kind), [Some(n), Some(f1), Some(f2)]) = (t.first(), nums.as_slice()) else {
+        return bad(format!("bad .ac card '{}': use .ac dec|oct|lin <points> <fstart> <fstop>", cards[0]));
+    };
+    let (n, f1, f2) = (*n, *f1, *f2);
+    let span = match *kind {
+        "dec" => n * (f2 / f1).log10(),
+        "oct" => n * (f2 / f1).log2(),
+        "lin" => n - 1.0,
+        _ => return bad(format!("AC sweep must be dec, oct or lin, not '{}'", kind)),
+    };
+    if !(n >= 1.0 && n.fract() == 0.0) {
+        return bad(format!("AC points must be a whole number of at least 1, not {}", n));
+    }
+    if *kind == "lin" && n == 2.0 {
+        // probed: ngspice 47 returns only fstart for every `lin 2` sweep (lin 1 and lin 3+ are exact)
+        return bad("a lin AC sweep of 2 points returns 1 point in ngspice 47: use 3 or more".to_string());
+    }
+    let one_point = *kind == "lin" && n == 1.0;
+    if !(f1 > 0.0 && f1.is_finite() && f2.is_finite() && (f2 > f1 || (one_point && f2 == f1))) {
+        return bad(format!("AC frequencies need 0 < fstart < fstop (got {} and {})", f1, f2));
+    }
+    if span + 1.0 > AC_MAX_POINTS {
+        return bad(format!("AC sweep has too many points ({:.3e}; limit {:.0e})", span + 1.0, AC_MAX_POINTS));
+    }
+    Ok((kind.to_string(), n, f1, f2))
+}
+
+/// Run an `.ac` deck. Observables are node voltages `v(n)` and branch currents `i(vsrc)`: `@dev[param]` vectors are
+/// refused, because in an ac plot they hold the device's operating-point value repeated at every frequency, not a
+/// small-signal quantity (probed: `@d1[id]`, `@q1[ic]`, `@i1[c]` constant and real; `@r1[i]`, `@c1[i]`, `@l1[i]` empty).
+pub fn run_ac(netlist: &[String], observables: &[String]) -> Result<AcResult, SimError> {
+    let _op = ngspice::op_lock();
+    crate::live::refuse_if_live()?;
+    gates(netlist)?;
+    let (kind, n, _, _) = ac_sweep(netlist)?;
+    if let Some(o) = observables.iter().find(|o| o.starts_with('@')) {
+        return Err(SimError::InvalidConfig {
+            message: format!(
+                "{} is an operating-point device quantity, not an AC signal: observe a node voltage or a source current",
+                o
+            ),
+        });
+    }
+    let backend = |e: String| SimError::BackendFailure { message: e };
+    ngspice::ensure_init().map_err(backend)?;
+    ngspice::teardown();
+    let t0 = std::time::Instant::now();
+    let rc = ngspice::do_circ(netlist).map_err(backend)?;
+    if rc != 0 {
+        return Err(backend(with_reason(format!("circ rc={}", rc))));
+    }
+    let rc = ngspice::do_command("run").map_err(backend)?;
+    if rc != 0 {
+        return Err(backend(with_reason(format!("run rc={}", rc))));
+    }
+    let wall_ms = t0.elapsed().as_secs_f64() * 1e3;
+    let (log, _) = ngspice::take_logs();
+    if let Some(hint) = scan_loud_failure(&log) {
+        let l = hint.to_lowercase();
+        if l.contains("timestep too small") || l.contains("no convergence") {
+            return Err(SimError::ConvergenceFailure { message: hint });
+        }
+        return Err(SimError::SolverFailure { message: hint.clone(), log_hint: hint });
+    }
+    let no_data = |what: &str| SimError::SolverFailure { message: format!("AC analysis {}", what), log_hint: log.join("\n") };
+    let plot = ngspice::cur_plot_name();
+    if !plot.to_lowercase().starts_with("ac") {
+        return Err(no_data("produced no data points"));
+    }
+    let frequency: Vec<f64> = ngspice::read_cvec_qualified(&format!("{}.frequency", plot))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|z| z.0)
+        .collect();
+    if frequency.is_empty() {
+        return Err(no_data("produced no data points"));
+    }
+    if kind == "lin" && frequency.len() as f64 != n {
+        return Err(no_data(&format!("returned {} points for a lin sweep of {}", frequency.len(), n)));
+    }
+    let mut series = HashMap::new();
+    let mut missing = vec![];
+    for o in observables {
+        let v = ngspice::read_cvec_qualified(&format!("{}.{}", plot, o)).unwrap_or_default();
+        if v.len() != frequency.len() {
+            missing.push(o.as_str());
+        }
+        series.insert(o.clone(), v);
+    }
+    if !missing.is_empty() {
+        missing.sort();
+        return Err(SimError::InvalidConfig {
+            message: format!(
+                "observable(s) not available over the frequency grid (unknown node/branch): {}",
+                missing.join(", ")
+            ),
+        });
+    }
+    let finite = series.values().flatten().all(|(a, b)| a.is_finite() && b.is_finite());
+    if !finite || frequency.iter().any(|f| !f.is_finite()) || frequency.windows(2).any(|w| !(w[1] > w[0])) {
+        return Err(no_data("gave a non-finite value or a non-increasing frequency grid"));
+    }
+    Ok(AcResult { frequency, series, wall_ms })
 }

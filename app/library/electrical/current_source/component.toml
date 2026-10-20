@@ -2,7 +2,7 @@ format = 1
 id = "I"
 version = 1
 name = "Current source"
-description = "Independent DC current source."
+description = "Independent DC current source, with an optional AC stimulus (magnitude and phase) for AC analysis."
 designator = "I"
 category = "Electrical"
 subcategory = "Sources"
@@ -35,6 +35,20 @@ label = "Current"
 unit = "A"
 default = "1e-3"
 
+[[params]]
+key = "ac"
+label = "AC magnitude"
+unit = "A"
+default = "0"
+help = "Small-signal stimulus amplitude for an AC analysis; transient and live runs ignore it"
+
+[[params]]
+key = "acphase"
+label = "AC phase (degrees)"
+default = "0"
+help = "Phase of the AC stimulus in degrees; used only by an AC analysis"
+
 [sim.electrical]
 device = "I"
+ac = "AC {ac} {acphase}"
 line = "{dev} {p} {n} DC {dc}"

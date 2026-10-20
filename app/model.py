@@ -7,7 +7,12 @@ from .electrical import build_netlist, device_name
 FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
               "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True),
-              "live": Param("duration", "Live run duration", "s", "", min=0, min_exclusive=True)}
+              "live": Param("duration", "Live run duration", "s", "", min=0, min_exclusive=True),
+              "points": Param("points", "Points", "", "20", min=1),            # AC sweep (G17)
+              "fstart": Param("fstart", "Start frequency", "Hz", "1", min=0, min_exclusive=True),
+              "fstop": Param("fstop", "Stop frequency", "Hz", "1M", min=0, min_exclusive=True)}
+ANALYSES, SWEEPS = ("transient", "ac"), ("dec", "oct", "lin")   # AC: small-signal sweep, points per decade/octave/total
+AC_DEFAULTS = {"sweep": "dec", **{k: RUN_PARAMS[k].default for k in ("points", "fstart", "fstop")}}
 LIVE_STOP_TIME, LIVE_INDEFINITE = ("", "stop time"), ("indefinite", "inf", "∞")   # live duration words
 METHODS = ("trap", "gear")   # integration method; gear damps trapezoidal ringing (GAPS G30), trap is ngspice's default
 
@@ -71,6 +76,8 @@ class Document:
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
         self.method = "trap"
+        self.analysis = "transient"   # or "ac": the AC sweep in self.ac (texts as typed)
+        self.ac = dict(AC_DEFAULTS)
         self.live_tstop = ""  # live-run duration as typed: "" = the stop time, "indefinite", or a time ("30", "2m")
         self.path = None     # file last saved to / loaded from (Save target; Save As = save(new_path))
         self._count = {}
@@ -193,7 +200,10 @@ class Document:
 
     # ---- simulation input ----
     def config(self):
-        """-> kwargs for Simulation.configure. Raises ModelError."""
+        """-> kwargs for Simulation.configure, or {"ac": (sweep, points, fstart, fstop)} for an AC analysis.
+        Raises ModelError."""
+        if self.analysis == "ac":
+            return {"ac": self.ac_sweep()}
         tstop = RUN_PARAMS["tstop"].parse(self.tstop, "Run")
         tstep = RUN_PARAMS["tstep"].parse(self.tstep, "Run")
         if tstep > tstop:
@@ -201,6 +211,22 @@ class Document:
         if err := size_error(tstop, tstep, len(self.parts)):
             raise ModelError(f"Run: {err}: increase the time step or shorten the stop time")
         return {"tstep": tstep, "tstop": tstop, "tmax": tstep, **({"method": self.method} if self.method != "trap" else {})}
+
+    def ac_sweep(self):
+        """The AC sweep -> (sweep, points, fstart, fstop), within the batch result limits. Raises ModelError."""
+        a = self.ac
+        if a["sweep"] not in SWEEPS:
+            raise ModelError(f"AC sweep must be one of {', '.join(SWEEPS)}, not {a['sweep']!r}")
+        n, f1, f2 = (RUN_PARAMS[k].parse(a[k], "AC") for k in ("points", "fstart", "fstop"))
+        if n != int(n):
+            raise ModelError(f"AC points must be a whole number, not {a['points']}")
+        if f2 <= f1:
+            raise ModelError("AC stop frequency must be above the start frequency")
+        pts = {"dec": n * math.log10(f2 / f1), "oct": n * math.log2(f2 / f1), "lin": n - 1}[a["sweep"]] + 1
+        if pts > MAX_POINTS or pts * (3 * len(self.parts) + 1) > MAX_SAMPLES:
+            raise ModelError(f"AC: too many points ({pts:.3g}; limit {MAX_POINTS:,} points / {MAX_SAMPLES:,} samples): "
+                             "fewer points or a narrower range")
+        return a["sweep"], int(n), f1, f2
 
     def live_duration(self):
         """Live-run duration in seconds: the stop time when unset, math.inf for indefinite. Raises ModelError."""
@@ -210,10 +236,12 @@ class Document:
         return math.inf if t in LIVE_INDEFINITE else RUN_PARAMS["live"].parse(self.live_tstop, "Live run")
 
     def sim_config(self):
-        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core. `method`
-        and `live_tstop` are written only when they are not the default, so files without them stay byte-identical."""
-        out = {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
+        """Simulation settings as persisted (text as typed). `analysis` is "transient" or "ac" (G17); `method`, `ac`
+        (the AC sweep) and `live_tstop` are written only when they are not the default, so files without them stay
+        byte-identical."""
+        out = {"analysis": self.analysis, "tstop": self.tstop, "tstep": self.tstep}
         if self.method != "trap": out["method"] = self.method
+        if self.ac != AC_DEFAULTS: out["ac"] = dict(self.ac)
         if self.live_tstop.strip(): out["live_tstop"] = self.live_tstop   # live-run duration (task 9.7)
         return out
 
@@ -225,7 +253,8 @@ class Document:
         if bad := [n for n in skip if self.wired(n)]:
             raise ModelError(f"{', '.join(bad)} cannot be simulated and {'is' if len(bad) == 1 else 'are'} wired to "
                              "the circuit: disconnect to run")
-        nl = build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG)
+        nl = build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG,
+                           ac=self.analysis == "ac")
         return {**nl, "excluded": skip}
 
     def validate(self):
@@ -424,8 +453,15 @@ class Document:
             if xtra: doc.parts[n]["extra"] = copy.deepcopy(xtra)
         doc.wires = wl
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
-        if sim.get("analysis", "transient") != "transient":
-            raise ModelError(f"unsupported analysis {sim['analysis']}")
+        doc.analysis = sim.get("analysis", "transient")
+        if doc.analysis not in ANALYSES:
+            raise ModelError(f"unsupported analysis {doc.analysis!r} (use one of {', '.join(ANALYSES)})")
+        ac = need(sim.get("ac", {}), dict, "ac")
+        if bad := sorted(set(ac) - set(AC_DEFAULTS)):
+            raise ModelError(f"unknown AC setting {bad[0]!r} (use {', '.join(AC_DEFAULTS)})")
+        doc.ac = {**AC_DEFAULTS, **{k: str(need(v, (str, int, float), f"ac {k}")) for k, v in ac.items()}}
+        if doc.ac["sweep"] not in SWEEPS:
+            raise ModelError(f"unknown AC sweep {doc.ac['sweep']!r} (use one of {', '.join(SWEEPS)})")
         doc.live_tstop = str(need(sim.get("live_tstop", ""), (str, int, float), "live_tstop"))
         doc.method = sim.get("method", "trap")
         if doc.method not in METHODS:

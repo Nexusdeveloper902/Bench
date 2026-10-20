@@ -14,7 +14,7 @@ pub mod thin;
 pub mod validate;
 
 pub use error::SimError;
-pub use kernel::{run_simulation, pause_exact, parse_tstop, SimRequest, SimResult};
+pub use kernel::{run_ac, run_simulation, pause_exact, parse_tstop, AcResult, SimRequest, SimResult};
 
 use pyo3::create_exception;
 use pyo3::prelude::*;
@@ -82,6 +82,23 @@ fn result_dict(py: Python<'_>, res: SimResult) -> PyResult<Bound<'_, PyDict>> {
         Some(s) => d.set_item("fallback_reason", s)?,
         None => d.set_item("fallback_reason", py.None())?,
     };
+    Ok(d)
+}
+
+/// run_ac(netlist, observables) -> {"frequency": [Hz], "series": {name: [(re, im)]}, "npts", "wall_ms"}.
+/// The deck carries exactly one `.ac dec|oct|lin points fstart fstop` card; observables are v(node) / i(vsrc).
+#[pyfunction(name = "run_ac")]
+fn py_run_ac<'py>(py: Python<'py>, netlist: Vec<String>, observables: Vec<String>) -> PyResult<Bound<'py, PyDict>> {
+    let res = py.detach(|| kernel::run_ac(&netlist, &observables)).map_err(map_err)?;
+    let d = PyDict::new(py);
+    let series = PyDict::new(py);
+    for (k, v) in res.series {
+        series.set_item(k, v)?;
+    }
+    d.set_item("npts", res.frequency.len() as u64)?;
+    d.set_item("frequency", res.frequency)?;
+    d.set_item("series", series)?;
+    d.set_item("wall_ms", res.wall_ms)?;
     Ok(d)
 }
 
@@ -211,6 +228,7 @@ fn py_required_tmax(expr: String) -> PyResult<Option<f64>> {
 #[pymodule]
 fn _benchcore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_run_simulation, m)?)?;
+    m.add_function(wrap_pyfunction!(py_run_ac, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate, m)?)?;
     m.add_function(wrap_pyfunction!(py_required_tmax, m)?)?;
     m.add_function(wrap_pyfunction!(py_replay, m)?)?;

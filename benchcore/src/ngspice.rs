@@ -451,6 +451,27 @@ fn read_vec_from(name: &str, from: usize) -> Option<Vec<f64>> {
     }
 }
 
+/// A complex vector (an `.ac` plot) as (re, im) pairs. None if missing, empty or real. Probed on ngspice 47: every
+/// vector of an `ac` plot, `frequency` included, has v_realdata NULL and v_compdata set (an `ngcomplex_t` array).
+pub fn read_cvec_qualified(name: &str) -> Option<Vec<(f64, f64)>> {
+    let st = sim().lock().ok()?;
+    let lib = st.lib.as_ref()?;
+    unsafe {
+        let c = CString::new(name).ok()?;
+        let p = (lib.vec_info)(c.as_ptr());
+        if p.is_null() {
+            return None;
+        }
+        let vi = &*p;
+        let n = vi.v_length;
+        if n <= 0 || n > 10_000_000 || vi.v_compdata.is_null() {
+            return None;
+        }
+        let pairs = std::slice::from_raw_parts(vi.v_compdata as *const [c_double; 2], n as usize);
+        Some(pairs.iter().map(|z| (z[0], z[1])).collect())
+    }
+}
+
 pub fn all_vecs_count(plot: &str) -> usize {
     let st = match sim().lock() {
         Ok(s) => s,

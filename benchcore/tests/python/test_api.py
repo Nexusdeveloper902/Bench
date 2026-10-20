@@ -193,3 +193,45 @@ def test_gear_method_is_one_options_line():
     assert abs(s.observable("v(out)")[-1][1] - 5 * (1 - math.exp(-5))) < 0.02
     with pytest.raises(InvalidConfigError):
         rc().configure(method="euler")
+
+
+# ---- AC small-signal analysis (G17) ----
+def test_ac_rc_lowpass_minus_3db_and_bjt_small_signal_gain():
+    """Simulation.ac() builds the .ac card; observable() gives (re, im) per frequency. The RC low-pass is -3.0103 dB
+    and -45° at fc = 1/(2πRC); the 2N2222 common-emitter stage (ce_amp's bias, driven through 10 µF) has the
+    textbook mid-band gain -gm·(Rc ‖ ro), gm = Ic/VT, ro = (VAF + Vce)/Ic, less the 10 Ω base resistance's share of
+    vbe (rπ = β/gm with β = Ic/Ib): within 1 %."""
+    fc = 1 / (2 * math.pi * 1e3 * 1e-6)
+    s = Simulation("rc").build_circuit(["V1 in 0 DC 0 AC 1", "R1 in out 1k", "C1 out 0 1u"])
+    s.ac("lin", 1, fc, fc).observe("v(out)").run()
+    (re, im), = s.observable("v(out)")
+    assert s.frequency == pytest.approx([fc])
+    assert 20 * math.log10(math.hypot(re, im)) == pytest.approx(-10 * math.log10(2), abs=1e-9)
+    assert math.degrees(math.atan2(im, re)) == pytest.approx(-45, abs=1e-7)
+    op = ce_amp()
+    op.run()
+    vc, ic, ib = (op.observable(n)[-1][1] for n in ("v(c)", "@q1[ic]", "@q1[ib]"))
+    gm = ic / (1.380649e-23 * 300.15 / 1.602176634e-19)
+    ro, rpi = (74.03 + vc) / ic, (ic / ib) / gm
+    want = gm * (1e3 * ro / (1e3 + ro)) * rpi / (rpi + 10)
+    amp = Simulation("ce ac").build_circuit(
+        ["Vcc vcc 0 DC 5", "Rb vcc b 430k", "Rc vcc c 1k", "Q1 c b 0 q2n2222", "Vin in 0 DC 0 AC 1", "Cin in b 10u"]
+    ).add_model(Q2N2222).ac("dec", 10, 100, 100e3).observe("v(c)")
+    amp.run()
+    k = amp.frequency.index(pytest.approx(1e3))
+    z = complex(*amp.observable("v(c)")[k])
+    assert abs(z) == pytest.approx(want, rel=0.01)
+    assert abs(math.degrees(math.atan2(z.imag, z.real))) == pytest.approx(180, abs=3)
+
+
+def test_ac_refusals_and_transient_unchanged():
+    """A bad sweep and a device @ vector are config errors; ac(None) goes back to the unchanged transient deck."""
+    s = rc().observe("v(out)")
+    tran_deck = s._deck()
+    with pytest.raises(InvalidConfigError, match="fstart"):
+        s.ac("dec", 10, 0, 1e3).run()
+    with pytest.raises(InvalidConfigError, match="operating-point"):
+        ce_amp().ac("dec", 10, 1, 1e3).run()
+    assert s.ac(None)._deck() == tran_deck
+    s.run()
+    assert len(s.time) > 50 and s.frequency == []

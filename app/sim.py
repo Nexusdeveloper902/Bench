@@ -25,6 +25,7 @@ class RunResult:
     details: str = ""                # developer diagnostics: error type, full message, findings, deck
     excluded: list = field(default_factory=list)  # unsimulated parts left out of the circuit (named in the message)
     changes: list = field(default_factory=list)   # live runs and their replays: [(t, part, key, value)] applied
+    analysis: str = "transient"      # "ac": series are [(frequency Hz, complex value)] (G17)
 
     @property
     def state(self):
@@ -72,8 +73,12 @@ def _diff(series, a, b):
     return [(t, x - y) for (t, x), (_, y) in zip(va, vb)]
 
 
-def _prepare(doc):
-    """App pre-checks and netlist -> ((diags, cfg, nl), None), or (None, a 'blocked' RunResult)."""
+def _prepare(doc, live=False):
+    """App pre-checks and netlist -> ((diags, cfg, nl), None), or (None, a 'blocked' RunResult). live: a live run or
+    its replay, which are transient only."""
+    if live and doc.analysis != "transient":
+        msg = "Live runs are transient only: switch the analysis to Transient to run live."
+        return None, RunResult(False, "blocked", msg, details=_details("AnalysisError", msg))
     diags = doc.validate()
     errors = [d for d in diags if d["severity"] == "error"]
     if errors:
@@ -92,9 +97,40 @@ def _simulation(cfg, nl):
     s.build_circuit(nl["lines"])
     for m in nl["models"]: s.add_model(m)
     for line in nl["saves"]: s.add(line)
-    s.configure(**cfg)
+    if "ac" in cfg: s.ac(*cfg["ac"])
+    else: s.configure(**cfg)
     s.observe(*nl["observables"])
     return s
+
+
+def _ac_netlist(nl):
+    """An AC run reads node voltages and source branch currents only: in an ac plot a device's @ vector holds its
+    operating-point value at every frequency, not a small-signal one (probed, G17), so those currents are left out."""
+    ac = lambda v: not v.startswith("@")
+    dropped = [s["name"] for s in nl["signals"] if not ac(s["vector"])]
+    return {**nl, "saves": [], "observables": [o for o in nl["observables"] if ac(o)],
+            "signals": [s for s in nl["signals"] if ac(s["vector"])], "no_ac": dropped}
+
+
+def _run_ac(diags, cfg, nl):
+    nl, findings = _ac_netlist(nl), []
+    try:
+        s = _simulation(cfg, nl)
+        findings = list(s.validate())
+        s.run()
+        f = s.frequency
+        series = {n: [(fq, complex(*z)) for fq, z in zip(f, s.observable(n))] for n in nl["observables"]}
+    except SIM_ERRORS as e:
+        r = _failed(e, findings, diags, nl)
+        r.analysis = "ac"
+        return r
+    _derive(series, nl)
+    notes = ["no part has an AC stimulus, so every signal is 0: give a voltage or current source an AC magnitude"] \
+        if all(v == 0 for pts in series.values() for _, v in pts) else []
+    if nl["no_ac"]:
+        notes.append("device currents are operating-point values in AC and are not shown (source currents are)")
+    return RunResult(True, "success", _ok_message(series, nl, notes), series, findings, diags, nl["signals"],
+                     _details("ok", f"{cfg}", findings, diags, _deck(nl)), nl["excluded"], analysis="ac")
 
 
 def _deck(nl):
@@ -133,6 +169,8 @@ def run_document(doc: Document) -> RunResult:
     prep, blocked = _prepare(doc)
     if blocked: return blocked
     diags, cfg, nl = prep
+    if "ac" in cfg:
+        return _run_ac(diags, cfg, nl)
     findings = []
     try:
         s = _simulation(cfg, nl)
@@ -229,7 +267,7 @@ class LiveSession:
     def __init__(self, doc, chunk=None, realtime=None):
         self._lock = threading.Lock()
         self._run, self._pending, self._log, self._t = None, [], [], 0.0
-        prep, self.result = _prepare(doc)
+        prep, self.result = _prepare(doc, live=True)
         if not self.result:
             try:
                 self.tstop = doc.live_duration()
@@ -379,7 +417,7 @@ def replay_document(doc, changes):
     run_document. Each change applies exactly at its t, as in the live run; the waveform matches the live run's
     within solver tolerance (its extra chunk boundaries move the time steps). 'blocked' for a change that is not a
     live change of doc."""
-    prep, blocked = _prepare(doc)
+    prep, blocked = _prepare(doc, live=True)
     if blocked: return blocked
     diags, cfg, nl = prep
     return _replay(diags, cfg, nl, _start_params(doc, nl), changes)
