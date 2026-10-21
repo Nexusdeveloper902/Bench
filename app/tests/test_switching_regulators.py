@@ -3,13 +3,12 @@
 Every check goes through the real path (Document -> netlist -> app.sim -> benchcore -> ngspice) and compares with the
 analytic CCM formulas of Erickson and Maksimovic, Fundamentals of Power Electronics, chapters 2, 7 and 8:
 - DC conversion ratio and conduction-loss efficiency (transient run settled to steady state);
-- a load-current step against the linear ODE (buck) or the averaged nonlinear ODE integrated by scipy (boost);
+- a load-current step against the linear ODE (buck) or the averaged ODE integrated by RK4 (boost);
 - the AC small-signal transfer functions: line-to-output and control-to-output, including the boost RHP zero."""
 import math
 
 import numpy as np
 import pytest
-from scipy.integrate import solve_ivp
 
 from app.catalog import CATALOG
 from app.model import Document
@@ -84,13 +83,26 @@ def test_conduction_loss_efficiency(kind):
 
 
 def reference(kind, D, vin, L, C, RL, i1, i2, t0, tstop):
-    """The averaged equations integrated by scipy from rest (what the converter does from a cold start), with the load
-    current i1 until t0 and i2 after: buck L iL' = D Vin - RL iL - v; boost L iL' = Vin - RL iL - D' v and C v' = D' iL - Iload."""
+    """The averaged equations integrated by fixed-step RK4 (h = 0.1 us, far below the 1.6 kHz LC period) from rest (what the
+    converter does from a cold start), with the load current i1 until t0 and i2 after: buck L iL' = D Vin - RL iL - v;
+    boost L iL' = Vin - RL iL - D' v and C v' = D' iL - Iload. -> (t, v) arrays."""
     k = D if kind == "BUCK" else 1 - D
-    def f(t, y):
-        il = (D * vin - RL * y[0] - y[1]) / L if kind == "BUCK" else (vin - RL * y[0] - k * y[1]) / L
-        return [il, ((y[0] if kind == "BUCK" else k * y[0]) - (i1 if t < t0 else i2)) / C]
-    return solve_ivp(f, (0, tstop), [0, 0], method="Radau", rtol=1e-10, atol=1e-12, max_step=2e-6, first_step=1e-8)
+    src = D * vin if kind == "BUCK" else vin
+    def f(il, v, iload):
+        return (src - RL * il - k * v if kind == "BOOST" else src - RL * il - v) / L, ((il if kind == "BUCK" else k * il) - iload) / C
+    h, n0, n = 1e-7, round(t0 / 1e-7), round(tstop / 1e-7)
+    il = v = 0.0
+    ts, vs = [0.0], [0.0]
+    for i in range(n):
+        iload = i1 if i < n0 else i2   # the step lands on a step boundary
+        a = f(il, v, iload)
+        b = f(il + h / 2 * a[0], v + h / 2 * a[1], iload)
+        c = f(il + h / 2 * b[0], v + h / 2 * b[1], iload)
+        d = f(il + h * c[0], v + h * c[1], iload)
+        il += h / 6 * (a[0] + 2 * b[0] + 2 * c[0] + d[0])
+        v += h / 6 * (a[1] + 2 * b[1] + 2 * c[1] + d[1])
+        if i % 10 == 9: ts.append((i + 1) * h); vs.append(v)
+    return np.array(ts), np.array(vs)
 
 
 @pytest.mark.parametrize("kind, vin, D, RL, i1, i2, rise", [("BUCK", 12.0, 0.5, 0.5, 1.0, 3.0, 2.0), ("BOOST", 6.0, 0.5, 0.2, 0.5, 1.0, 1.0)])
@@ -100,9 +112,9 @@ def test_load_step_matches_the_averaged_equations(kind, vin, D, RL, i1, i2, rise
     L, C, t0, tstop = 100e-6, 100e-6, 4e-3, 7e-3
     pts = f"0 {i1}, {t0} {i1}, {t0 + 1e-9} {i2}"
     r = transient(build(kind, D=str(D), RL=str(RL), L="100u", C="100u", load=pts, vin=str(vin)), "7m", "2u")
-    sol = reference(kind, D, vin, L, C, RL, i1, i2, t0, tstop)
+    ref_t, ref_v = reference(kind, D, vin, L, C, RL, i1, i2, t0, tstop)
     ts, vs = (np.array(x) for x in zip(*r.get("V(C1)")))
-    assert np.max(np.abs(vs - np.interp(ts, sol.t, sol.y[1]))) < 0.01 * rise
+    assert np.max(np.abs(vs - np.interp(ts, ref_t, ref_v))) < 0.01 * rise
     if kind == "BUCK":
         assert vs[ts < t0][-1] == pytest.approx(D * vin - RL * i1, abs=5e-3)
         assert vs[-1] == pytest.approx(D * vin - RL * i2, abs=5e-3)
