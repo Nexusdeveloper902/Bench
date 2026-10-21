@@ -235,3 +235,33 @@ def test_ac_refusals_and_transient_unchanged():
     assert s.ac(None)._deck() == tran_deck
     s.run()
     assert len(s.time) > 50 and s.frequency == []
+
+
+# ---- G29: value checks of behavioural expressions (benchcore/src/interval.rs) ----
+LDR_DECK = ["t", ".param lx=10", "X1 a b ldr LUX={lx}", "V1 a 0 5", "R1 b 0 1k",
+            ".subckt ldr a b params: LUX=10", "VSTIM stim 0 DC {LUX}", "RSTIM stim 0 1G",
+            "B1 a b I={V(a,b)/(1k*pow(V(stim)/10,-0.7))}", ".ends"]
+
+
+def codes(findings, severity="error"):
+    return sorted(f["code"] for f in findings if f["severity"] == severity)
+
+
+def test_validate_takes_declared_ranges_for_params():
+    """A range replaces the param's one value: (0, 1e5] proves the LDR law, [0, 1e5] reaches pow(0, -0.7)."""
+    open_lo = benchcore.validate(LDR_DECK, {"lx": (0.0, 1e5, True, False)})
+    assert codes(open_lo) == [] and not any(f["class"] == "limited" for f in open_lo), open_lo
+    closed = benchcore.validate(LDR_DECK, {"lx": (0.0, 1e5, False, False)})
+    assert codes(closed) == ["B-DOMAIN"] and "LUX = 0" in closed[0]["message"] and closed[0]["scope"] == "x1", closed
+    assert codes(benchcore.validate(LDR_DECK)) == []                       # the default, 10, is fine on its own
+
+
+def test_a_run_with_a_value_hazard_is_refused_before_ngspice():
+    """The deck runs through the same checks: sqrt of a negative DC node is a fatal ngspice error, caught statically."""
+    deck = ["V1 in 0 DC 5", "R1 in 0 1k", "B1 o 0 V=sqrt(V(in)-6)", "R2 o 0 1k"]
+    s = Simulation("hazard").build_circuit(deck).configure(tstep=1e-6, tstop=1e-5).observe("v(o)")
+    with pytest.raises(InvalidCircuitError, match="B-DOMAIN"):
+        s.run()
+    ok = Simulation("fine").build_circuit(["V1 in 0 DC 5", "R1 in 0 1k", "B1 o 0 V=sqrt(V(in))", "R2 o 0 1k"])
+    ok.configure(tstep=1e-6, tstop=1e-5).observe("v(o)").run()
+    assert abs(ok.observable("v(o)")[-1][1] - 5 ** 0.5) < 1e-6

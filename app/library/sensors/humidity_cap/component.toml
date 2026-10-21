@@ -2,7 +2,7 @@ format = 1
 id = "HUMIDITY_CAP"
 version = 1
 name = "Capacitive humidity sensor (linear C(RH))"
-description = "Capacitive relative-humidity sensor: C = C0 + CS·RH over the middle of the range. The relative humidity is a parameter."
+description = "Capacitive relative-humidity sensor: C = C0 + CS·RH over the middle of the range, in the charge-conserving form. The relative humidity is a parameter that drives a stimulus node."
 designator = "CH"
 label = "RH"
 category = "Sensors"
@@ -13,8 +13,8 @@ tags = ["sensor", "humidity"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Linear capacitance law C = C0 + CS·RH with generic C0 (180 pF) and CS (0.4 pF per %RH). It is a fair approximation only over about 20 to 80 %RH; the ends are not modelled.",
-               "The humidity is a fixed parameter, not a stimulus node: ngspice has no voltage-controlled capacitor without ddt(), and ddt() of a stimulus step is a timestep artifact, so the value is folded into C at load.",
-               "No hysteresis, no temperature dependence, no leakage and no ageing."]
+               "The humidity is fixed during a batch run (a live run can change it) and drives an internal stimulus node. The capacitor is ngspice's charge form q = C(RH)·v, so a humidity step conserves charge: the voltage across the part jumps by C_old/C_new and the charge follows the circuit. The plain C='expr(V(stim))' form of ngspice does not do that (it keeps the voltage and loses the charge).",
+               "No hysteresis, no temperature dependence, no leakage and no ageing. An initial voltage (IC) cannot be set on the part."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
@@ -57,12 +57,14 @@ device = "X"
 line = "{dev} {a} {b} bench_rh C0={c0} CS={cs} RH={rh}"
 body = """
 .subckt bench_rh a b params: C0=180p CS=0.4p RH=50
-C1 a b {C0+CS*RH}
+VSTIM stim 0 DC {RH}
+RSTIM stim 0 1G
+C1 a b q='(C0+CS*V(stim))*V(a,b)'
 .ends bench_rh
 """
 model_kind = "equivalent"
 verification = "analytic"
 
 [sim.electrical.provenance]
-source = "Bench project; linear capacitance-humidity law C = C0 + CS·RH, generic values"
+source = "Bench project; linear capacitance-humidity law C = C0 + CS·RH, generic values; charge form q = C(RH)·v (docs/plans/gap-closure/probes/cl_probe.py)"
 license = "MIT"

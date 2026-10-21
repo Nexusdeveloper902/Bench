@@ -138,8 +138,14 @@ def probe_decks(section, pins, params, units):
     decks = []
     for choice in next((p.choices for p in params if p.key == sel), (None,)):
         texts = {p.key: p.default for p in params} | ({sel: choice} if sel else {})
-        lines, models = emit(section, "U1", nets, {p.key: p.parse(texts[p.key]) for p in params if p.applies(texts)})
-        decks.append([*lines, *leaks, *models, *(s for u in units for s in u.lines)])
+        vals = {p.key: p.parse(texts[p.key]) for p in params if p.applies(texts)}
+        # a number that declares both bounds is the part's stimulus range: it goes in through a .param of its own, whose
+        # range the validator evaluates the behavioural expressions over (G29); every other param stays at its default
+        ranged = {p.key: p for p in params if p.key in vals and p.kind == "number" and p.min is not None and p.max is not None}
+        params_ = [f".param bp_{k}={vals[k]!r}" for k in ranged]
+        ranges = {f"bp_{k}": (p.min, p.max, p.min_exclusive, False) for k, p in ranged.items()}
+        lines, models = emit(section, "U1", nets, {k: f"{{bp_{k}}}" if k in ranged else v for k, v in vals.items()})
+        decks.append(([*params_, *lines, *leaks, *models, *(s for u in units for s in u.lines)], ranges))
     return decks
 
 
@@ -151,8 +157,8 @@ def validate_bodies(units, section, pins, params):
     DC topology analysed; never a proof that the circuit is electrically well-posed)."""
     import benchcore     # lazy: the rest of this module is pure Python
     errors, warnings, limits = {}, {}, {}
-    for deck in probe_decks(section, pins, params, units):
-        for f in benchcore.validate(["bench probe", *deck, ".tran 1u 10u uic", ".end"]):
+    for deck, ranges in probe_decks(section, pins, params, units):
+        for f in benchcore.validate(["bench probe", *deck, ".tran 1u 10u uic", ".end"], ranges):
             key = (f"{f['code']}: {f['message']}", "line" if not f["scope"] else "body" if "body" in section else "defs")
             if f["severity"] == "error": errors[key] = None          # dicts: ordered, one entry per message
             elif f["class"] == "limited": limits[key] = None

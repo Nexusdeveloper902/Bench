@@ -1,6 +1,6 @@
 """Library batch A (task 5): the new passive, protection, switch, source and battery packages.
 
-Every new package loads and validates (validator status `full`, or `limited` where a B source is left to ngspice).
+Every new package loads and validates (validator status `full`; MOV and SAT_AMP were `limited` until the G29 interval check proved their B sources).
 Each family runs through the REAL path (Document -> netlist -> app.sim -> benchcore -> ngspice) and is checked against
 a closed form: the wiper divider, the rheostat and tolerance divider, RL and RC time constants with DCR and ESR, the
 open-secondary transformer ratio sample by sample, the one-shot fuse and PTC trip delays, the relay pull-in current,
@@ -19,11 +19,11 @@ NEW = {   # id -> validator status (None: a primitive element with no definition
     "POT": "full", "RHEOSTAT": "full", "RNET4_ISO": "full", "RNET4_BUS": "full", "R_TOL": "full",
     "IND_DCR": "full", "IND_COUPLED": "full", "XFMR_1N": "full", "XFMR_CT": "full", "T_LINE": None,
     "CAP_CERAMIC": "full", "CAP_ELECTROLYTIC": "full", "CAP_TANTALUM": "full", "CAP_FILM": "full",
-    "FUSE": "full", "PTC": "full", "MOV": "limited",
+    "FUSE": "full", "PTC": "full", "MOV": "full",
     "SPDT": "full", "DPST": "full", "DPDT": "full", "PUSH_NO": None, "PUSH_NC": None,
     "RELAY_SPDT": "full", "RELAY_DPDT": "full", "REED": "full", "VSW": None, "CSW": "full",
     "VSRC_EXP_SFFM": None, "ISRC_WAVE": None, "VCVS": None, "VCCS": None, "CCCS": "full", "CCVS": "full",
-    "SAT_AMP": "limited", "BAT_COIN": "full", "BAT_AA": "full", "BAT_LITHIUM": "full",
+    "SAT_AMP": "full", "BAT_COIN": "full", "BAT_AA": "full", "BAT_LITHIUM": "full",
 }
 
 

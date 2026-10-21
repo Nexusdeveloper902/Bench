@@ -16,6 +16,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::interval::{self, Env, Iv};
+
 pub const GROUND: &str = "0";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1053,6 +1055,7 @@ struct DefInfo {
     devices: Vec<Device>,                       // local names and nodes
     b_exprs: Vec<(String, Vec<String>, String, bool)>, // name, pnodes, expr, is_v
     exprs: Vec<Expr>,                           // every expression
+    bev: Vec<(String, String)>,                 // behavioural expressions to value-check: element, text (G29)
     findings: Vec<Finding>,
 }
 
@@ -1407,8 +1410,43 @@ fn element(
         };
         errors.push(limited(&name, format!("{}: {}; DC paths are assumed across its ports", name, what)));
     }
+    if behav == Some("TABLE") {
+        errors.push(limited(&name, format!("{}: behavioural TABLE not analysed: its value, domain and DC behaviour are not checked", name)));
+    }
+    // B and E/G VALUE= expressions are value-checked per instance by interval evaluation (expand), as are the
+    // behavioural R/C/L forms r=, c=, l=, q=, flux= (G29)
+    let tail = after_tokens(s, 3);
+    let beh_rcl = matches!(kind, 'R' | 'C' | 'L')
+        .then(|| tail.split_once('=').map(|(k, e)| (k.trim().to_lowercase(), e.trim().to_string())))
+        .flatten()
+        .filter(|(k, _)| matches!(k.as_str(), "r" | "c" | "l" | "q" | "flux"));
+    if let Some((key, e)) = &beh_rcl {
+        let controlled = {
+            let l = e.to_lowercase();
+            l.contains("v(") || l.contains("i(") || l.contains("v (")
+        };
+        if controlled && matches!(key.as_str(), "c" | "l" | "flux") {
+            let (q, what) = if key == "c" { ("q='C(..)*V(a,b)'", "charge") } else { ("the flux construction (E, unit C, H; see SOLENOID)", "flux") };
+            errors.push(finding(
+                "B-CL-FORM",
+                "warn",
+                format!(
+                    "{}: {}= with a V()/I() control is C(t)·dv/dt (L(t)·di/dt), not d(C·v)/dt: it does not conserve {} when the control moves (probed, docs/plans/gap-closure/probes); use {}",
+                    name, key, what, q
+                ),
+                two(&parts),
+                vec![name.clone()],
+                "expression",
+            ));
+        }
+    }
     if let Some(b) = behav {
-        errors.push(limited(&name, format!("{}: behavioural {} not analysed: its value, domain and DC behaviour are not checked", name, b)));
+        if b != "TABLE" {
+            let e = if b == "B" { extract_b_expr(s).map(|(_, e)| e) } else { s.find('=').map(|i| s[i + 1..].to_string()) };
+            info.bev.extend(e.map(|e| (name.clone(), e)));
+        }
+    } else if let Some((_, e)) = beh_rcl {
+        info.bev.push((name.clone(), e));
     }
     if model.as_ref().and_then(|m| models.get(m)).is_some_and(|(_, lv)| *lv == 0) {
         errors.push(limited(&name, format!("{}: model '{}' has a level that is not a literal number; level and node-count checks skipped", name, model.unwrap())));
@@ -1434,7 +1472,9 @@ fn values(info: &mut DefInfo) {
             continue;
         }
         let parts: Vec<&str> = d.raw.split_whitespace().collect();
-        let Some(tok) = parts.get(3).filter(|t| !t.starts_with('{') && !t.starts_with('\'')) else {
+        let Some(tok) = parts.get(3).filter(|t| {
+            !t.starts_with('{') && !t.starts_with('\'') && !t.contains('=') && !matches!(t.to_lowercase().as_str(), "r" | "c" | "l" | "q" | "flux")
+        }) else {
             continue;
         };
         let f = |code: &str, sev: &str, msg: String, layer: &str| finding(code, sev, msg, d.nodes.clone(), vec![d.name.clone()], layer);
@@ -1640,6 +1680,8 @@ struct Flat<'a> {
     findings: Vec<Finding>,
     reported: HashSet<(usize, String, String)>,
     capped: bool,
+    /// names a `.dc` sweeps: their value is not the one the deck states
+    swept: HashSet<String>,
 }
 
 impl Flat<'_> {
@@ -1657,7 +1699,7 @@ impl Flat<'_> {
 
     /// Expand instance `path` of definition `idx`. `chain`: the definitions on the instance chain, `idx` last;
     /// their params, `.param`s and `.func`s are what its expressions may read (ngspice scopes them dynamically).
-    fn expand(&mut self, idx: usize, path: &str, ports: &HashMap<String, String>, chain: &mut Vec<usize>) {
+    fn expand(&mut self, idx: usize, path: &str, ports: &HashMap<String, String>, chain: &mut Vec<usize>, env: &Env) {
         let dk = self.dk;
         if self.infos[idx].is_none() {
             let info = analyse_def(dk, idx, self.has_tran);
@@ -1668,6 +1710,7 @@ impl Flat<'_> {
             let i = self.infos[idx].as_ref().unwrap();
             (i.exprs.clone(), i.devices.clone())
         };
+        self.value_checks(idx, path, &devices, env);
         let visible: HashSet<&str> = chain.iter().flat_map(|&c| dk.defs[c].names.iter().map(|s| s.as_str())).collect();
         for (owner, e, locals, ctx) in &exprs {
             for (id, call) in expr_idents(e) {
@@ -1724,7 +1767,8 @@ impl Flat<'_> {
                     let p = if path.is_empty() { d.name.to_lowercase() } else { format!("{}.{}", path, d.name.to_lowercase()) };
                     let map: HashMap<String, String> = dk.defs[t].ports.iter().cloned().zip(nodes).collect();
                     chain.push(t);
-                    self.expand(t, &p, &map, chain);
+                    let child = self.child_env(t, &d, env);
+                    self.expand(t, &p, &map, chain, &child);
                     chain.pop();
                     continue;
                 }
@@ -1732,6 +1776,142 @@ impl Flat<'_> {
             self.devices.push(Device { name, nodes, ..d }); // unexpanded X: all-pairs DC, never a false NO-DC-PATH
         }
     }
+}
+
+impl Flat<'_> {
+    /// Parameter ranges visible inside instance `d` of definition `t`: the enclosing ones, `t`'s header params (the
+    /// instance's `NAME=value` wins over the default) and its `.param`s, in order.
+    fn child_env(&self, t: usize, d: &Device, parent: &Env) -> Env {
+        let def = &self.dk.defs[t];
+        let (_, kv) = args(after_tokens(&d.raw, 1));
+        let mut env = Env { vars: parent.vars.clone(), nodes: HashMap::new(), zero: false };
+        for (k, default) in &def.params {
+            let v = match kv.iter().find(|(n, _)| n == k) {
+                Some((_, text)) => interval::value(text, parent),
+                None => interval::value(default, &env),
+            };
+            env.vars.insert(k.clone(), v);
+        }
+        for (owner, text, _, ctx) in &def.exprs {
+            if let (Some(name), Ctx::Param) = (owner.strip_prefix(".param "), ctx) {
+                let v = if self.swept.contains(name) { Iv::UNKNOWN } else { interval::value(text, &env) };
+                env.vars.insert(name.to_string(), v);
+            }
+        }
+        env
+    }
+
+    /// Value checks (G29) of the behavioural expressions of one instance of definition `idx`: B sources, E/G
+    /// VALUE= and behavioural R/C/L, over the instance's parameter ranges and the ranges of its source nodes.
+    fn value_checks(&mut self, idx: usize, path: &str, devices: &[Device], env: &Env) {
+        let bev = self.infos[idx].as_ref().map(|i| i.bev.clone()).unwrap_or_default();
+        if bev.is_empty() {
+            return;
+        }
+        let mut en = env.clone();
+        let mut node_src: HashMap<String, usize> = HashMap::new();
+        for d in devices.iter().filter(|d| d.kind == 'V' && d.nodes.len() == 2 && !self.swept.contains(&d.name.to_lowercase())) {
+            if let Some((node, n)) = source_node(d, env) {
+                *node_src.entry(node.clone()).or_default() += 1;
+                en.nodes.insert(node, n);
+            }
+        }
+        for (node, k) in node_src {
+            if k > 1 {
+                en.nodes.remove(&node);
+            }
+        }
+        let dk = self.dk;
+        let at = if idx == 0 { String::new() } else { format!("instance {} of .subckt {}: ", path, dk.defs[idx].label) };
+        for (name, text) in bev {
+            let out = interval::analyse(&text, &en);
+            for i in out.errors {
+                let mut f = finding(i.code, "error", format!("{}{}: {}", at, name, i.msg), vec![], vec![name.clone()], "expression");
+                f.scope = path.to_string();
+                self.findings.push(f);
+            }
+            if !out.unproved.is_empty() {
+                let why = out.unproved.join("; ");
+                if self.reported.insert((idx, name.clone(), why.clone())) {
+                    let pre = if idx == 0 { String::new() } else { format!(".subckt {}: ", dk.defs[idx].label) };
+                    let mut f = limited(&name, format!("{}{}: behavioural expression not fully analysed: {}", pre, name, why));
+                    if idx != 0 {
+                        f.scope = format!(".subckt {}", dk.defs[idx].label);
+                    }
+                    self.findings.push(f);
+                }
+            }
+        }
+    }
+}
+
+/// The node a `V` source holds against ground and what it holds there: its DC value as an expression, or the hull of a
+/// SIN / PULSE / EXP / PWL waveform (with the DC value) as a fixed range. None when it cannot be told.
+fn source_node(d: &Device, env: &Env) -> Option<(String, interval::Node)> {
+    let (node, neg) = match (is_ground(&d.nodes[0]), is_ground(&d.nodes[1])) {
+        (false, true) => (d.nodes[0].clone(), false),
+        (true, false) => (d.nodes[1].clone(), true),
+        _ => return None,
+    };
+    let toks = group_tokens(after_tokens(&d.raw, 3));
+    let (mut dc, mut wave): (Option<String>, Option<Iv>) = (None, None);
+    let mut i = 0;
+    while i < toks.len() {
+        let t = toks[i].to_lowercase();
+        i += 1;
+        let kw = ["sin", "pulse", "exp", "pwl"].into_iter().find(|k| t.starts_with(k));
+        if t == "dc" {
+            dc = toks.get(i).cloned();
+            i += 1;
+        } else if t == "ac" {
+            i += 1;
+        } else if let Some(k) = kw {
+            let mut inner = t[k.len()..].to_string();
+            if inner.is_empty() {
+                inner = toks.get(i).cloned().unwrap_or_default().to_lowercase();
+                i += 1;
+            }
+            let vals: Vec<Iv> = inner
+                .trim_matches(|c| c == '(' || c == ')')
+                .split(|c: char| c.is_whitespace() || c == ',')
+                .filter(|x| !x.is_empty() && !x.contains('='))
+                .map(|x| interval::value(x, env))
+                .collect();
+            let w = match k {
+                "sin" => match (vals.first(), vals.get(1)) {
+                    (Some(o), Some(a)) => {
+                        let m = a.lo.abs().max(a.hi.abs());
+                        Some(o.add(Iv::range(-m, m, false, false)))
+                    }
+                    _ => None,
+                },
+                "pulse" | "exp" => vals.get(..2).and_then(|v| v.iter().copied().reduce(Iv::hull)),
+                _ => vals.iter().skip(1).step_by(2).copied().reduce(Iv::hull),
+            };
+            wave = Some(w.filter(|w| w.known)?);
+        } else if i == 1 && !t.contains('=') {
+            dc = Some(toks[0].clone());
+        }
+    }
+    let unwrap = |t: &str| t.trim_matches(|c| c == '{' || c == '}' || c == '\'').to_string();
+    let n = match (&dc, wave) {
+        (Some(t), None) => {
+            let e = interval::parse(&unwrap(t)).ok()?;
+            interval::Node::Expr(if neg { interval::E::Neg(Box::new(e)) } else { e })
+        }
+        (dcv, w) => {
+            let base = match dcv {
+                Some(t) => interval::value(&unwrap(t), env),
+                None => Iv::point(0.0),
+            };
+            let v = w.map_or(base, |w| Iv::hull(base, w));
+            if !v.known {
+                return None;
+            }
+            interval::Node::Fixed(if neg { v.neg() } else { v })
+        }
+    };
+    Some((node, n))
 }
 
 /// Instance path a connectivity finding belongs to: its first node's prefix (`x1.xa.n2` -> `x1.xa`), or for
@@ -2124,6 +2304,15 @@ fn b_checks(b_exprs: &[(String, Vec<String>, String, bool)], terms: &HashSet<Str
 
 /// Run all static checks. Returns findings (errors + warns).
 pub fn validate(lines: &[String]) -> Vec<Finding> {
+    validate_with(lines, &HashMap::new())
+}
+
+/// Declared ranges of top-level `.param`s, `(lo, hi, lo_open, hi_open)`: what the value checks of the behavioural
+/// expressions (G29) evaluate over, in place of the param's one value. The catalog passes each package parameter
+/// that declares both `min` and `max`; a deck run passes none.
+pub type Ranges = HashMap<String, (f64, f64, bool, bool)>;
+
+pub fn validate_with(lines: &[String], ranges: &Ranges) -> Vec<Finding> {
     let dk = parse_deck(lines);
     let has_tran = dk.analyses.iter().any(|a| a.trim().to_lowercase().starts_with(".tran"));
     let mut fl = Flat {
@@ -2134,8 +2323,20 @@ pub fn validate(lines: &[String]) -> Vec<Finding> {
         findings: vec![],
         reported: HashSet::new(),
         capped: false,
+        swept: dc_swept(&dk.analyses),
     };
-    fl.expand(0, "", &HashMap::new(), &mut vec![0]);
+    let mut env = Env::default();
+    for (owner, text, _, ctx) in &dk.defs[0].exprs {
+        if let (Some(name), Ctx::Param) = (owner.strip_prefix(".param "), ctx) {
+            let v = match ranges.get(name) {
+                _ if fl.swept.contains(name) => Iv::UNKNOWN,
+                Some(&(lo, hi, lo_open, hi_open)) => Iv::range(lo, hi, lo_open, hi_open),
+                None => interval::value(text, &env),
+            };
+            env.vars.insert(name.to_string(), v);
+        }
+    }
+    fl.expand(0, "", &HashMap::new(), &mut vec![0], &env);
     let mut out = dk.errors.clone();
     out.extend(fl.findings);
     let uic = dk.analyses.iter().any(|a| {
@@ -2143,6 +2344,25 @@ pub fn validate(lines: &[String]) -> Vec<Finding> {
         a.starts_with(".tran") && a.split_whitespace().any(|t| t == "uic")
     });
     out.extend(topology(&fl.devices, uic));
+    out
+}
+
+/// Names (lower case) a `.dc` sweeps: its sources, or the `param` it steps.
+fn dc_swept(analyses: &[String]) -> HashSet<String> {
+    let mut out = HashSet::new();
+    for a in analyses.iter().filter(|a| a.trim().to_lowercase().starts_with(".dc")) {
+        let t: Vec<String> = a.split_whitespace().skip(1).map(|x| x.to_lowercase()).collect();
+        let mut i = 0;
+        while i < t.len() {
+            if t[i] == "param" {
+                out.extend(t.get(i + 1).cloned());
+                i += 5;
+            } else {
+                out.insert(t[i].clone());
+                i += 4;
+            }
+        }
+    }
     out
 }
 
@@ -2436,8 +2656,13 @@ mod tests {
         let f = v(&with(&["X1 b s", ".subckt s p", "R1 p 0 1k", "A1 [p] [d] adc", ".model adc adc_bridge", ".ends"]));
         assert_eq!(lim(&f), vec![".subckt s A1"], "{:?}", f);
         assert!(got(&f, false).is_empty(), "{:?}", f);
+        // G29: an expression whose value hazards are all proved is no longer limited ...
         let f = v(&with(&["X1 b s", ".subckt s p", "B1 p 0 I=V(p)/1k", "E1 m 0 VALUE={2*V(p)}", "R1 m 0 1k", ".ends"]));
+        assert!(lim(&f).is_empty() && got(&f, false).is_empty(), "{:?}", f);
+        // ... and one that divides by, takes the root of, or calls what it cannot bound stays limited, naming why
+        let f = v(&with(&["X1 b s", ".subckt s p", "B1 p 0 I=V(p)/V(m)", "E1 m 0 VALUE={ddt(V(p))}", "R1 m 0 1k", ".ends"]));
         assert_eq!(lim(&f), vec![".subckt s B1", ".subckt s E1"], "{:?}", f);
+        assert!(f.iter().any(|x| x.message.contains("division by `V(m)`: its range is not known")), "{:?}", f);
         assert_eq!(lim(&v(&with(&["T1 b 0 c 0 Z0=50 TD=1n", "R2 c 0 50"]))), vec![" T1"]);
         let f = v(&with(&["X1 b s", ".include x.lib"]));
         assert_eq!((lim(&f), got(&f, false)), (vec![" X1".to_string()], vec![]), "{:?}", f);
@@ -2480,6 +2705,93 @@ mod tests {
         // a B I= reading its own output is a conductance: no false NO-DC-PATH (still limited: expression unread)
         let f = v(&["V1 a 0 1", "X1 a s", ".subckt s p", "B1 p m I=V(p,m)/1k", "B2 m 0 I=V(m)/1k", ".ends"]);
         assert!(!f.iter().any(|x| x.code == "NO-DC-PATH" || x.code == "ISRC-OPEN"), "{:?}", f);
+    }
+
+    // ---- G29: value checks of behavioural expressions over declared ranges ----
+
+    fn ranged(deck: &[&str], ranges: &[(&str, (f64, f64, bool, bool))]) -> Vec<Finding> {
+        let mut lines = vec!["t".to_string()];
+        lines.extend(deck.iter().map(|s| s.to_string()));
+        validate_with(&lines, &ranges.iter().map(|(k, r)| (k.to_string(), *r)).collect())
+    }
+
+    /// The LDR body of the catalog, stimulus range given by the caller.
+    const LDR: [&str; 9] = [
+        ".param lx=10", "X1 a b ldr LUX={lx}", "V1 a 0 5", "R1 b 0 1k",
+        ".subckt ldr a b params: LUX=10 R10=10k GAMMA=0.7", "VSTIM stim 0 DC {LUX}", "RSTIM stim 0 1G",
+        "B1 a b I={V(a,b)/(R10*pow(V(stim)/10,-GAMMA))}", ".ends",
+    ];
+
+    fn value_codes(f: &[Finding]) -> Vec<String> {
+        f.iter().filter(|x| x.code.starts_with("B-") && x.severity == "error").map(|x| x.code.clone()).collect()
+    }
+
+    #[test]
+    fn declared_ranges_prove_a_sensor_body_or_catch_it() {
+        // lux in (0, 1e5]: pow(x, -g) is unbounded at the open end but defined, and the divisor never reaches 0
+        let f = ranged(&LDR, &[("lx", (0.0, 1e5, true, false))]);
+        assert!(got(&f, false).is_empty() && !f.iter().any(|x| class_of(&x.code) == "limited"), "{:?}", f);
+        // closed at 0: lux = 0 is a power of 0 with a negative exponent
+        let f = ranged(&LDR, &[("lx", (0.0, 1e5, false, false))]);
+        assert_eq!(value_codes(&f), vec!["B-DOMAIN"], "{:?}", f);
+        assert!(f.iter().any(|x| x.message.contains("LUX = 0") && x.scope == "x1"), "witness and instance scope: {:?}", f);
+        // no range: the param's one value is checked, and a bad one is caught the same way
+        assert!(got(&v(&LDR), false).is_empty());
+        let mut bad = LDR.to_vec();
+        bad[0] = ".param lx=0";
+        assert_eq!(value_codes(&v(&bad)), vec!["B-DOMAIN"]);
+    }
+
+    #[test]
+    fn source_nodes_and_sweeps() {
+        // a DC source is a point, a SIN is its hull
+        let d = |src: &str, e: &str| -> Vec<Finding> { v(&["V1 in 0 ".to_string().as_str(), "R1 in 0 1k", e].map(|x| if x.starts_with("V1") { format!("{}{}", x, src) } else { x.to_string() }).iter().map(|s| s.as_str()).collect::<Vec<_>>()) };
+        assert!(value_codes(&d("DC 5", "B1 o 0 V=sqrt(V(in))")).is_empty());
+        // ngspice starts every analysis from all-zero node voltages (probed): sqrt(V(in)-4) fails even on a 5 V source
+        let f = d("DC 5", "B1 o 0 V=sqrt(V(in)-4)");
+        assert_eq!(value_codes(&f), vec!["B-DOMAIN"]);
+        assert!(f.iter().any(|x| x.message.contains("first iteration")), "{:?}", f);
+        assert_eq!(value_codes(&d("DC 5", "B1 o 0 V=sqrt(V(in)-6)")), vec!["B-DOMAIN"]);
+        assert_eq!(value_codes(&d("SIN(0 1 1k)", "B1 o 0 V=sqrt(V(in))")), vec!["B-DOMAIN"]);
+        assert!(value_codes(&d("SIN(3 1 1k)", "B1 o 0 V=sqrt(V(in))")).is_empty());
+        assert!(value_codes(&d("PULSE(0 5 1u 1n 1n 1m 2m)", "B1 o 0 V=1/(1+V(in))")).is_empty());
+        assert_eq!(value_codes(&d("PWL(0 -1 1m 1)", "B1 o 0 V=1/V(in)")), vec!["B-DIVZERO"]);
+        // a .dc sweep moves the source: its deck value is not the value, so nothing is claimed
+        assert_eq!(value_codes(&v(&["V1 in 0 DC 5", "R1 in 0 1k", "B1 o 0 V=1/(V(in)-5)"])), vec!["B-DIVZERO"]);
+        let f = v(&["V1 in 0 DC 5", "R1 in 0 1k", "B1 o 0 V=1/(V(in)-5)", ".dc V1 0 10 1"]);
+        assert!(value_codes(&f).is_empty() && f.iter().any(|x| class_of(&x.code) == "limited"), "{:?}", f);
+    }
+
+    #[test]
+    fn behavioural_capacitor_and_inductor_forms() {
+        let clean = |deck: &[&str]| -> Vec<Finding> {
+            let mut d = vec!["V1 a 0 1", "R1 a b 1k", "VS stim 0 DC 1"];
+            d.extend(deck);
+            v(&d)
+        };
+        // the charge form is analysed, not an unparseable value, and conserves charge: no warning
+        let f = clean(&["C1 b 0 q='(1n+1n*V(stim))*V(b)'"]);
+        assert!(f.iter().all(|x| x.code != "BAD-VALUE" && x.code != "B-CL-FORM") && got(&f, false).is_empty(), "{:?}", f);
+        // C= / L= / flux= driven by a V() or I() is C(t)·dv/dt: warned, with the probe's reason
+        for line in ["C1 b 0 C='1n+1n*V(stim)'", "L1 b 0 L='1m+1m*V(stim)'", "L1 b 0 flux='(1m+1m*V(stim))*i(L1)'"] {
+            let f = clean(&[line]);
+            assert!(f.iter().any(|x| x.code == "B-CL-FORM" && x.severity == "warn" && x.message.contains("conserve")), "{}: {:?}", line, f);
+            assert!(got(&f, false).is_empty(), "{}: {:?}", line, f);
+        }
+        // a value that does not move with a signal is just a value
+        assert!(!clean(&["C1 b 0 C='1n*2'"]).iter().any(|x| x.code == "B-CL-FORM"));
+        // the expression is value-checked like a B source
+        let f = clean(&["C1 b 0 q='1n/(V(stim)-1)*V(b)'"]);
+        assert_eq!(value_codes(&f), vec!["B-DIVZERO"], "{:?}", f);
+    }
+
+    #[test]
+    fn flux_construction_of_an_inductor_validates_clean() {
+        let f = v(&[
+            "V1 a 0 1", "X1 a 0 sol POS=0.5", ".subckt sol a b params: POS=0", "VSTIM stim 0 DC {POS}", "RSTIM stim 0 1G",
+            "R1 a n1 10", "Vz n1 x 0", "Ephi ph 0 VALUE={(1+2*V(stim))*I(Vz)}", "Cu ph y 20m", "Vzs y 0 0", "Hv x b Vzs 1", ".ends",
+        ]);
+        assert!(got(&f, false).is_empty() && !f.iter().any(|x| class_of(&x.code) == "limited" || x.code == "NO-DC-PATH"), "{:?}", f);
     }
 
     #[test]

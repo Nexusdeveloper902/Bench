@@ -15,7 +15,7 @@ from app.sim import run_document
 from test_analytic_diode import VT
 from test_library_batch_d import LIMITED as BATCH_D_LIMITED, NEW as BATCH_D
 from test_converter_widths import WIDTH_ADCS
-from test_library_batch_e import LIMITED as BATCH_E_LIMITED, NEW as BATCH_E
+from test_library_batch_e import NEW as BATCH_E
 
 REFS = ("OPAMP", "OPAMP_DUAL", "NTC_THERMISTOR")
 DIV = ".subckt div top mid\nR1 top mid 1k\nR2 mid 0 3k\n.ends div\n"
@@ -424,9 +424,9 @@ IBV_RAISED = {"D_1N5819", "D_BAT54"}
 def test_every_shipped_part_passes_the_static_validator():
     """The 3 reference packages, the 17 originals and the 37 batch-A parts: every simulated part's probe deck (instance
     with default params, a 1 GΩ leak per pin, its models and definition text) is fully analysed with no finding, except
-    the two batch-A B-source parts (MOV, SAT_AMP), which are `limited` and name what was left to ngspice. The 5 parts
+    the ngspice T element and the XSPICE A devices, which are `limited` and name what was left to ngspice. The 5 parts
     with no electrical model and the ground symbol have nothing to validate (their limitations say what is not modelled)."""
-    LIMITED = {"MOV", "SAT_AMP", "T_LINE"} | BATCH_D_LIMITED | WIDTH_ADCS | BATCH_E_LIMITED     # B sources, the ngspice T element, XSPICE A devices and batch E B-driven stimulus sensors
+    LIMITED = {"T_LINE"} | BATCH_D_LIMITED | WIDTH_ADCS     # the ngspice T element and the XSPICE A devices (B sources are value-checked since G29)
     seen = set()
     for i, c in CATALOG.defs.items():
         sec = c.sim.get("electrical") if c.simulated else None
@@ -441,11 +441,11 @@ def test_every_shipped_part_passes_the_static_validator():
             assert (status, errors, limits) == ("full", [], []) and [w[0].split(":")[0] for w in warnings] == ["MODEL-IBV"], i
         else:
             assert (status, errors, warnings, limits) == ("full", [], [], []), i
-        assert sec.get("_status", "full") == ("limited" if i in {"MOV", "SAT_AMP"} | BATCH_D_LIMITED | WIDTH_ADCS | BATCH_E_LIMITED else "full"), i   # stored for X parts only
-    assert len(seen) >= 142 + len(BATCH_E) and set(REFS) <= seen and len(CATALOG.defs) >= 148 + len(BATCH_E)     # + batch E (9 `limited`); batch C and D counts are in their files
+        assert sec.get("_status", "full") == ("limited" if i in BATCH_D_LIMITED | WIDTH_ADCS else "full"), i   # stored for X parts only
+    assert len(seen) >= 142 + len(BATCH_E) and set(REFS) <= seen and len(CATALOG.defs) >= 148 + len(BATCH_E)     # + batch E; batch C and D counts are in their files
 
 
-BRES = ".subckt bres a b params: R=1k\nB1 a b I=V(a,b)/{R}\n.ends bres\n"      # behavioural resistor
+BRES = ".subckt bres a b params: R=1k\nB1 a b I=V(a,b)/(R+0*V(a))\n.ends bres\n"      # behavioural resistor; the divisor reads a node, so it stays limited
 
 
 def test_limited_status_names_what_was_not_analysed_and_the_part_still_simulates(extra_root):
@@ -453,7 +453,7 @@ def test_limited_status_names_what_was_not_analysed_and_the_part_still_simulates
     assert CATALOG.problems == []
     c = CATALOG.get("BRES")
     sec = c.sim["electrical"]
-    assert sec["_status"] == "limited" and len(sec["_limits"]) == 1 and "B1: behavioural B not analysed" in sec["_limits"][0]
+    assert sec["_status"] == "limited" and len(sec["_limits"]) == 1 and "B1: behavioural expression not fully analysed: division by" in sec["_limits"][0]
     assert electrical.status_note(sec) in c.limitations and ".subckt bres" in electrical.status_note(sec)
     d = Document()
     d.add_part("V", dc="3"); d.add_part("BRES"); d.add_part("R", R="1k"); d.add_part("GND")
