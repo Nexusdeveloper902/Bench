@@ -183,6 +183,7 @@ QPushButton#simbtn { padding: 0 8px; min-width: 78px; max-width: 78px; min-heigh
 QPushButton#simbtn[compact="true"] { min-width: 54px; max-width: 54px; }
 QLineEdit#topfield[compact="true"] { min-width: 50px; max-width: 50px; }
 QComboBox#topcombo { padding: 0 2px 0 4px; min-height: 26px; max-height: 26px; min-width: 82px; max-width: 82px; }
+QComboBox#topcombo[short="true"] { min-width: 46px; max-width: 46px; }
 QPushButton[primary="true"]:disabled { background: $DISABLED_BG; color: $TEXT_DISABLED; border-color: $DISABLED_BG; }
 QLabel#notice { border-radius: ${R_SM}px; padding: 3px 10px; font-size: ${CAPTION_PX}px; border: 1px solid $ERR_BORDER; background: $ERR_BG; color: $ERR_FG; }
 QLabel#notice[kind="warn"] { border-color: $WARN_BORDER; background: $WARN_BG; color: $WARN_FG; }

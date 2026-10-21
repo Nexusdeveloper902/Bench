@@ -261,13 +261,16 @@ class StateBadge(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         f = QFont(theme.FONT); f.setPixelSize(theme.SMALL_PX); f.setWeight(QFont.DemiBold); self.setFont(f)
-        self.key = "idle"; self.setFixedHeight(24); self.set_state("idle")
+        self.key, self.compact = "idle", False; self.setFixedHeight(24); self.set_state("idle")
 
     def text(self):
         return theme.STATES[self.key][0]
 
-    def set_state(self, key):
-        self.key = key; self.setFixedWidth(self.fontMetrics().horizontalAdvance(self.text()) + 40); self.update()
+    def set_state(self, key, compact=None):
+        """compact: the dot only (a narrow top bar), the state text in the tooltip."""
+        self.key = key; self.compact = self.compact if compact is None else compact
+        self.setFixedWidth(28 if self.compact else self.fontMetrics().horizontalAdvance(self.text()) + 40)
+        self.setToolTip(f"Run state: {self.text()}"); self.update()
 
     def paintEvent(self, _):
         text, col, hollow = theme.STATES[self.key]
@@ -276,6 +279,7 @@ class StateBadge(QWidget):
         p.setPen(QPen(c, 1.5)); p.setBrush(QColor(theme.PANEL)); p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 11, 11)
         if hollow: p.setBrush(Qt.NoBrush); p.setPen(QPen(c, 1.5)); p.drawEllipse(QRectF(10, 8, 8, 8))
         else: p.setPen(Qt.NoPen); p.setBrush(c); p.drawEllipse(QRectF(10, 8, 8, 8))
+        if self.compact: return
         p.setPen(c); p.setFont(self.font())
         p.drawText(QRectF(24, 0, self.width() - 24, 24), Qt.AlignVCenter | Qt.AlignLeft, text)
 

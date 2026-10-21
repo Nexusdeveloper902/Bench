@@ -205,6 +205,7 @@ class MainWindow(QMainWindow):
         self.tstop, self.tstep = QLineEdit(), QLineEdit()
         self.ac_points, self.ac_fstart, self.ac_fstop = QLineEdit(), QLineEdit(), QLineEdit()
         self.ac_sweep = QComboBox(); self.ac_sweep.setObjectName("topcombo"); self.ac_sweep.addItems(["dec", "oct", "lin"])
+        self.ac_sweep.setProperty("short", True)   # three-letter items: a narrower combo (theme.py)
         self.ac_sweep.setToolTip("AC sweep: points per decade (dec) or per octave (oct) on a log scale, or lin: points in total")
         self.ac_sweep.activated.connect(self.ac_changed)
         self.field_labels = []
@@ -219,7 +220,7 @@ class MainWindow(QMainWindow):
             bl = QHBoxLayout(box); bl.setContentsMargins(0, 0, 0, 0); bl.setSpacing(8)
             if box is self.ac_box: bl.addWidget(self.ac_sweep)
             for lab, ed, tip in fields:
-                ed.setObjectName("topfield"); ed.setFixedSize(84 if box is self.tran_box else 64, 28)
+                ed.setObjectName("topfield"); ed.setFixedHeight(28)   # widths: theme.py (#topfield, compact)
                 ed.setProperty("help", tip); ed.setToolTip(tip)
                 ed.textEdited.connect(slot); ed.editingFinished.connect(slot)
                 fl = W.label(lab, "fieldlabel"); self.field_labels.append(fl)
@@ -274,7 +275,9 @@ class MainWindow(QMainWindow):
         for w in (self.tstop, self.tstep, self.live_for, *self.field_labels, self.a_gear, self.analysis, self.ac_sweep,
                   self.ac_points, self.ac_fstart, self.ac_fstop): w.setEnabled(not running)
         self.analysis.setCurrentIndex(int(ac)); self.ac_sweep.setCurrentText(self.doc.ac["sweep"])
+        # AC: live runs are transient only, so the live controls leave the bar (F6 says why); one setting set is shown
         self.tran_box.setVisible(not ac); self.ac_box.setVisible(ac); self.live_box.setVisible(not ac)
+        self.b_live.setVisible(not ac or live); self._fit_topbar()
         self.a_gear.setChecked(self.doc.method == "gear")
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
@@ -311,19 +314,29 @@ class MainWindow(QMainWindow):
         keys = AC_FIELDS if self.doc.analysis == "ac" else ("tstop", "tstep")
         return {k: v for k, v in self.invalid.items() if k in keys}
 
-    def resizeEvent(self, e):
-        compact = self.width() < 1520   # below the full top bar's width: narrower fields and buttons
-        narrow = self.width() < 1170   # G41: thresholds measured offscreen (no overlap, nothing squeezed, 1024 and up)
-        for fl in self.field_labels: fl.setHidden(narrow)   # narrower still: the fields keep their tooltips
+    # G41 with the analysis picker always shown (G17): the widths below which the top bar drops, in this order, the
+    # run-state text (dot only) and file name, the field labels and dark toggle, the menu button's text, and the full
+    # width of its fields and buttons, per analysis (AC: three sweep fields, no live controls). Measured offscreen with
+    # the running font and the widest state text: no overlap and nothing squeezed from the 1024 px minimum up
+    # (test_live_ui).
+    FIT = {"transient": (1120, 1320, 1384, 1566), "ac": (1080, 1254, 1318, 1520)}
+
+    def _fit_topbar(self):
+        w = self.width()
+        dot, narrow, icon, compact = (w < x for x in self.FIT[self.doc.analysis])   # compact: narrower fields, buttons
+        for fl in self.field_labels: fl.setHidden(narrow)   # the fields keep their tooltips
         self.live_for_lbl.setHidden(compact)   # the live-duration field keeps its tooltip
         self.dark_btn.setHidden(narrow); self.dark_sep.setHidden(narrow)   # also View > Dark mode
-        self.file_lbl.setMinimumWidth(24 if narrow else 40)
-        # G41: the live-duration field keeps its width (it shows "Indefinite" whole); below 1240 the bar makes room by
-        # showing the menu button's logo only (its menu and tooltip stay)
-        self.app_btn.setToolButtonStyle(Qt.ToolButtonIconOnly if self.width() < 1240 else Qt.ToolButtonTextBesideIcon)
+        self.file_lbl.setMinimumWidth(24 if narrow else 40); self.file_lbl.setHidden(dot)   # the window title keeps it
+        # the live-duration field keeps its width (it shows "Indefinite" whole); the menu keeps its tooltip
+        self.app_btn.setToolButtonStyle(Qt.ToolButtonIconOnly if icon else Qt.ToolButtonTextBesideIcon)
+        if dot != self.state_lbl.compact: self.state_lbl.set_state(self.state_lbl.key, dot)
         if compact != bool(self.tstop.property("compact")):
-            for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset, self.b_live):
+            for x in (self.tstop, self.tstep, self.ac_points, self.ac_fstart, self.ac_fstop, self.b_run, self.b_rerun,
+                      self.b_reset, self.b_live):
                 x.setProperty("compact", compact); theme.repolish(x)
+
+    def resizeEvent(self, e):
         super().resizeEvent(e); self._sync_controls()
 
     # --- file path lives on the document (Document.save/load set it) ---

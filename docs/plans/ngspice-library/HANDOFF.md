@@ -1423,3 +1423,31 @@ Each finding was confirmed by reproduction or by reading the code before any cha
 - REPORT.md (SPEC §9): the subagent's file-write tool refused to create it ("subagents should return findings as
   text"). Its full text went to the orchestrator in the handback, to be saved as
   `docs/plans/ngspice-library/REPORT.md`.
+
+## Gap closure, wave 3: integration review (corrections to earlier sections)
+
+The gap-closure plan (`docs/plans/gap-closure/`) closed or scoped every deferred and open row in GAPS.md. The
+summary and counts are in REPORT.md's addendum. Earlier sections of this log are kept as written. These statements
+in them are no longer true:
+- **Task 1, "Compatibility mode":** "`ps`/`lt` apply only to `.include`d files" is false for ngspice 47. `ps` also
+  translates the main deck (probed in W5).
+  - Bench now uses ps only through `compat = "ps"` packages, whose files are `.include`d. This is the one exception
+    to "inline every definition, never through `.include`".
+- **Vendor macromodels "deferred" (task 1, task 7):** the ps path exists (G10). No vendor file is shipped yet (G19).
+- **Task 8:**
+  - "8 bits" (G25): ADC/DAC also come at 4, 10 and 12 bits.
+  - The power-on clock edge (G24) is gated in every rising-edge body.
+- **Task 9:** the 9 B-driven sensors are `full`, not `limited` (G29). Humidity and solenoid position are stimulus
+  nodes (G27, G28).
+- **Task 9.6:**
+  - The "16 deferred" list is closed: every row is now fixed, partially fixed (G19, G21) or wontfix.
+  - "the AC source is deferred" (G13): V and I have an AC stimulus.
+- **Task 9.5b/9.7, live runs:**
+  - Chunks adapt (G34).
+  - A package can list its live params (G35).
+  - Final values can be applied (G39).
+  - A long run keeps a coarse history (G42).
+  - The top-bar widths are per analysis (`MainWindow.FIT`, G41).
+- **Rebuilding the wheel on this machine:** `benchcore/target/wheels/` also holds an old manylinux wheel, so
+  `pip install ... target/wheels/benchcore-*.whl` fails with ResolutionImpossible. Install the
+  `benchcore-0.1.0-cp314-cp314-linux_x86_64.whl` file by name.

@@ -18,6 +18,11 @@ Implemented in `app/model.py` (`Document.to_dict` / `from_dict` / `save` / `load
 - Simulation support is not stored: placing, wiring and saving work for every part, including interface-only ones.
 - `simulation.method` (`"gear"`) is written only when the integration method is not the default trapezoidal rule
   (Simulation > Gear integration); a missing key reads as `"trap"`, any other value is a bad file.
+- `simulation.analysis` is `"transient"` or `"ac"` (G17); a missing key reads as `"transient"`, any other value is a bad
+  file. `simulation.ac` is the AC sweep as typed, `{"sweep": "dec" | "oct" | "lin", "points", "fstart", "fstop"}`,
+  written only when it differs from the defaults (`dec`, `20`, `1`, `1M`), also while the analysis is transient. Missing
+  keys read as the defaults; an unknown key or sweep is a bad file; a text that does not parse loads and is flagged in
+  its field, like `tstop`.
 - `simulation.live_tstop` is the live-run duration as typed (`"indefinite"`, or a time such as `"30"` or `"2m"`), written
   only when it is set. A missing key (every older file) reads as unset: live runs last the stop time, as before. A
   non-text value is a bad file; a text that does not parse loads and is flagged in the field, like `tstop`.
@@ -34,7 +39,8 @@ Implemented in `app/model.py` (`Document.to_dict` / `from_dict` / `save` / `load
 Migration never rewrites the file; it is rewritten only when the user saves (always as v2).
 
 Whole-file errors (`ModelError("bad simulation file: ...")`): bad JSON or types, bad names or layout, a connection
-naming a part that does not exist, duplicate or self connections, a non-transient analysis, `format` missing.
+naming a part that does not exist, duplicate or self connections, an unknown analysis or AC setting, `format`
+missing.
 
 ## Components without a usable definition
 

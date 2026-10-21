@@ -389,8 +389,10 @@ pub fn do_circ(lines: &[String]) -> Result<i32, String> {
     // Pin the compatibility mode: a ./.spiceinit or ~/.spiceinit read at init
     // may set ngbehavior (ps/lt/...), which changes how the deck is parsed.
     let unset = CString::new("unset ngbehavior").unwrap();
-    // A deck that carries the comment line COMPAT_PS opts in to PSpice syntax for its `.include`d files (ngspice's
-    // `ps` mode parses included files only, never the deck itself). Every other deck is sent exactly as before.
+    // A deck that carries the comment line COMPAT_PS opts in to PSpice syntax for its `.include`d files. ngspice 47
+    // applies `ps` to the main deck too, not only to included files as its manual says (probed, W5 in
+    // docs/plans/gap-closure); native expressions gave the same values in both modes. Every other deck is sent
+    // exactly as before.
     let ps = lines.iter().any(|l| l.trim() == COMPAT_PS).then(|| CString::new("set ngbehavior=ps").unwrap());
     let rc = unsafe {
         (lib.command)(unset.as_ptr());

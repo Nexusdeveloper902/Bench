@@ -206,3 +206,138 @@ All numbers come from the catalog or test runs on this machine (ngspice 47).
 3. A power-on gate for XSPICE sequential parts (G24).
 4. `nc` pins (G9/G22).
 5. An adaptive live chunk (G34).
+
+## Addendum: gap closure, waves 1 to 3
+
+Plan and per-workstream notes: `docs/plans/gap-closure/` (`PLAN.md`, `W1.md` to `W6.md`). Range 35e0a24..HEAD on
+`feat/multi-terminal-transistors`. Wave 1 ran W1 to W4 in parallel, wave 2 ran W5 and W6, and wave 3 is this
+integration review.
+
+### What changed, per gap
+- **G17 (W1), AC analysis.**
+  - `.ac dec|oct|lin` runs end to end: the engine reads complex vectors, the document saves `analysis` and the AC
+    sweep, and the results show a Bode view (dB and unwrapped phase on a log axis, with a log cursor).
+  - Live runs and replays are refused in AC.
+  - Device `@` currents are left out of AC results, because ngspice gives their operating-point value there.
+- **G13 (W1), AC stimulus.** `ac`/`acphase` on V and I only. They are emitted in AC decks only, so transient decks
+  and the golden netlists are byte-identical.
+- **G34 and G38 (W2), live chunks.**
+  - Chunks adapt to about 50 ms of wall time each.
+  - Boundaries stay on an exact integer grid.
+  - Cancel, New, Open and close wait at most one such chunk.
+- **G35 (W2), live params.** The package key `live = [...]` overrides the derived live rule.
+- **G39 (W2), Apply live values.** It writes the final slider values into the circuit as one undo step.
+- **G40 (W2), tstop defaults.** Live decks and replays get the batch stop time's PULSE/SIN/SFFM defaults written in.
+- **G41 (W2, then wave 3), top bar.**
+  - Fixed in W2, then broken by the merge.
+  - The fit is now measured per analysis, with the widest run-state text.
+- **G42 (W2), run history.** A bounded min/max overview of the whole live run is kept, and put in front of the window
+  when the run ends.
+- **G27 and G28 (W3), sensor stimulus nodes.**
+  - HUMIDITY_CAP is a charge-form capacitor (`q='C(stim)*V(a,b)'`).
+  - SOLENOID uses a flux construction.
+  - Both take their stimulus on a node, and both conserve charge or flux on a stimulus step.
+- **G29 (W3), interval checks.**
+  - The validator evaluates B, E/G VALUE and behavioural R/C/L expressions over each declared `[min, max]`.
+  - It also runs a zero-first-iterate pass.
+  - The 9 B-driven sensors, MOV and SAT_AMP moved from `limited` to `full`.
+- **G9 and G22 (W4), `nc` pins.**
+  - `nc` pins are drawn and wireable, but not netlisted.
+  - LM741 gains null1/null2/nc8, and LM311 gains BALANCE/STROBE.
+- **G24 (W4), power-on clock gate.** A `bench_dclk` gate is on every rising-edge sequential body (the falling-edge
+  bodies were verified immune).
+- **G25 (W4), converter widths.** ADC and DAC come at 4, 10 and 12 bits beside the 8-bit pair.
+- **G10 (W5), PSpice-compat path.** With `compat = "ps"`, the package's files are `.include`d, and a per-deck marker
+  selects `ngbehavior=ps`.
+- **G19 (W5), vendor models: partial.** The licence policy and record format are written. No vendor file is shipped.
+- **G21 (W6), averaged converters: partial.**
+  - Averaged CCM buck and boost come with and without a duty input.
+  - They are checked against the analytic DC ratio, efficiency, load step and AC transfer functions (including the
+    boost RHP zero).
+
+### Counts
+- **Catalog:** 185 definitions (175 + 6 converter widths + 4 averaged converters), 180 simulated, 0 errors and 0
+  warnings.
+- **By category:** Electrical 157, Sensors 20, Power 4, Microcontrollers 2, Audio 1, Displays 1.
+- **X parts:** 131. 98 are `full`. 33 are `limited`: the XSPICE digital and ADC parts, plus `T_LINE` outside X.
+- **GAPS totals:** 36 fixed, 2 partially fixed, 7 wontfix, 0 deferred, 0 open. Before: 20 fixed, 7 wontfix,
+  15 deferred, 3 open.
+  - The 36 "fixed" include rows whose fix has a stated scope: G13 is V and I only, G25 is one package per width,
+    and G29 covers the shipped parts.
+
+### Remaining work
+- **G19:** no vendor model file is shipped. The Analog Devices model licence is the open candidate. It needs a live
+  read of the terms and an ADI-authored file shipped unmodified.
+- **G21:** there is no named switcher IC, switching ripple, DCM or switching-loss model.
+- **Scoped residuals:**
+  - only V and I carry an AC stimulus;
+  - AC does not show device currents;
+  - noise, pole-zero and `.dc` sweeps are not available;
+  - a power-on clock edge within about 5 ns of t = 0 is ignored;
+  - one-sided params are interval-checked at their default only;
+  - a `{expr}` time slot that evaluates to 0, and sources inside a ps `.include`d file, escape the G40 pin;
+  - a param-driven converter width is wontfix.
+- **"Next steps" in section 8:** items 1 to 5 are done, apart from the vendor library in item 2.
+
+### Notable findings (ngspice 47, probed)
+- **ps mode is not scoped to `.include`d files.** The manual and HANDOFF say it is, but `set ngbehavior=ps` also
+  translates the main deck (`limit()` in a main-deck B source clamps under ps).
+  - Twelve native expression forms, `.param` and a diode gave the same values in both modes. Opting a deck in is
+    therefore safe for everything probed, but that guarantee is empirical, not structural.
+  - Without ps, an included `LIMIT()` is silently 0: a wrong success, not an error.
+- **Behavioural capacitance and inductance are not conservative.**
+  - `C='expr'`, `L='expr'` and `flux=` act as C(t)·dv/dt and L(t)·di/dt, so they lose charge or flux on a stimulus
+    step (0.5 V error in the probe). The validator now warns (B-CL-FORM).
+  - `C ... q='C(stim)*V(a,b)'` conserves charge. So does the E/unit-C/H flux construction, to 3e-6 V at a 1 ns step.
+- **First iterate.** Every analysis starts from an all-zero first iterate, so `sqrt(V(in)-4)` on a 5 V node is fatal.
+- **Expression edge cases.** `ln(0)` is -1e99, `1/0` is 1e32 and `exp` saturates at 1e99, all silently.
+- **Power-on clock edge.** The cause is `.tran ... uic` plus the input bridge delay, not a first-event rule. A gate
+  that arms only after the clock has been seen at its idle level removes it, with no power-up event of its own.
+- **AC.**
+  - In an AC plot, device `@` vectors hold the operating-point value at every frequency.
+  - `.ac lin 2` returns one point.
+  - `fstart = 0` silently makes no AC plot.
+  - The engine refuses all three cases.
+- **`gnd` as a `.subckt` port name** is ngspice's global ground alias, so a port named `gnd` cannot be used (W6).
+
+### Wave 3 review
+- **Defect found (confirmed by measurement).** After the merges, the top bar overflowed and overlapped between 1024
+  and 1566 px in both analyses, by up to about 170 px in AC at 1024 px.
+  - Cause: W2's G41 thresholds were measured with the analysis chip hidden below 1520 px, and the merge keeps W1's
+    analysis picker visible at every width.
+  - W2's own fit test had become vacuous. It measured the children of `live_for.parentWidget()`, which after the
+    merge is W1's small live box, not the bar.
+  - Fix:
+    - thresholds per analysis, measured with the widest state text;
+    - the run-state badge shows its dot only below 1120 px (1080 in AC), with the state in its tooltip, and the
+      file label hides there (the window title keeps it);
+    - in AC, Live is hidden along with its duration field;
+    - the AC fields share the compact width;
+    - the sweep combo is narrower.
+  - The test now checks the bar, and the run-settings and live boxes, at 25 widths in both analyses.
+- **Checked, no defect:**
+  - live in AC: refused in `LiveSession`, `replay_document`, the Live button and F6;
+  - AC × W3: the charge and flux forms give the exact RC and RL corners;
+  - AC × W5: a ps package runs in AC, and live (through the shared `do_circ`);
+  - interval checks read `DC x AC m p` source lines correctly;
+  - AC × W4: the LM741 with open `nc` pins gives a gain of -10, and digital parts run in AC with zero small-signal
+    output;
+  - W2's `live` lists against the W3, W4 and W6 packages;
+  - save/load and undo of `analysis` and the AC sweep;
+  - the G40 pin against `.include` and marker lines.
+- **Documentation fixed:**
+  - `docs/persistence.md` still called a non-transient analysis a bad file;
+  - the `ngspice.rs` comment repeated the per-file ps claim.
+- **Tests (final tree, real exit codes, wheel rebuilt from this tree):**
+
+| Command | Result | rc |
+|---|---|---|
+| `(cd benchcore && cargo test; echo rc=$?)` | 100 passed (26 lib, 6 ac, 3 adder, 51 correctness, 14 live) | 0 |
+| `(cd benchcore && python3 -m pytest -q tests/python; echo rc=$?)` | 28 passed | 0 |
+| `python3 -m app.catalog; echo rc=$?` | 185 definitions, 0 errors, 0 warnings | 0 |
+| `QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests; echo rc=$?`, run 1 | 1644 passed (723.68 s) | 0 |
+| same, run 2 | 1644 passed (720.77 s) | 0 |
+
+- **Test count changes:**
+  - Wave 3 baseline (830c4f5 plus ddf734f): 1601 app tests passed, rc 0. The task 10 count was 1394.
+  - Wave 3 replaced the 10-width top-bar test with 25 widths × 2 analyses, and added 3 seam tests.

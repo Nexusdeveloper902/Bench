@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QWidget
 
+from app import theme
 from app.catalog import CATALOG
 from app.inspector import slider_map
 from app.model import Document, value_at
@@ -255,20 +256,40 @@ def test_apply_live_values_writes_the_final_values_as_one_undoable_edit(win):
     assert w.doc.check_param(s, "lux") == pytest.approx(to_val(to_pos(1000.0)))
 
 
-@pytest.mark.parametrize("width", [1024, 1100, 1169, 1170, 1239, 1240, 1280, 1519, 1520, 1600])
-def test_the_live_for_field_is_never_clipped_and_the_top_bar_fits(win, width):
-    """G41, measured offscreen with the running font: from the 1024 px minimum up, the live-duration field shows
-    "Indefinite" and "Stop time" whole, and no top-bar widget overlaps another or is squeezed."""
+def _kids(p):
+    return sorted((c for c in p.findChildren(QWidget) if c.parentWidget() is p and c.isVisible()), key=lambda c: c.x())
+
+
+TOPBAR_WIDTHS = sorted({1024, 1100, 1169, 1170, 1239, 1240, 1280, 1519, 1520, 1600, 1920,
+                        *(x + d for t in MainWindow.FIT.values() for x in t for d in (-1, 0))})
+
+
+@pytest.mark.parametrize("analysis", ["transient", "ac"])
+@pytest.mark.parametrize("width", TOPBAR_WIDTHS)
+def test_the_live_for_field_is_never_clipped_and_the_top_bar_fits(win, width, analysis):
+    """G41 (and G17's analysis picker, shown at every width), measured offscreen with the running font and the widest
+    run-state text: from the 1024 px minimum up, in either analysis, no top-bar widget (nor one inside the run-settings
+    or live boxes) overlaps another or is squeezed, and the live-duration field shows "Indefinite" and "Stop time"
+    whole. The bar itself is checked, not the live box the field sits in (which hid an overflow after the merge)."""
     w = win
-    w.resize(width, 800); QTest.qWait(20)
+    w.doc.analysis = analysis
+    w.resize(width, 800); w._sync_controls(); QTest.qWait(20)
     assert w.width() == width
-    le = w.live_for.lineEdit()
-    assert max(le.fontMetrics().horizontalAdvance(t) for t in ("Indefinite", "Stop time")) <= le.width() - 4
-    bar = w.live_for.parentWidget()
-    ks = sorted((c for c in bar.findChildren(QWidget) if c.parentWidget() is bar and c.isVisible()), key=lambda c: c.x())
-    assert all(a.geometry().right() < b.x() for a, b in zip(ks, ks[1:]))
-    assert ks[-1].geometry().right() <= width - 16
-    assert all(c.width() >= min(c.sizeHint().width(), c.maximumWidth()) for c in ks if c is not w.file_lbl)
+    widest = max(theme.STATES, key=lambda k: w.state_lbl.fontMetrics().horizontalAdvance(theme.STATES[k][0]))
+    w.state_lbl.set_state(widest); QTest.qWait(20)
+    if analysis == "transient":
+        le = w.live_for.lineEdit()
+        assert max(le.fontMetrics().horizontalAdvance(t) for t in ("Indefinite", "Stop time")) <= le.width() - 4
+    else:
+        assert not w.live_box.isVisible() and not w.b_live.isVisible() and w.ac_box.isVisible()
+    bar = w.analysis.parentWidget()
+    assert w.analysis.isVisible() and bar is w.live_box.parentWidget()
+    for box in (bar, w.ac_box if analysis == "ac" else w.tran_box, w.live_box):
+        if not box.isVisible(): continue
+        ks = _kids(box)
+        assert all(a.geometry().right() < b.x() for a, b in zip(ks, ks[1:])), [c.objectName() for c in ks]
+        assert ks[-1].geometry().right() <= (width - 16 if box is bar else box.width() - 1)
+        assert all(c.width() >= min(c.sizeHint().width(), c.maximumWidth()) for c in ks if c is not w.file_lbl)
 
 
 # ---------------------------------------------------------------- slider ranges are package data (G31)
