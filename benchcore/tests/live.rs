@@ -389,3 +389,44 @@ fn a_long_live_run_keeps_ngspice_memory_flat_and_changes_exact() {
     // `.save none` is sticky in libngspice: the engine was reloaded, so a batch run keeps all its points again
     assert!(batch(rc_deck("1m"), "v(out)").unwrap().len() > 100);
 }
+
+/// G34: with a wall-time target, the next chunk is sized from the last one's compute time per sim second. A target
+/// no chunk can meet shrinks chunks to the floor (chunk / 1024) at once; a generous one keeps the full chunk (the
+/// maximum). Boundaries stay exact multiples of chunk / 1024, and a change still lands exactly on one.
+#[test]
+fn adaptive_chunks_follow_the_wall_time_target_within_bounds() {
+    let _g = serial();
+    let chunk = 1e-4;
+    let q = chunk / 1024.0;
+    let tight = LiveRun::start(&rc_deck("10m"), &["v(out)".into()], &["v1".into()], Some(chunk), None)
+        .unwrap()
+        .with_target_wall(Some(1e-9))
+        .unwrap();
+    let first = tight.next_chunk().unwrap().unwrap();
+    assert_eq!(first.t_end, chunk, "the first chunk is the full chunk (nothing measured yet)");
+    let mut prev = first.t_end;
+    for k in 1..=5u64 {
+        if k == 3 {
+            tight.set(&[("v1".into(), 1.0)]).unwrap();
+        }
+        let c = tight.next_chunk().unwrap().unwrap();
+        assert_eq!(c.t_end, (1024 + k) as f64 * q, "chunk {} is the floor, an exact multiple", k);
+        assert_eq!(c.time.last().copied(), Some(c.t_end), "the pause is exact");
+        if k == 3 {
+            assert_eq!(c.changes[0].t, prev, "the change lands on the boundary");
+        }
+        prev = c.t_end;
+    }
+    tight.close();
+    let loose = LiveRun::start(&rc_deck("1m"), &["v(out)".into()], &[], Some(chunk), None)
+        .unwrap()
+        .with_target_wall(Some(1e3))
+        .unwrap();
+    let mut k = 0;
+    while let Some(c) = loose.next_chunk().unwrap() {
+        k += 1;
+        assert_eq!(c.t_end, (k as f64 * chunk).min(1e-3), "a fast circuit keeps the full (maximum) chunk");
+    }
+    assert_eq!(k, 10);
+    assert!(LiveRun::start(&rc_deck("1m"), &["v(out)".into()], &[], None, None).unwrap().with_target_wall(Some(0.0)).is_err());
+}

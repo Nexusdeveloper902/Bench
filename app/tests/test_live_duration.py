@@ -37,9 +37,11 @@ def test_the_live_duration_controls_the_live_tstop():
     r = run_to_end(LiveSession(c.d)).get(out)
     assert r[0][0] < 1e-6 and r[-1][0] == pytest.approx(1e-3)
     c.d.live_tstop = "5m"                         # longer: runs to 5 ms and keeps the last stop time (2 ms) of it
-    s = LiveSession(c.d)
+    s = LiveSession(c.d)                          # in full, and the rest coarsely (G42)
     r = run_to_end(s).get(out)
-    assert s.result.status == "success" and r[-1][0] == pytest.approx(5e-3) and 3e-3 - 1e-9 <= r[0][0] < 3.1e-3
+    assert s.result.status == "success" and r[-1][0] == pytest.approx(5e-3) and r[0][0] < 1e-6
+    full = [t for t, _ in r if t >= 3e-3 - 1e-9]
+    assert 3e-3 - 1e-9 <= full[0] < 3.1e-3 and len(r) - len(full) <= 2 * s.overview.n
     c.d.live_tstop = "soon"
     s = LiveSession(c.d)
     assert s.result.status == "blocked" and "Live run duration" in s.result.message and list(s) == []
@@ -58,7 +60,8 @@ def test_an_indefinite_run_goes_past_the_stop_time_until_stopped():
             s.cancel()
     assert s.state == "cancelled" and s.result.status == "cancelled" and n >= 1250
     pts = s.result.get(out)
-    assert pts[-1][0] >= 50e-3 and pts[-1][0] - pts[0][0] <= 2e-3 + 1e-9   # only the window is kept
+    old = [t for t, _ in pts if t < pts[-1][0] - 2e-3 - 1e-9]                 # before the window: coarse (G42)
+    assert pts[-1][0] >= 50e-3 and pts[0][0] < 1e-4 and len(old) <= 2 * s.overview.n
     assert all(v == pytest.approx(ldr_out(10), abs=1e-9) for _, v in pts)
 
 
@@ -79,6 +82,7 @@ def test_memory_stays_bounded_over_a_long_fast_indefinite_run():
             s.cancel()
     grew = rss_mb() - base
     assert total > 390_000 and most <= s.cap and most < 300, (total, most)
+    assert len(s.overview.b) <= s.overview.n      # G42: the whole-run record is bounded too
     assert grew < 15, f"RSS grew {grew:.1f} MB over 7000 chunks"
 
 
@@ -191,10 +195,10 @@ def test_an_indefinite_live_run_scrolls_and_its_window_can_be_scrubbed_after_sto
     r = w.result
     assert w.state == "cancelled" and r.ok
     sig, ser = w.view_data()
-    assert ser[-1][0] >= 70e-3 and ser[-1][0] - ser[0][0] <= 20e-3 + 1e-9    # the retained window
-    assert w.t_rng == (ser[0][0], ser[-1][0])
+    assert ser[-1][0] >= 70e-3 and ser[0][0] < 1e-3          # the whole run: the window, and coarsely before it (G42)
+    assert w.t_rng == (ser[0][0], ser[-1][0]) and w.results.xlim is None
     mid = (ser[0][0] + ser[-1][0]) / 2
     w.set_cursor_time(mid)
     assert w.cur_t == pytest.approx(mid) and "V(" in w.readout.text()
-    w.set_cursor_time(0.0)                                                  # clamps to the window
+    w.set_cursor_time(0.0)                                                  # clamps to the run
     assert w.cur_t == ser[0][0]

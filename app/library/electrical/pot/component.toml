@@ -62,6 +62,7 @@ min_exclusive = true
 help = "Contact resistance of the wiper; keeps both sections above zero"
 
 [sim.electrical]
+live = ["R", "pos"]
 device = "X"
 line = "{dev} {a} {w} {b} bench_pot R={R} POS={pos} RW={rw}"
 body = """

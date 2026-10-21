@@ -51,6 +51,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = ["state"]
 device = "R"
 current = "@{dev_lc}[i]"
 

@@ -64,6 +64,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = ["state"]
 device = "X"
 body = """
 .subckt bench_dpst a1 b1 a2 b2 params: RC=1e9

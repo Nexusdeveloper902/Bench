@@ -44,6 +44,7 @@ max = 0.5
 help = "Fraction of nominal: 0.05 is +5 %, -0.05 is -5 %"
 
 [sim.electrical]
+live = ["R"]
 device = "X"
 line = "{dev} {a} {b} bench_rtol R={R} TOL={tol}"
 body = """

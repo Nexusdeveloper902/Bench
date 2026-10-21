@@ -73,6 +73,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = ["pres"]
 device = "X"
 line = "{dev} {vp} {vn} {op} {om} bench_pbridge P={pres} SENS={sens} RIN={rin} ROUT={rout}"
 body = """

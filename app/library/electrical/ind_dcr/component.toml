@@ -52,6 +52,7 @@ default = "0"
 help = "Current a to b at t = 0"
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {b} bench_ind_dcr L={L} DCR={dcr} IC={ic}"
 body = """

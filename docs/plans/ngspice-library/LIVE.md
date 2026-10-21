@@ -80,6 +80,12 @@ deterministically as one blocking run that pauses only at the change times.
 - Every chunk reports `wall` (active seconds) and `rtf` (sim seconds per wall second so far). Measured: 0.1994 for
   0.2, and 0.1 within 10 % in the tests.
 - With pacing on, the default chunk is `min(tstop/100, 0.05·r)`, so a paced chunk spans at most 50 ms of wall time.
+- **Adaptive chunks (G34).** `LiveRun(..., target=s)` (`LiveRun::with_target_wall`) sizes each chunk from the last
+  one's compute time per sim second so that it takes about `s` wall seconds. The given chunk is the largest, and
+  chunk/1024 is the smallest. Chunks are whole multiples of chunk/1024, so boundaries stay exact products (a run
+  that never shrinks has the same boundaries as before, bitwise). Growth is at most 2x per chunk. `LiveSession`
+  passes `TARGET_WALL` = 50 ms, so cancel, pause and changes on a heavy circuit wait about 50 ms, not a whole
+  window/100. The first chunk is full size, because nothing has been measured yet.
 
 **Determinism.** `replay(deck, obs, log)` applies each change at its recorded time. Live vs replay: at most 5.1e-5 V
 on an LDR + 100 nF run with two changes, and a replay of a replay is bit-identical. The difference comes from the live
@@ -123,8 +129,13 @@ replay guarantee is the same as for a finite run.
   the window's copy, and keeps at most `cap` = min(MAX_POINTS, MAX_SAMPLES / series) points per series (100 000 for
   small circuits; about 10 MB of tuples per series). A run no longer than the stop time trims nothing.
 - **Plot.** The axis is (0, duration) while the run is within its window, then scrolls: (t - window, t). Change
-  ticks older than the retained data are not drawn. Cursor, slider, readout and stats work on the retained window,
-  during the run and after Stop.
+  ticks older than the retained data are not drawn. Cursor, slider, readout and stats work on the retained window
+  during the run.
+- **Run history (G42).** `LiveSession.overview` (`app.sim.Overview`) folds every chunk into at most 2000 time buckets.
+  Each bucket holds every series' min and max, with their times. When the buckets overflow, neighbours merge
+  pairwise. When the run ends, the record before the retained window is put in front of it: two points per bucket,
+  on one shared time base. The window then shows the whole run, coarse before the last stop time and full after
+  it, and the run's extremes are exact. Memory: about 4000 points per series.
 - **Replay.** A finite run replays its live duration. An indefinite run replays the change log up to the time it
   reached, as a batch run of that length. Either is refused ("Replay refused: the live run lasted ...", status
   blocked, the live result stays) when that run would exceed the batch limits (`model.size_error`: MAX_POINTS
@@ -136,7 +147,7 @@ points, RSS growth under 4 MB (22 MB without the command release); a change at 2
 `app/tests/test_live_duration.py`: 8000 chunks at max pace, 400k points through, at most ~250 retained per series
 and RSS growth under 15 MB.
 
-## What is live (derived from package data, no new package field)
+## What is live (derived from package data; a package may override it)
 
 `app/electrical.live_devices(section, part, values)`:
 - **Top-level R/V/I parts.** The value of a `{dev} n1 n2 [DC] {key}` line is live: resistor `R`, `V`/battery `dc`,
@@ -150,20 +161,32 @@ and RSS growth under 15 MB.
   - It also covers POT and RHEOSTAT (R, pos, rw/rmin), SPDT/DPST/DPDT state (instance lines that only swap which keys
     feed the body), and battery voc/rint.
   - It also covers internal R/V/I values such as capacitor ESR, op-amp macro vos/ib/iq and SCR IH: 49 parts in all.
+- **Package override (G35).** `live = [...]` in `[sim.electrical]` lists the keys a live run offers, replacing the
+  derived set: `[]` means none. Each key must be a param (DEF-SIM), and it must be one the rule can alter
+  (test_live). Internal values are hidden this way on 29 packages: capacitor ESR/leak, crystal and resonator rm,
+  op-amp vos/ib/iq/rout, SCR, IGBT, inductor DCR, solenoid, speaker, mic bias, switch ron/roff, pot rw,
+  sensor rout/rin, and DC-motor ra.
 - **Not live.** Anything in a B/E/G expression, a `.model`, a waveform (PULSE/SIN/PWL), C or L values, a mode
   switch, or a nested X instance. The microphone's SPL is in a SIN, so it is not live. HUMIDITY_CAP RH and SOLENOID
   plunger position are static (G27, G28).
 
 ## Limits
 - Latency is one chunk. ngspice cannot be interrupted inside a chunk (bg_halt was rejected above), so cancel, pause
-  and changes wait for the chunk in progress. Keep chunks short for heavy circuits.
+  and changes wait for the chunk in progress. The app's adaptive chunks (G34) keep that near 50 ms, after a first
+  chunk of full size.
 - A change queued during the last chunk is never applied (the run ends at tstop) and is not in the log.
 - A value inside a param's declared range can still break the solve: LDR lux = 1e-300, FSR force = 1e-300. The chunk
   fails loudly. Stimulus params now have a `max` and a slider range (G31, fixed in 9.5b); a typed value
   below a log slider's floor still can (G37).
 - XSPICE edges can move by up to about a third of a time step between a live run and its batch or replay run (G33).
 - One live run at a time. Parallel runs need processes (REPORT §6).
-- An indefinite run ends at tstep × 1e12 of sim time (it reports done there). PULSE/SIN sources that leave their
-  period or width to the tstop default would follow the huge tstop (the app's sources give theirs; G40).
-- Only the last window (the stop time) of a long or indefinite run is kept: earlier points are gone after Stop;
-  Replay as batch run reproduces them when the run is within the batch limits.
+- An indefinite run ends at tstep × 1e12 of sim time (it reports done there).
+- **tstop defaults (G40).** `pin_tstop_defaults` writes the batch stop time's value into every V/I PULSE pw/per,
+  SIN freq and SFFM fc/fs that is missing or 0, both in the live deck and in its replay. A source this cannot check
+  is refused with a message when the live duration is not the stop time: no parentheses, split over `+` lines, or
+  AM without MF/FC. A `{expression}` slot counts as given.
+- Only the last window (the stop time) of a long or indefinite run is kept at full resolution. Before it, the run is
+  kept coarsely (G42, min/max per bucket). Replay as batch run reproduces it in full when the run is within the
+  batch limits.
+- **Apply live values (G39).** After a live run, the results banner and Simulation > Apply live values write each
+  param's last applied value into the circuit as one undoable edit. The live result is then out of date.

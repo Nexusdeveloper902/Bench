@@ -106,8 +106,8 @@ fn changes_list(changes: &[live::Change]) -> Vec<(f64, String, f64)> {
     changes.iter().map(|c| (c.t, c.device.clone(), c.value)).collect()
 }
 
-/// LiveRun(netlist, observables, devices=[], chunk=None, realtime=None): a transient that runs while values
-/// change. Iterate it on a worker thread (each step computes one chunk with the GIL released); call set/pause/
+/// LiveRun(netlist, observables, devices=[], chunk=None, realtime=None, target=None): a transient that runs while
+/// values change. target: wall seconds per chunk; chunks then adapt (at most `chunk`); None = fixed chunks. Iterate it on a worker thread (each step computes one chunk with the GIL released); call set/pause/
 /// resume/cancel from any thread (they never wait for the engine). See docs/plans/ngspice-library/LIVE.md.
 #[pyclass(name = "LiveRun", frozen)]
 struct PyLiveRun(live::LiveRun);
@@ -115,10 +115,10 @@ struct PyLiveRun(live::LiveRun);
 #[pymethods]
 impl PyLiveRun {
     #[new]
-    #[pyo3(signature = (netlist, observables, devices=vec![], chunk=None, realtime=None))]
+    #[pyo3(signature = (netlist, observables, devices=vec![], chunk=None, realtime=None, target=None))]
     fn new(py: Python<'_>, netlist: Vec<String>, observables: Vec<String>, devices: Vec<String>, chunk: Option<f64>,
-           realtime: Option<f64>) -> PyResult<Self> {
-        py.detach(|| live::LiveRun::start(&netlist, &observables, &devices, chunk, realtime))
+           realtime: Option<f64>, target: Option<f64>) -> PyResult<Self> {
+        py.detach(|| live::LiveRun::start(&netlist, &observables, &devices, chunk, realtime)?.with_target_wall(target))
             .map(PyLiveRun)
             .map_err(map_err)
     }

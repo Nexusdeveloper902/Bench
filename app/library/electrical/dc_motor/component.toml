@@ -63,6 +63,7 @@ min = 0
 help = "Shaft speed; 0 gives the stall current"
 
 [sim.electrical]
+live = ["speed"]
 device = "X"
 line = "{dev} {a} {b} bench_motor RA={ra} LA={la} KE={ke} SPEED={speed}"
 body = """
