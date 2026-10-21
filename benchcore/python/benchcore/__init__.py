@@ -29,6 +29,7 @@ __all__ = [
     "Simulation",
     "LiveRun",
     "replay",
+    "run_ac",
     "validate",
     "SimError",
     "InvalidCircuitError",
@@ -51,6 +52,11 @@ validate = _k.validate
 LiveRun = _k.LiveRun
 replay = _k.replay
 
+# run_ac(deck, observables) -> {"frequency": [Hz], "series": {name: [(re, im)]}, "npts", "wall_ms"}: an AC small-signal
+# run of a deck with one `.ac dec|oct|lin points fstart fstop` card (Simulation.ac builds it). Observables: v(node),
+# i(vsrc); device @ vectors are refused (in an ac plot they hold operating-point values, not small-signal ones).
+run_ac = _k.run_ac
+
 
 class Simulation:
     """One sequential simulation. Not thread-safe: one handle, one run at a
@@ -68,6 +74,7 @@ class Simulation:
         self._method = "trap"
         self._stops = []
         self._observables = []
+        self._ac = None             # (sweep, points, fstart, fstop): run an AC analysis instead of the transient
         self._last = None
         self._state = "idle"
 
@@ -110,6 +117,12 @@ class Simulation:
             self._method = method
         return self
 
+    def ac(self, sweep="dec", points=20, fstart=1.0, fstop=1e6):
+        """Make this an AC small-signal run: `sweep` dec | oct | lin, `points` per decade / per octave / in total,
+        from fstart to fstop (Hz). The engine checks the values (InvalidConfigError). ac(None) goes back to transient."""
+        self._ac = None if sweep is None else (str(sweep), int(points), float(fstart), float(fstop))
+        return self
+
     def observe(self, *names):
         self._observables = list(names)
         return self
@@ -132,6 +145,8 @@ class Simulation:
         if self._uic:
             tran += " uic"
         opts = [".options method=gear"] if self._method == "gear" else []
+        if self._ac:
+            tran = ".ac {} {} {!r} {!r}".format(*self._ac)
         return (
             [self._title] + self._devices + self._models + opts + [tran, ".end"]
         )
@@ -144,7 +159,10 @@ class Simulation:
         self._state = "running"
         deck = self._deck()
         try:
-            res = _k.run_simulation(deck, list(self._observables), list(self._stops))
+            if self._ac:
+                res = _k.run_ac(deck, list(self._observables))
+            else:
+                res = _k.run_simulation(deck, list(self._observables), list(self._stops))
         except BaseException:
             self._last = None
             self._state = "failed"
@@ -188,7 +206,12 @@ class Simulation:
 
     @property
     def time(self):
-        return list(self._last["time"]) if self._last else []
+        return list(self._last.get("time", [])) if self._last else []
+
+    @property
+    def frequency(self):
+        """The frequency grid (Hz) of the last AC run; observable() then gives (re, im) per frequency."""
+        return list(self._last.get("frequency", [])) if self._last else []
 
     def observable(self, name):
         if not self._last:
@@ -197,8 +220,8 @@ class Simulation:
 
     @property
     def used_pauses(self):
-        return bool(self._last and self._last["used_pauses"])
+        return bool(self._last and self._last.get("used_pauses"))
 
     @property
     def fallback_reason(self):
-        return self._last["fallback_reason"] if self._last else None
+        return self._last.get("fallback_reason") if self._last else None

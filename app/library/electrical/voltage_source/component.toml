@@ -2,7 +2,7 @@ format = 1
 id = "V"
 version = 1
 name = "Voltage source"
-description = "Independent voltage source: DC, pulse train or sine."
+description = "Independent voltage source: DC, pulse train or sine, with an optional AC stimulus (magnitude and phase) for AC analysis."
 designator = "V"
 category = "Electrical"
 subcategory = "Sources"
@@ -124,8 +124,22 @@ min = 0
 min_exclusive = true
 when = { mode = "SIN" }
 
+[[params]]
+key = "ac"
+label = "AC magnitude"
+unit = "V"
+default = "0"
+help = "Small-signal stimulus amplitude for an AC analysis; transient and live runs ignore it"
+
+[[params]]
+key = "acphase"
+label = "AC phase (degrees)"
+default = "0"
+help = "Phase of the AC stimulus in degrees; used only by an AC analysis"
+
 [sim.electrical]
 device = "V"
+ac = "AC {ac} {acphase}"
 current = "i({dev_lc})"
 
 [sim.electrical.line]

@@ -345,7 +345,7 @@ def test_m17_sine_amplitude_is_one_volt(win):
     place(w, "V", 40, 100); place(w, "R", 180, 60); place(w, "GND", 440, 220)
     select(w, "V1")
     w.inspector.edits["mode"].setCurrentText("SIN"); QApplication.processEvents()
-    assert list(w.inspector.edits) == ["mode", "vo", "va", "freq"]
+    assert list(w.inspector.edits) == ["mode", "vo", "va", "freq", "ac", "acphase"]   # + the AC stimulus (G17)
     set_param(w, "V1", "Amplitude", "1")
     set_param(w, "V1", "Frequency", "1k")
     for a, b in (("V1.p", "R1.a"), ("R1.b", "GND1.g"), ("V1.n", "GND1.g")): wire(w, a, b)

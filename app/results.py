@@ -1,12 +1,14 @@
 """Results dock: the waveform viewer (signal picker, play / slider / time cursor, plot, readout, stats, message banner,
 failure / blocked / running / not-run states, "Show details" with core findings and developer text) and the Problems
 list. Reads RunResult only; no simulation logic. Design: docs/milestone/03-design.md (results frames)."""
+import math
 import time
 
 import matplotlib
+import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import EngFormatter, FuncFormatter
 from PySide6.QtCore import QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QCursor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QPlainTextEdit,
@@ -95,8 +97,7 @@ class ResultsPanel(QWidget):
         self._empty_page(); self._running_page(); self._ok_page(); self._fail_page(); self._details_page()
         self.timer = QTimer(self); self.timer.setInterval(40); self.timer.timeout.connect(self._on_timer)
         self.play_btn.clicked.connect(self.toggle_play)
-        self.slider.valueChanged.connect(
-            lambda v: self.set_cursor_time(self.t_rng[0] + (self.t_rng[1] - self.t_rng[0]) * v / SLIDER_MAX))
+        self.slider.valueChanged.connect(lambda v: self.set_cursor_time(self._x_at(v)))
         self.set_view(None, "idle")
 
     # ---- pages ----
@@ -138,6 +139,8 @@ class ResultsPanel(QWidget):
         row.addWidget(self.play_btn); row.addWidget(self.slider, 1); row.addWidget(self.time_lbl)
         l.addLayout(row)
         self.fig = Figure(figsize=(5, 1.4), layout="constrained", facecolor=theme.PANEL); self.ax = self.fig.add_subplot()
+        self.ax_ph = self.ax.twinx(); self.ax_ph.set_visible(False)   # AC (Bode): phase on the right axis
+        self.bode = None   # AC: (frequency, dB, phase in degrees) of the plotted signal
         self.plotw = FigureCanvasQTAgg(self.fig); self.plotw.setMinimumSize(120, 70)
         self.plotw.mpl_connect("draw_event", self._on_draw)
         self.plotw.mpl_connect("button_press_event",
@@ -230,15 +233,63 @@ class ResultsPanel(QWidget):
         self.plot(name)
 
     # ---- waveform viewer (reads RunResult only) ----
+    def _ac(self):
+        return bool(self.result and self.result.analysis == "ac")
+
+    def _x_at(self, v):
+        """Cursor position (time, or frequency on the log axis of an AC result) of slider value v."""
+        a, b = self.t_rng
+        if self._ac() and a > 0: return a * (b / a) ** (v / SLIDER_MAX)
+        return a + (b - a) * v / SLIDER_MAX
+
+    def _slider_at(self, x):
+        a, b = self.t_rng
+        if b <= a: return SLIDER_MAX
+        return round(SLIDER_MAX * (math.log(x / a) / math.log(b / a) if self._ac() and a > 0 else (x - a) / (b - a)))
+
+    def _bode_at(self, f):
+        """(dB, phase°) of the plotted AC signal at frequency f (interpolated on the log axis, as drawn)."""
+        fs, db, ph = self.bode
+        x = np.log10(f)
+        return float(np.interp(x, np.log10(fs), db)), float(np.interp(x, np.log10(fs), ph))
+
+    def _plot_bode(self, r, sig):
+        """AC result: magnitude in dB (left axis) and phase in degrees (right axis, dashed) over a log frequency axis."""
+        ser = r.series[sig["vector"]]
+        f = np.array([p[0] for p in ser]); z = np.array([p[1] for p in ser], dtype=complex)
+        db = 20 * np.log10(np.maximum(np.abs(z), 1e-30))
+        ph = np.degrees(np.unwrap(np.angle(z)))
+        self.bode = (f, db, ph)
+        self.ax.plot(f, db, color=theme.WIRE, lw=1.6)
+        self.ax_ph.plot(f, ph, color=theme.SEL, lw=1.2, ls="--")
+        self.ax.set_xscale("log"); self.ax.set_xlim(f[0], f[-1])
+        self.ax.xaxis.set_major_formatter(EngFormatter(unit="Hz", sep=""))
+        self.ax.set_xlabel("frequency (Hz)"); self.ax.set_ylabel("Magnitude (dB)"); self.ax_ph.set_ylabel("Phase (°)")
+        for a in (self.ax, self.ax_ph): a.xaxis.label.set_visible(False); a.yaxis.label.set_visible(False)
+        kw = dict(fontsize=7, color=theme.TEXT_MUTED, transform=self.ax.transAxes)
+        self.ax.text(0.005, 0.96, "dB", ha="left", va="top", **kw)
+        self.ax.text(0.995, 0.96, "° (dashed)", ha="right", va="top", **kw)
+        self.ax.set_title(sig["name"]); self.ax.title.set_visible(False)
+        self.ax.grid(True, which="both", color=theme.GRID, lw=0.6); self.ax.set_axisbelow(True)
+        x = self.cur_t if self.cur_t is not None else f[-1]
+        self.cur_line = self.ax.axvline(x, color=theme.OPEN_PIN, lw=1.2, animated=True)
+        self.cur_dot, = self.ax.plot([x], [self._bode_at(x)[0]], "o", color=theme.OPEN_PIN, ms=4, animated=True)
+        k = int(np.argmax(db))
+        self.stats.setText(f"peak {db[k]:.2f} dB at {format_si(f[k], 'Hz', 4)}")
+
     def plot(self, name):
-        self.ax.clear()
+        self.ax.clear(); self.ax_ph.clear()
         r = self.result
         sig = r.signal(name) if r and r.ok and self._points() else None
-        self.cur_line = self.cur_dot = None
+        self.cur_line = self.cur_dot = self.bode = None
+        self.ax_ph.set_visible(bool(sig) and self._ac()); self.ax_ph.set_in_layout(self.ax_ph.get_visible())
         self.fig.set_facecolor(theme.PANEL); self.ax.set_facecolor(theme.PANEL)
-        for s in self.ax.spines.values(): s.set_color(theme.BORDER_STRONG); s.set_linewidth(0.8)
-        self.ax.tick_params(colors=theme.TEXT_MUTED, labelsize=7, length=2, pad=2)
-        if sig:
+        for a in (self.ax, self.ax_ph):
+            for s in a.spines.values(): s.set_color(theme.BORDER_STRONG); s.set_linewidth(0.8)
+            a.tick_params(colors=theme.TEXT_MUTED, labelsize=7, length=2, pad=2)
+        if sig and self._ac():
+            self._plot_bode(r, sig)
+        elif sig:
             ser = r.series[sig["vector"]]
             t, v = zip(*ser)
             self.ax.plot(t, v, color=theme.WIRE, lw=1.6)
@@ -280,7 +331,7 @@ class ResultsPanel(QWidget):
         """Called whenever the result changes: stop playback, cursor to end of run (or disabled if no result)."""
         self.timer.stop(); self.play_btn.setText("Play"); self.play_btn.update()
         ok = bool(self.result and self.result.ok and self._points())
-        self.slider.setEnabled(ok); self.play_btn.setEnabled(ok)
+        self.slider.setEnabled(ok); self.play_btn.setEnabled(ok and not self._ac())   # nothing to play over frequency
         if ok:
             ser = next(iter(self.result.series.values()))
             self.t_rng = (ser[0][0], ser[-1][0]); self.cur_t = self.t_rng[1]
@@ -321,13 +372,14 @@ class ResultsPanel(QWidget):
         if self.cur_t is None: return
         a, b = self.t_rng
         self.cur_t = max(a, min(b, t))
-        v = round(SLIDER_MAX * (self.cur_t - a) / (b - a)) if b > a else SLIDER_MAX
+        v = self._slider_at(self.cur_t)
         if self.slider.value() != v:
             self.slider.blockSignals(True); self.slider.setValue(v); self.slider.blockSignals(False)
         vd = self.view_data()
         if self.cur_line is not None:
             self.cur_line.set_xdata([self.cur_t, self.cur_t])
-            if vd: self.cur_dot.set_data([self.cur_t], [value_at(vd[1], self.cur_t)])
+            y = self._bode_at(self.cur_t)[0] if self.bode else value_at(vd[1], self.cur_t) if vd else None
+            if y is not None: self.cur_dot.set_data([self.cur_t], [y])
             self._blit()
         self._readout(); self.cursor_moved.emit()
 
@@ -343,12 +395,13 @@ class ResultsPanel(QWidget):
         self.plotw.blit(self.fig.bbox)
 
     def toggle_play(self):
-        if self.cur_t is None: return
+        if self.cur_t is None or self._ac(): return
         if self.timer.isActive(): self.timer.stop(); self.play_btn.setText("Play")
         else: self.play()
         self.play_btn.update()
 
     def play(self):
+        if self._ac(): return
         self._last = time.perf_counter(); self.timer.start(); self.play_btn.setText("Pause"); self.play_btn.update()
 
     def _on_timer(self):
@@ -369,6 +422,10 @@ class ResultsPanel(QWidget):
             self.time_lbl.setText("")
             return self.readout.setText("")
         sig, ser = vd
+        if self.bode:   # AC: the cursor frequency, the magnitude in dB and the phase, as plotted
+            db, ph = self._bode_at(self.cur_t)
+            self.time_lbl.setText(f"{format_si(self.cur_t, 'Hz', 4)} / {format_si(self.t_rng[1], 'Hz', 4)}")
+            return self.readout.setText(f"f = {format_si(self.cur_t, 'Hz', 5)}    {sig['name']} = {db:.2f} dB  ∠ {ph:.1f}°")
         s, p = eng(max(abs(self.t_rng[1]), abs(self.t_rng[0])))
         self.time_lbl.setText(f"{self.cur_t / s:.2f} / {self.t_rng[1] / s:.2f} {p}s")
         self.readout.setText(f"t = {format_si(self.cur_t, 's', 5)}    "
