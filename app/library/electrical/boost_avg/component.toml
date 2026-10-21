@@ -1,0 +1,85 @@
+format = 1
+id = "BOOST_AVG"
+version = 1
+name = "Averaged boost converter"
+description = "Step-up DC-DC converter, period-averaged CCM model with its inductor inside: Vout = Vin/(1-D), fixed duty ratio D."
+designator = "U"
+label = "BOOST"
+category = "Electrical"
+subcategory = "Regulators"
+aliases = ["boost converter", "boost"]
+keywords = ["switching regulator", "boost", "DC-DC", "averaged", "PWM switch", "SMPS"]
+tags = ["power"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Averaged continuous-conduction (CCM) model: no switching ripple, no switching frequency, no switching, diode or core loss. Efficiency reflects only the series resistance RL (inductor DCR plus switch conduction, lumped).",
+               "Discontinuous conduction (DCM) is not modelled: at light load the averaged inductor current goes negative (synchronous behaviour) instead of the output rising toward Vin.",
+               "Open-loop: the output follows Vin/(1-D) with no regulation; the small-signal response has a right-half-plane zero.",
+               "Output capacitor, load and any feedback network are external parts. Nothing limits the duty ratio, input current or output voltage, and there is no soft start, current limit or protection.",
+               "Small-signal AC is valid only well below the switching frequency (about a fifth of it); the model has no frequency of its own.",
+               "Parameters are not live-adjustable: an averaged-converter parameter change needs a fresh run."]
+docs = ["https://ngspice.sourceforge.io/docs.html", "https://link.springer.com/book/10.1007/b100747"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+value = "D"
+
+[[pins]]
+id = "vin"
+name = "VIN"
+at = [0, 40]
+description = "Input"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 80]
+description = "Common ground"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output, after the inductor: connect the output capacitor and the load here"
+
+[[params]]
+key = "D"
+label = "Duty ratio"
+default = "0.5"
+min = 0
+max = 0.95
+help = "Duty ratio"
+
+[[params]]
+key = "L"
+label = "Inductance"
+unit = "H"
+default = "100u"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "RL"
+label = "Series resistance"
+unit = "Ω"
+default = "20m"
+min = 0
+min_exclusive = true
+help = "Inductor DCR plus switch and diode conduction resistance, lumped"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {vin} {gnd} {out} bench_boost_fixed D={D} L={L} RL={RL}"
+defs = ["models:power/pwm_avg.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+live = []
+
+[sim.electrical.provenance]
+source = "Bench project; period-averaged PWM-switch model of a boost converter in CCM"
+url = "https://link.springer.com/book/10.1007/b100747"
+version = "Erickson and Maksimovic, Fundamentals of Power Electronics, 2nd ed., chapters 2, 7 and 8"
+license = "MIT"
+retrieved = "2026-10-20"
+notes = "Steady state Vout = Vin/(1-D) reduced by RL; small signal RHP zero at (1-D)^2 R/L, checked against the analytic transfer function."

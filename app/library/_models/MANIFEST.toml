@@ -174,3 +174,12 @@ license = "MIT"
 retrieved = "2026-10-12"
 sha256 = "de032119f5f9362ef37cb41d8bab3eed45d14315e590a7c45170f40ba8dddcb1"
 changes = "none"
+
+[[file]]
+path = "power/pwm_avg.lib"
+origin = "project"
+source = "Bench project; averaged (PWM-switch, state-space) CCM buck and boost converter cores, after Vorperian's PWM switch model and Erickson and Maksimovic, Fundamentals of Power Electronics"
+license = "MIT"
+retrieved = "2026-10-20"
+sha256 = "4f971ebbecf2dc18a7eaa5ed85575d77bbf056dfa18ba047bca017a24fc1ca1f"
+changes = "none"
