@@ -368,6 +368,9 @@ fn after_call(st: &mut SimState) -> Result<(), String> {
     ))
 }
 
+/// The deck comment that selects ngspice's `ps` compatibility mode for this circuit (see `do_circ`).
+pub const COMPAT_PS: &str = "* bench-compat: ps";
+
 pub fn do_circ(lines: &[String]) -> Result<i32, String> {
     load_lib()?;
     for l in lines {
@@ -386,8 +389,14 @@ pub fn do_circ(lines: &[String]) -> Result<i32, String> {
     // Pin the compatibility mode: a ./.spiceinit or ~/.spiceinit read at init
     // may set ngbehavior (ps/lt/...), which changes how the deck is parsed.
     let unset = CString::new("unset ngbehavior").unwrap();
+    // A deck that carries the comment line COMPAT_PS opts in to PSpice syntax for its `.include`d files (ngspice's
+    // `ps` mode parses included files only, never the deck itself). Every other deck is sent exactly as before.
+    let ps = lines.iter().any(|l| l.trim() == COMPAT_PS).then(|| CString::new("set ngbehavior=ps").unwrap());
     let rc = unsafe {
         (lib.command)(unset.as_ptr());
+        if let Some(p) = &ps {
+            (lib.command)(p.as_ptr());
+        }
         (lib.circ)(ptrs.as_ptr())
     };
     after_call(&mut st)?;

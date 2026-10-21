@@ -165,7 +165,8 @@ junctions.
   no time grid is a `SolverFailure`, never `ok` with 0 points. `circ rc=N`
   errors carry ngspice's first error lines.
 - `unset ngbehavior` runs before every circuit, so a `./.spiceinit` or
-  `~/.spiceinit` cannot switch the deck into PSpice/LTspice compatibility.
+  `~/.spiceinit` cannot switch the deck into PSpice/LTspice compatibility. The one exception is a deck that
+  carries the comment line `* bench-compat: ps`: then `set ngbehavior=ps` follows the unset, for that circuit only.
 
 ## What is NOT in v1
 

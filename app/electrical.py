@@ -44,13 +44,14 @@ DEVICES = {     # primitive: no models; model-backed: models; X: subcircuit-back
 }
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 KEYS = ("device", "line", "models", "current", "ground", "defs", "body", "model_kind", "verification", "provenance",
-        "ac", "live")
+        "ac", "live", "compat")
 MODEL_KINDS = ("primitive", "model", "third-party-model", "project-subckt", "third-party-subckt", "behavioral",
                "equivalent")
 X_KINDS = ("project-subckt", "third-party-subckt", "behavioral", "equivalent")
 VERIFICATION = ("analytic", "reference", "smoke", "none")
 PROVENANCE_KEYS = ("source", "url", "version", "license", "attribution", "retrieved", "changes", "notes")
 MANIFEST_KEYS = ("path", "origin", "source", "url", "version", "license", "attribution", "retrieved", "sha256", "changes")
+COMPAT_PS = "* bench-compat: ps"   # the deck comment that makes benchcore select ngspice's ps mode (ngspice.rs COMPAT_PS)
 MODELS_DIR = "_models"          # <library root>/_models/: shared definition files, `models:<path>` in `defs`
 
 
@@ -58,13 +59,15 @@ class Unit(NamedTuple):
     """One definition unit (a `defs` file or a `body`), parsed once at catalog load and emitted once per deck.
     lines: deck lines (comments and blank lines dropped, `+` continuations kept). subckts: top-level .subckt name
     (lower case) -> (ports, {param: default}). models: top-level .model name -> card. xrefs: (instance, subckt name,
-    node count) of every X line inside a body."""
+    node count) of every X line inside a body. path: absolute file path of a `compat = "ps"` unit, which the deck
+    `.include`s instead of inlining its lines."""
     label: str
     sha: str
     lines: tuple
     subckts: dict
     models: dict
     xrefs: tuple
+    path: str = ""
 
 
 _COMMENT = re.compile(r"(;|(?:^|\s)(?:\$|//)).*")
@@ -253,6 +256,9 @@ def _units(section, where, bad):
             label = Path(label).as_posix()
         unit, probs = parse_def(text, label, sha)
         for why in probs: bad(f"{ref}: {why}", fld)
+        if section.get("compat") == "ps":
+            if '"' in str(p) or any(c in str(p) for c in "\n\r\0"): bad(f"{ref!r}: the path cannot be put in an .include", fld)
+            unit = unit._replace(path=str(p))
         units.append(unit)
     if "body" in section:
         body = section["body"]
@@ -326,6 +332,11 @@ def check(section, pins, params, where=None):
         if k not in KEYS: bad(f"unknown key '{k}'; allowed: {', '.join(KEYS)}", k)
     ground = section.get("ground")
     if "ground" in section and not isinstance(ground, bool): bad("must be true or false", "ground")
+    compat = section.get("compat")
+    if "compat" in section:
+        if compat != "ps": bad('must be "ps" (ngspice\'s PSpice compatibility mode for .include\'d files)', "compat")
+        elif not section.get("defs") or "body" in section:
+            bad('compat = "ps" needs "defs" files and no "body": the mode reads .include\'d files, and a body is inlined', "compat")
     if ground is True:
         if "line" in section: bad("a section has either 'line' or 'ground = true', not both", "line")
         for k in ("device", "models", "current", "defs", "body"):
@@ -432,7 +443,13 @@ def check(section, pins, params, where=None):
         local = [r for r in section.get("defs", []) if isinstance(r, str) and not r.startswith("models:")]
         if local or "body" in section or "models" in section:   # models: files carry their own MANIFEST record
             bad("third-party model text needs [sim.electrical.provenance] with source, url and license", "provenance")
-    if units and not out:
+    if units and not out and compat == "ps":
+        # PSpice text (limit(), IF(), VSWITCH, PARAMS:) is outside what the core validator accepts, and ngspice reads it
+        # in ps mode: the header checks above (directive allowlist, .ends, names, ports) are all Bench can do
+        section["_units"], section["_status"] = tuple(units), "limited"
+        section["_limits"] = ('PSpice-syntax model text read by ngspice in ps mode (compat = "ps"): only its '
+                              ".subckt/.model headers are checked",)
+    elif units and not out:
         status, errors, warnings, limits = validate_bodies(units, section, pins, params)
         for msg, fld in errors: bad(msg, fld)
         out += [{"code": "DEF-SIM", "severity": "warning", "message": msg, "field": f"sim.electrical.{fld}"}
@@ -668,7 +685,11 @@ def build_netlist(parts, nets, defs, ac=False):
                     what = f".subckt '{key[1]}'" if isinstance(key, tuple) else f"model '{key}'"
                     raise ModelError(f"{what} is defined differently by {owner[key][1]} and {d['kind']}")
             units.add(u.sha)
-            models += [f"* bench-def {u.label} {u.sha[:8]}", *u.lines]
+            if u.path:      # compat = "ps": the file itself is included, and the deck asks the engine for ps mode once
+                if COMPAT_PS not in models: models.append(COMPAT_PS)
+                models += [f"* bench-def {u.label} {u.sha[:8]}", f'.include "{u.path}"']
+            else:
+                models += [f"* bench-def {u.label} {u.sha[:8]}", *u.lines]
         if len(pins) == 2:
             derived[f"v({name})"] = tuple(nodes[t] for t in pins)
             signals.append({"name": f"V({name})", "vector": f"v({name})", "quantity": "voltage", "unit": "V",
