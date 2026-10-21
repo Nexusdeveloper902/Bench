@@ -145,7 +145,7 @@ def test_pwl_sources_follow_their_points_and_refuse_bad_lists(tmp_path):
     from app.catalog import CATALOG
     from app.components import ModelError
     from test_library_batch_a import node, run
-    assert len(CATALOG.defs) == 181                                                   # 173 + the two PWL sources + the six converter widths (W4)
+    assert len(CATALOG.defs) == 185                                                   # 173 + the two PWL sources + the six converter widths (W4) + the four W6 converters
     d = Document()
     v, r, g = d.add_part("VSRC_PWL", pts="0 0, 1m 5, 2m 5, 3m -1"), d.add_part("R", R="1k"), d.add_part("GND")
     wire(d, (f"{v}.p", f"{r}.a"), (f"{r}.b", f"{g}.g"), (f"{v}.n", f"{g}.g"))
