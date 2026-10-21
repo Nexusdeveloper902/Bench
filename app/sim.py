@@ -115,6 +115,11 @@ def _ac_netlist(nl):
 
 def _run_ac(diags, cfg, nl):
     nl, findings = _ac_netlist(nl), []
+    if not nl["observables"]:   # only device currents, all dropped: nothing to sweep (PR #3 review)
+        msg = ("AC has nothing to show: this circuit has no node voltage or source current, and device currents are "
+               "operating-point values in AC. Add a source or a node other than ground.")
+        return RunResult(False, "blocked", msg, diagnostics=diags, details=_details("AnalysisError", msg),
+                         excluded=nl["excluded"], analysis="ac")
     try:
         s = _simulation(cfg, nl)
         findings = list(s.validate())

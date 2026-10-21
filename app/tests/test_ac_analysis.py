@@ -96,6 +96,18 @@ def test_ac_result_notes_device_currents_and_a_missing_stimulus():
     assert all(z == 0 for _, z in r.get("V(C1)"))
 
 
+def test_a_circuit_with_only_device_currents_is_blocked_clearly():
+    """PR #3 review: a resistor with both ends on ground has only `@r1[i]`, which AC drops; with nothing left to sweep
+    the run says so instead of a bare solver error (the same circuit runs in transient)."""
+    d = Document()
+    d.add_part("R", 0, 0, R="1k"); d.add_part("GND", 0, 100)
+    d.connect("R1.a", "GND1.g"); d.connect("R1.b", "GND1.g")
+    assert run_document(d).ok
+    d.analysis, d.ac = "ac", dict(AC_DEFAULTS)
+    r = run_document(d)
+    assert not r.ok and r.status == "blocked" and r.analysis == "ac" and "AC has nothing to show" in r.message
+
+
 @pytest.mark.parametrize("sweep, msg", [
     ({"fstart": "1k", "fstop": "10"}, "stop frequency must be above"),
     ({"points": "2.5"}, "whole number"),
