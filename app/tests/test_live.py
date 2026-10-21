@@ -16,7 +16,8 @@ from app.tests.test_library_batch_c import Circuit
 
 STIMULI = {"LDR": "lux", "PTC_THERMISTOR": "temp", "RTD_PT100": "temp", "RTD_PT1000": "temp", "PHOTODIODE": "irr",
            "PHOTOTRANSISTOR": "irr", "HALL_LINEAR": "b", "FSR": "force", "STRAIN_GAUGE": "eps", "STRAIN_BRIDGE": "eps",
-           "POSITION_SENSOR": "pos", "PRESSURE_BRIDGE": "pres", "LM35": "temp", "DC_MOTOR": "speed"}
+           "POSITION_SENSOR": "pos", "PRESSURE_BRIDGE": "pres", "LM35": "temp", "DC_MOTOR": "speed",
+           "HUMIDITY_CAP": "rh", "SOLENOID": "pos"}
 
 
 def ldr_out(lux, vs=5.0):
@@ -63,13 +64,11 @@ def test_every_stimulus_param_is_live_and_flagged(kind):
     assert "v.xu1.vstim" in devices
 
 
-@pytest.mark.parametrize("kind", ["MIC_ELECTRET", "HUMIDITY_CAP", "SOLENOID", "C", "NE555", "SN74HC00"])
+@pytest.mark.parametrize("kind", ["MIC_ELECTRET", "C", "NE555", "SN74HC00"])
 def test_static_parts_have_no_stimulus(kind):
     d = CATALOG.get(kind)
     _, keys = live_devices(d.sim["electrical"], "U1", d.values(d.defaults(), "U1"))
     assert not any(keys.values())
-    if kind in ("HUMIDITY_CAP", "SOLENOID"):
-        assert "rh" not in keys and "pos" not in keys    # G27 / G28: no controlled C or L
 
 
 def test_primitives_are_live_and_waveforms_are_not():

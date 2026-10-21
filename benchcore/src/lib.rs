@@ -7,6 +7,7 @@
 pub mod bsource;
 pub mod components;
 pub mod error;
+pub mod interval;
 pub mod kernel;
 pub mod live;
 pub mod ngspice;
@@ -174,13 +175,15 @@ fn py_replay<'py>(py: Python<'py>, netlist: Vec<String>, observables: Vec<String
     result_dict(py, res)
 }
 
-/// validate(netlist) -> list of {code, class, severity, message, nodes, devices, layer, scope}.
+/// validate(netlist, ranges=None) -> list of {code, class, severity, message, nodes, devices, layer, scope}.
+/// ranges: {top-level .param name: (lo, hi, lo_open, hi_open)}, the declared ranges the behavioural-expression value
+/// checks (B-DOMAIN, B-DIVZERO, B-OVERFLOW) evaluate over instead of the param's one value.
 /// class: syntax | dependency | connectivity | unsupported | limited | value. scope: "" top level,
 /// ".subckt <name>" a definition, or an instance path such as "x1.xa".
-#[pyfunction(name = "validate")]
-fn py_validate<'py>(py: Python<'py>, netlist: Vec<String>) -> PyResult<Bound<'py, PyList>> {
+#[pyfunction(name = "validate", signature = (netlist, ranges=None))]
+fn py_validate<'py>(py: Python<'py>, netlist: Vec<String>, ranges: Option<validate::Ranges>) -> PyResult<Bound<'py, PyList>> {
     let out = PyList::empty(py);
-    for f in validate::validate(&netlist) {
+    for f in validate::validate_with(&netlist, &ranges.unwrap_or_default()) {
         let d = PyDict::new(py);
         d.set_item("class", validate::class_of(&f.code))?;
         d.set_item("scope", f.scope)?;

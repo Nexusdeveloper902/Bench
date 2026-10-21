@@ -2,7 +2,7 @@ format = 1
 id = "SOLENOID"
 version = 1
 name = "Solenoid coil (R + L, plunger-dependent L)"
-description = "Solenoid coil as an electrical equivalent: a coil resistance in series with an inductance that rises from the open-armature value to the closed-armature value as the plunger moves. The plunger position is a parameter."
+description = "Solenoid coil as an electrical equivalent: a coil resistance in series with an inductance that rises from the open-armature value to the closed-armature value as the plunger moves, in the flux-conserving form. The plunger position is a parameter that drives a stimulus node."
 designator = "LS"
 label = "SOLENOID"
 category = "Electrical"
@@ -13,7 +13,8 @@ tags = ["electromechanical", "coil"]
 domain = "electrical"
 capabilities = ["interface", "sim:electrical"]
 limitations = ["Electrical equivalent only: R and an inductance that varies linearly with the plunger position (generic 20 mH open, 60 mH closed). No force, no plunger motion, no eddy currents, no hysteresis and no saturation.",
-               "The position is fixed for the whole run. A flyback diode is not part of this device."]
+               "The position is fixed during a batch run (a live run can change it) and drives an internal stimulus node. The inductance is built in the flux form v = d(L(pos)·i)/dt (a unit capacitor, two sense sources, an E and an H element), so a position step conserves flux: the current jumps by L_old/L_new. ngspice's own L='expr(V(stim))' and flux= forms do not do that (they keep the current and lose the flux). An initial current cannot be set on the part.",
+               "A flyback diode is not part of this device."]
 docs = ["https://ngspice.sourceforge.io/docs.html"]
 
 [presentation]
@@ -64,13 +65,19 @@ device = "X"
 line = "{dev} {a} {b} bench_sol RC={rc} LO={lo} LC={lc} POS={pos}"
 body = """
 .subckt bench_sol a b params: RC=10 LO=20m LC=60m POS=0
+VSTIM stim 0 DC {POS}
+RSTIM stim 0 1G
 R1 a n1 {RC}
-L1 n1 b {LO+(LC-LO)*POS}
+Vz n1 x 0
+Ephi ph 0 VALUE={(LO+(LC-LO)*V(stim))/LO*I(Vz)}
+Cu ph y {LO}
+Vzs y 0 0
+Hv x b Vzs 1
 .ends bench_sol
 """
 model_kind = "equivalent"
 verification = "analytic"
 
 [sim.electrical.provenance]
-source = "Bench project; coil R in series with a plunger-dependent L (generic values)"
+source = "Bench project; coil R in series with a plunger-dependent L in flux form v = d(L·i)/dt (generic values; docs/plans/gap-closure/probes/ll_probe.py)"
 license = "MIT"

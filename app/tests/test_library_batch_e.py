@@ -6,8 +6,8 @@ with a time-varying waveform. The electrical response is a closed form (LDR powe
 60751 A and B coefficients, PTC switching curve, photodiode and phototransistor currents, Hall and LM35 transfer, strain
 bridge, pressure, microphone) or a lumped equivalent (crystals, resonators, speaker, motor, optocoupler, shunt, current
 transformer). Every package is checked through the REAL path (Document -> netlist -> app.sim -> benchcore -> ngspice)
-against its closed form. Packages whose response is a B source, or a controlled source whose gain is an expression, are
-`limited` (the generated note names them); the others are `full`.
+against its closed form. Packages whose response is a B source, or a controlled source whose gain is an expression, were
+`limited` until the interval check of G29 proved them over their stimulus ranges (test_value_checks_w3.py); all are `full`.
 
 The models are project-authored and generic unless the provenance says otherwise. A pass means the element's law holds,
 not that a device's datasheet curve is reproduced."""
@@ -20,25 +20,24 @@ from app.model import Document
 from test_library_batch_c import Circuit
 
 NEW = {   # id -> (model_kind, validator status)
-    "LDR": ("equivalent", "limited"), "PTC_THERMISTOR": ("equivalent", "limited"),
-    "RTD_PT100": ("equivalent", "limited"), "RTD_PT1000": ("equivalent", "limited"),
+    "LDR": ("equivalent", "full"), "PTC_THERMISTOR": ("equivalent", "full"),
+    "RTD_PT100": ("equivalent", "full"), "RTD_PT1000": ("equivalent", "full"),
     "PHOTODIODE": ("equivalent", "full"), "PHOTOTRANSISTOR": ("equivalent", "full"),
-    "HALL_LINEAR": ("behavioral", "full"), "FSR": ("equivalent", "limited"),
-    "STRAIN_GAUGE": ("equivalent", "limited"), "STRAIN_BRIDGE": ("equivalent", "limited"),
-    "POSITION_SENSOR": ("behavioral", "limited"), "LM35": ("behavioral", "full"),
+    "HALL_LINEAR": ("behavioral", "full"), "FSR": ("equivalent", "full"),
+    "STRAIN_GAUGE": ("equivalent", "full"), "STRAIN_BRIDGE": ("equivalent", "full"),
+    "POSITION_SENSOR": ("behavioral", "full"), "LM35": ("behavioral", "full"),
     "MIC_ELECTRET": ("behavioral", "full"), "PIEZO_ULTRASONIC": ("equivalent", "full"),
     "CURRENT_SHUNT": ("equivalent", "full"), "CURRENT_TRANSFORMER": ("equivalent", "full"),
-    "PRESSURE_BRIDGE": ("behavioral", "limited"), "HUMIDITY_CAP": ("equivalent", "full"),
+    "PRESSURE_BRIDGE": ("behavioral", "full"), "HUMIDITY_CAP": ("equivalent", "full"),
     "OPTOCOUPLER": ("equivalent", "full"), "DC_MOTOR": ("equivalent", "full"),
     "SOLENOID": ("equivalent", "full"), "SPEAKER": ("equivalent", "full"),
     "CRYSTAL_32K": ("equivalent", "full"), "CRYSTAL_16M": ("equivalent", "full"),
     "CERAMIC_RES_16M": ("equivalent", "full"),
 }
-LIMITED = {k for k, v in NEW.items() if v[1] == "limited"}
-# sensors whose stimulus is a VSTIM source on node `stim` (HUMIDITY_CAP keeps RH as a fixed value, see GAPS G27;
-# SOLENOID and the crystals/resonators/speaker have no stimulus)
+# sensors whose stimulus is a VSTIM source on node `stim` (HUMIDITY_CAP and SOLENOID use the charge and flux forms, G27 and G28;
+# the crystals, resonators and speaker have no stimulus)
 STIMULUS = {"LDR", "PTC_THERMISTOR", "RTD_PT100", "RTD_PT1000", "PHOTODIODE", "PHOTOTRANSISTOR", "HALL_LINEAR", "FSR",
-            "STRAIN_GAUGE", "STRAIN_BRIDGE", "POSITION_SENSOR", "LM35", "MIC_ELECTRET", "PRESSURE_BRIDGE", "DC_MOTOR"}
+            "STRAIN_GAUGE", "STRAIN_BRIDGE", "POSITION_SENSOR", "LM35", "MIC_ELECTRET", "PRESSURE_BRIDGE", "DC_MOTOR", "HUMIDITY_CAP", "SOLENOID"}
 
 
 # ---------------------------------------------------------------- helpers
@@ -92,10 +91,7 @@ def test_package_loads_validates_and_records_its_kind(id):
     assert c.category in ("Sensors", "Electrical") and c.subcategory
     assert s["device"] == "X" and (s["model_kind"], s["verification"]) == (kind, "analytic"), id
     assert s["_status"] == status, id
-    assert bool(s.get("_limits")) == (status == "limited"), id
-    if status == "limited":                    # the generated note names the B sources or expressions left to ngspice
-        note = [x for x in c.limitations if x.startswith("Static validation is limited")]
-        assert note and any(k in note[0] for k in ("B1", "B3", "E1")), id
+    assert not s.get("_limits"), id         # G29: every B source and expression gain is value-checked over its stimulus range
     assert s["provenance"]["license"] == "MIT" and s["provenance"]["source"], id
     assert any(w in x.lower() for x in c.limitations for w in ("not", "no ")), id          # every package says what it does not model
     ids = [p.id for p in c.pins]
