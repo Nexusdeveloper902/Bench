@@ -61,6 +61,7 @@ default = "20m"
 min = 0
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {k} {g} bench_scr IH={IH} RGK={RGK} RON={RON}"
 defs = ["models:semiconductors/scr.lib"]

@@ -8,6 +8,7 @@ import time
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QWidget
 
 from app.catalog import CATALOG
 from app.inspector import slider_map
@@ -227,6 +228,47 @@ def test_replay_reruns_the_change_log_as_a_batch_run_that_matches(win):
     a, b = live.get("V(n2)"), rep.get("V(n2)")
     assert max(abs(v - value_at(b, t)) for t, v in a if t > 1e-5) < 1e-4
     assert w.status.text().startswith("REPLAY") and "2 changes" in w.status.text()
+
+
+# ---------------------------------------------------------------- gap closure W2 (G39, G41)
+def test_apply_live_values_writes_the_final_values_as_one_undoable_edit(win):
+    """G39: after a live run, "Apply live values" writes each param's last applied value into the circuit (one undo
+    step); the run simulated the starting values, so its result is then out of date."""
+    w = win
+    s = start(w)
+    start_lux = w.doc.parts[s]["params"]["lux"]
+    to_val, to_pos = slider_map(*CATALOG.get("LDR").param("lux").slider(10.0))
+    until_t(w, 4e-3)
+    w.inspector.live_sliders["lux"].setValue(to_pos(300.0))
+    until_t(w, 10e-3)
+    w.inspector.live_sliders["lux"].setValue(to_pos(1000.0))
+    assert not w.a_apply_live.isEnabled()                         # not during the run
+    finished(w)
+    assert len(w.result.changes) == 2 and w.live_apply.isVisible() and w.a_apply_live.isEnabled()
+    QTest.mouseClick(w.live_apply, Qt.LeftButton)
+    assert w.doc.parts[s]["params"]["lux"] == repr(to_val(to_pos(1000.0)))
+    assert w.result is None and w.stale and "Applied 1 live value" in w.status.text() and w.dirty()
+    assert not w.live_apply.isVisible()
+    w.undo()
+    assert w.doc.parts[s]["params"]["lux"] == start_lux
+    w.redo()
+    assert w.doc.check_param(s, "lux") == pytest.approx(to_val(to_pos(1000.0)))
+
+
+@pytest.mark.parametrize("width", [1024, 1100, 1169, 1170, 1239, 1240, 1280, 1519, 1520, 1600])
+def test_the_live_for_field_is_never_clipped_and_the_top_bar_fits(win, width):
+    """G41, measured offscreen with the running font: from the 1024 px minimum up, the live-duration field shows
+    "Indefinite" and "Stop time" whole, and no top-bar widget overlaps another or is squeezed."""
+    w = win
+    w.resize(width, 800); QTest.qWait(20)
+    assert w.width() == width
+    le = w.live_for.lineEdit()
+    assert max(le.fontMetrics().horizontalAdvance(t) for t in ("Indefinite", "Stop time")) <= le.width() - 4
+    bar = w.live_for.parentWidget()
+    ks = sorted((c for c in bar.findChildren(QWidget) if c.parentWidget() is bar and c.isVisible()), key=lambda c: c.x())
+    assert all(a.geometry().right() < b.x() for a, b in zip(ks, ks[1:]))
+    assert ks[-1].geometry().right() <= width - 16
+    assert all(c.width() >= min(c.sizeHint().width(), c.maximumWidth()) for c in ks if c is not w.file_lbl)
 
 
 # ---------------------------------------------------------------- slider ranges are package data (G31)

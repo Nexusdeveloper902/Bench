@@ -52,6 +52,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = ["temp"]
 device = "X"
 line = "{dev} {vs} {out} {gnd} bench_lm35 T={temp} ROUT={rout}"
 body = """

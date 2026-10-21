@@ -100,6 +100,8 @@ class MainWindow(QMainWindow):
         self.a_live = act("Live", self.live, "F6", tip="Live run (F6): the transient runs while you move sliders on "
                           "sensors, pots, switches and sources; F6 again stops it")
         self.a_pause = act("Pause live run", self.pause_live, "F7", tip="Pause or resume the live run (F7)")
+        self.a_apply_live = act("Apply live values", self.apply_live, tip="Write the last live run's final slider "
+                                "values into the circuit (one undo step)")
         self.a_gear = act("Gear integration", self.set_gear, tip="Integrate with Gear instead of the trapezoidal rule: "
                           "damps the alternating-sample ringing sharp edges excite on high-Q nodes (crystals, LC tanks), "
                           "and real high-Q ringing slightly too")
@@ -128,6 +130,10 @@ class MainWindow(QMainWindow):
         self.results.live_pause.clicked.connect(self.pause_live)
         self.results.live_stop.clicked.connect(self.stop_live)
         self.results.live_replay.clicked.connect(self.replay_live)
+        self.live_apply = QPushButton(self.a_apply_live.text()); self.live_apply.setProperty("link", True)   # G39
+        self.live_apply.setCursor(Qt.PointingHandCursor); self.live_apply.setToolTip(self.a_apply_live.toolTip())
+        self.live_apply.clicked.connect(self.apply_live)
+        self.results.ok_banner.layout().addWidget(self.live_apply, 0, Qt.AlignVCenter)   # beside Replay (parented)
         dock = QWidget(); dock.setObjectName("results"); dock.setFixedHeight(theme.DOCK_H)
         dl = QHBoxLayout(dock); dl.setContentsMargins(0, 0, 0, 0); dl.setSpacing(0)
         sep = QFrame(); sep.setObjectName("vsep")
@@ -170,11 +176,11 @@ class MainWindow(QMainWindow):
         for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
                             ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
                             ("Simulation", (self.a_run, self.a_rerun, self.a_reset, None, self.a_live, self.a_pause,
-                                            None, self.a_gear)),
+                                            self.a_apply_live, None, self.a_gear)),
                             ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit, None, self.a_dark))):
             sub = menu.addMenu(title)
             for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
-        app.setMenu(menu); self.app_menu = menu
+        app.setMenu(menu); self.app_menu, self.app_btn = menu, app
         lay.addWidget(app); lay.addSpacing(8)
 
         def ibtn(a):
@@ -254,8 +260,9 @@ class MainWindow(QMainWindow):
         r.live_pause.setText("Resume" if self.paused else "Pause")
         W.set_icon(r.live_pause, "play" if self.paused else "pause", "TEXT_2", 14)
         res = self.result   # a finished live run with changes can be replayed as a batch run
-        r.live_replay.setVisible(not live and res is not None and res is self.live_result and bool(res.changes)
-                                 and self.last_session is not None)
+        after = not live and res is not None and res is self.live_result and bool(res.changes) \
+            and self.last_session is not None
+        r.live_replay.setVisible(after); self.live_apply.setVisible(after); self.a_apply_live.setEnabled(after)
         self.a_reset.setEnabled((self.result is not None or stale) and not live)
         msg = next(iter(self.invalid.values()), None)
         # A failed/blocked run is shown in the results area only (design: results-running-blocked): a banner floating over
@@ -272,12 +279,14 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, e):
         compact = self.width() < 1520   # below the full top bar's width: no analysis chip, narrower fields and buttons
-        for fl in self.field_labels: fl.setHidden(self.width() < 1150)   # narrower still: the fields keep their tooltips
+        narrow = self.width() < 1170   # G41: thresholds measured offscreen (no overlap, nothing squeezed, 1024 and up)
+        for fl in self.field_labels: fl.setHidden(narrow)   # narrower still: the fields keep their tooltips
         self.live_for_lbl.setHidden(compact)   # the live-duration field keeps its tooltip
-        self.dark_btn.setHidden(self.width() < 1150); self.dark_sep.setHidden(self.width() < 1150)   # also View > Dark mode
-        self.file_lbl.setMinimumWidth(24 if self.width() < 1150 else 40)
-        if self.live_for.property("compact") != (self.width() < 1150):   # narrowest: the field shrinks too
-            self.live_for.setProperty("compact", self.width() < 1150); theme.repolish(self.live_for)
+        self.dark_btn.setHidden(narrow); self.dark_sep.setHidden(narrow)   # also View > Dark mode
+        self.file_lbl.setMinimumWidth(24 if narrow else 40)
+        # G41: the live-duration field keeps its width (it shows "Indefinite" whole); below 1240 the bar makes room by
+        # showing the menu button's logo only (its menu and tooltip stay)
+        self.app_btn.setToolButtonStyle(Qt.ToolButtonIconOnly if self.width() < 1240 else Qt.ToolButtonTextBesideIcon)
         if compact != self.analysis.isHidden():
             self.analysis.setHidden(compact)
             for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset, self.b_live):
@@ -654,6 +663,7 @@ class MainWindow(QMainWindow):
                 r.ok, r.status, r.message, r.details = False, "failed", "Internal error in the live run", w.error
             else:
                 r.ok, r.status, r.message, r.details = f.status in ("success", "cancelled"), f.status, f.message, f.details
+            r.series = f.series   # the same points, plus the whole run before the window, coarsely (G42)
             r.changes = s.changes
             self.set_status({"success": "LIVE: ", "cancelled": "LIVE STOPPED: "}.get(r.status, "FAILED: ") + r.message,
                             not r.ok)
@@ -672,6 +682,19 @@ class MainWindow(QMainWindow):
         self.set_status(("REPLAY: " if r.ok else "FAILED: ") + r.message + (f" ({len(r.changes)} changes)" if r.ok else ""),
                         not r.ok)
         self._show_result(); self.draw()
+
+    def apply_live(self):
+        """G39: write the last live run's final values (the last applied change per param) into the circuit as one
+        undoable edit. The run simulated the starting values, so its result is then out of date (Re-run)."""
+        s = self.last_session
+        if s is None or self.session or not s.changes: return
+        final = {(p, k): v for _, p, k, v in s.changes if p in self.doc.parts}
+        with self.hist.change(self.doc):
+            for (p, k), v in final.items():
+                self.doc.set_param(p, k, v if isinstance(v, str) else repr(float(v)))
+        self.refresh()
+        self.set_status(f"Applied {len(final)} live value{'s' * (len(final) != 1)} to the circuit "
+                        f"({', '.join(f'{p} {k}' for p, k in final)}). Undo reverts; Re-run to simulate them.")
 
     def reset(self):
         """Drop the results (circuit, settings and the picked signal are kept)."""

@@ -60,6 +60,7 @@ min = 0
 max = 1
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {b} bench_sol RC={rc} LO={lo} LC={lc} POS={pos}"
 body = """

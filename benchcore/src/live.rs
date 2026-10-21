@@ -27,6 +27,9 @@ use std::time::{Duration, Instant};
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 const RELEASE_EVERY: u64 = 100;
+/// Adaptive chunks (G34) are whole multiples of chunk / SUB, so boundaries stay exact products, never running sums
+/// (and a fixed-size run's boundaries are bitwise k * chunk). The smallest adaptive chunk is chunk / SUB.
+const SUB: u64 = 1024;
 
 /// Batch runs call this under the op lock: the engine belongs to the live run until it ends.
 pub(crate) fn refuse_if_live() -> Result<(), SimError> {
@@ -382,7 +385,9 @@ pub struct LiveRun {
     chunk: f64,
     rtf: Option<f64>,
     clock: Mutex<Option<(Instant, Duration)>>, // (first chunk start, paused total)
-    count: AtomicU64,                          // chunks started: boundaries are k * chunk, never a running sum
+    pos: AtomicU64,  // sim time reached, in units of chunk / SUB: boundaries are pos * quantum, never a running sum
+    size: AtomicU64, // the next chunk, in the same units (SUB = the full chunk)
+    target: Option<f64>,
 }
 
 impl LiveRun {
@@ -407,8 +412,30 @@ impl LiveRun {
             chunk,
             rtf,
             clock: Mutex::new(None),
-            count: AtomicU64::new(0),
+            pos: AtomicU64::new(0),
+            size: AtomicU64::new(SUB),
+            target: None,
         })
+    }
+
+    /// Adaptive chunks (G34): with `Some(s)`, each chunk is sized from the previous one's measured compute time per
+    /// sim second so that it takes about `s` wall seconds, between chunk / 1024 and `chunk` (which stays the
+    /// maximum). Cancel, pause and changes wait for at most one chunk, so a heavy circuit keeps them near `s`.
+    /// Growth is at most 2x per chunk (one fast chunk does not undo a slow one). None (the default): fixed chunks.
+    pub fn with_target_wall(mut self, s: Option<f64>) -> Result<LiveRun, SimError> {
+        if s.is_some_and(|s| !(s.is_finite() && s > 0.0)) {
+            return Err(config("target wall time per chunk must be a positive number of seconds".into()));
+        }
+        self.target = s;
+        Ok(self)
+    }
+
+    /// The next chunk's size in units of chunk / SUB, from the last chunk (`span` quanta in `wall` seconds).
+    fn next_size(&self, span: u64, wall: Duration) -> u64 {
+        let Some(target) = self.target else { return SUB };
+        let w = wall.as_secs_f64();
+        let want = if w > 0.0 { span as f64 * target / w } else { f64::INFINITY };
+        (want.floor().min((2 * span) as f64) as u64).clamp(1, SUB)
     }
 
     fn ctl(&self) -> std::sync::MutexGuard<'_, Ctl> {
@@ -506,8 +533,10 @@ impl LiveRun {
             (std::mem::take(&mut c.pending), c.seq)
         };
         let (start, _) = *self.clock.lock().unwrap().get_or_insert((Instant::now(), Duration::ZERO));
-        let k = self.count.fetch_add(1, Ordering::SeqCst) + 1;
-        let until = (k as f64 * self.chunk).min(sim.tstop());
+        let span = self.size.load(Ordering::SeqCst);
+        let k = self.pos.fetch_add(span, Ordering::SeqCst) + span;
+        let until = (k as f64 * (self.chunk / SUB as f64)).min(sim.tstop());
+        let computing = Instant::now();
         let mut chunk = match sim.advance(&pending, until) {
             Ok(c) => c,
             Err(e) => {
@@ -515,6 +544,7 @@ impl LiveRun {
                 return Err(e);
             }
         };
+        self.size.store(self.next_size(span, computing.elapsed()), Ordering::SeqCst);
         let active = || start.elapsed().saturating_sub(self.clock.lock().unwrap().unwrap().1).as_secs_f64();
         if let Some(r) = self.rtf {
             let ahead = chunk.t_end / r - active();

@@ -62,6 +62,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {b} bench_bvd LM={lm} CM={cm} RM={rm} C0={c0}"
 defs = ["models:resonators/bvd.lib"]

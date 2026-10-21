@@ -123,6 +123,7 @@ min = 0
 help = "Output stops this far above V-"
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {inp} {inn} {vcc} {vee} {out} bench_opamp_macro AOL={aol} GBW={gbw} SR={sr} VOS={vos} IB={ib} ROUT={rout} IQ={iq} VDROPH={vdroph} VDROPL={vdropl}"
 defs = ["models:analog/opamp_macro.lib"]

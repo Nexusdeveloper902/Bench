@@ -75,6 +75,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {b} bench_spk RE={re} LE={le} BL={bl} MMS={mms} CMS={cms} RMS={rms}"
 body = """

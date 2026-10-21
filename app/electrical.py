@@ -43,7 +43,8 @@ DEVICES = {     # primitive: no models; model-backed: models; X: subcircuit-back
     "X": Device(range(1, 1000), {}, None),      # node fields = the named .subckt's ports, in order
 }
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
-KEYS = ("device", "line", "models", "current", "ground", "defs", "body", "model_kind", "verification", "provenance")
+KEYS = ("device", "line", "models", "current", "ground", "defs", "body", "model_kind", "verification", "provenance",
+        "live")
 MODEL_KINDS = ("primitive", "model", "third-party-model", "project-subckt", "third-party-subckt", "behavioral",
                "equivalent")
 X_KINDS = ("project-subckt", "third-party-subckt", "behavioral", "equivalent")
@@ -406,6 +407,9 @@ def check(section, pins, params, where=None):
     if "model_kind" in section and kind not in MODEL_KINDS: bad(f"must be one of {', '.join(MODEL_KINDS)}", "model_kind")
     elif letter == "X" and kind not in X_KINDS:
         bad(f"an X part must say what backs it: model_kind = one of {', '.join(X_KINDS)}", "model_kind")
+    live = section.get("live")   # G35: the params a live run offers (overrides the derived rule; [] = none)
+    if "live" in section and not (isinstance(live, list) and all(isinstance(k, str) and k in by_key for k in live)):
+        bad(f"must be a list of param keys ({', '.join(by_key)}); [] makes nothing live", "live")
     if "verification" in section and section["verification"] not in VERIFICATION:
         bad(f"must be one of {', '.join(VERIFICATION)}", "verification")
     prov = section.get("provenance")

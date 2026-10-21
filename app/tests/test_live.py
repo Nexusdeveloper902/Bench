@@ -225,3 +225,128 @@ def test_pacing_holds_the_requested_factor():
     last = list(s)[-1]
     assert last["rtf"] == pytest.approx(0.1, rel=0.1)
     assert time.perf_counter() - t0 == pytest.approx(0.2, abs=0.04)
+
+
+# ---------------------------------------------------------------- gap closure W2 (G34, G35, G40, G42)
+def test_adaptive_chunks_shrink_to_meet_the_wall_time_target():
+    """G34: LiveSession sizes chunks to TARGET_WALL by default; a target no chunk can meet shrinks the next chunk
+    to the floor (chunk / 1024) at once, and a change still lands on a boundary."""
+    c, ldr, _, out = divider()
+    s = LiveSession(c.d, chunk=1e-4, target=1e-9)
+    assert next(s)["t"] == 1e-4
+    assert next(s)["t"] == pytest.approx(1e-4 + 1e-4 / 1024, rel=1e-12)
+    s.set_stimulus(ldr, 100)
+    c3 = next(s)
+    assert c3["changes"][0][0] == pytest.approx(1e-4 + 1e-4 / 1024, rel=1e-12)
+    s.close()
+    fast = LiveSession(c.d, chunk=1e-4)           # default target (50 ms): a light circuit keeps the full chunk
+    assert [round(x["t"] / 1e-4, 6) for x in fast][:3] == [1, 2, 3]
+
+
+@pytest.mark.parametrize("kind,shown", [("CAP_CERAMIC", set()), ("CAP_ELECTROLYTIC", set()), ("OPAMP_MACRO", set()),
+                                        ("SCR", set()), ("CRYSTAL_16M", set()), ("SPDT", {"state"}),
+                                        ("HALL_LINEAR", {"b"}), ("POT", {"R", "pos"}), ("LDR", {"lux"})])
+def test_a_package_live_list_overrides_the_derived_rule(kind, shown):
+    """G35: `live = [...]` in [sim.electrical] keeps only the meaningful controls (internal ESR, vos/ib/iq, SCR
+    internals and crystal rm are hidden); a package without it keeps the derived rule (LDR)."""
+    c = Circuit()
+    p = c.add(kind)
+    assert {x["key"] for x in live_params(c.d) if x["part"] == p} == shown
+
+
+def test_every_package_live_key_is_one_the_derived_rule_can_change():
+    for d in CATALOG.defs.values():
+        sec = d.sim.get("electrical", {}) if d.simulated else {}
+        if "live" in sec:
+            _, keys = live_devices(sec, "U1", d.values(d.defaults(), "U1"))
+            assert set(sec["live"]) <= set(keys), (d.id, sec["live"], keys)
+
+
+def test_a_live_list_is_checked_and_an_empty_one_makes_nothing_live(extra_root):
+    from app import catalog
+    from conftest import write_def
+    write_def(extra_root, "LIVEBAD", mutate=lambda d: d["sim"]["electrical"].update(live=["nope"]))
+    assert any(p["id"] == "LIVEBAD" and p["field"] == "sim.electrical.live" for p in catalog.CATALOG.problems)
+    write_def(extra_root, "LIVENONE", mutate=lambda d: d["sim"]["electrical"].update(live=[]))
+    c = Circuit()
+    r = c.add("LIVENONE")
+    v = c.vdc("5", f"{r}.a")
+    c.w(f"{r}.b", "0")
+    c.d.tstop, c.d.tstep = "1m", "10u"
+    assert [x["part"] for x in live_params(c.d)] == [v]
+    s = LiveSession(c.d)
+    with pytest.raises(ModelError, match="cannot change during a live run"):
+        s.set_stimulus(r, 50, key="R")
+    assert collect(s).status == "success"
+
+
+def test_tstop_defaults_are_pinned_to_the_batch_stop_time():
+    """G40, the rewrite: missing or zero PULSE pw/per, SIN freq and SFFM fc/fs become the batch run's values."""
+    from app.sim import pin_tstop_defaults as pin
+    lines = ["V1 a 0 PULSE(0 5 0 1u 1u 0.5m)", "V2 b 0 SIN(0 1)", "I3 c 0 pulse(0 1)", "V4 sin 0 DC 5",
+             "V5 d 0 SIN(0 1 0 1m)", "V6 e 0 SFFM(0 1 {F} 2)", "R1 a b 1k", "V7 f 0 DC {sin(1)}"]
+    assert pin(lines, 2e-3, 1e-5, True) == [
+        "V1 a 0 PULSE(0 5 0 1u 1u 0.5m 0.002)", "V2 b 0 SIN(0 1 500.0)",
+        "I3 c 0 pulse(0 1 0 1e-05 1e-05 0.002 0.002)", "V4 sin 0 DC 5", "V5 d 0 SIN(0 1 500.0 1m)",
+        "V6 e 0 SFFM(0 1 {F} 2 500.0)", "R1 a b 1k", "V7 f 0 DC {sin(1)}"]
+    for bad in ("V1 a 0 PULSE 0 5", "V1 a 0 PULSE(0 5", "V1 a 0 AM(1 0 0 1k)"):
+        assert pin([bad], 2e-3, 1e-5, False) == [bad]               # same tstop: passed on as written
+        with pytest.raises(ModelError, match="Live run refused"):
+            pin([bad], 2e-3, 1e-5, True)
+
+
+def test_a_pulse_with_a_default_period_repeats_at_the_stop_time_in_an_indefinite_run(extra_root):
+    """G40, end to end: a package PULSE without a period repeats every stop time in the batch run; an indefinite
+    live run (tstop = tstep x 1e12) keeps that period instead of following its own huge tstop."""
+    from conftest import write_def
+    write_def(extra_root, "PULSEDEF", mutate=lambda d: d["sim"]["electrical"].update(
+        device="V", line="{dev} {a} {b} PULSE(0 5 0 1u 1u 0.5m)"))
+    c = Circuit()
+    v = c.add("PULSEDEF")
+    c.r("1k", f"{v}.a", "0")
+    c.w(f"{v}.b", "0")
+    c.d.tstop, c.d.tstep = "2m", "10u"
+    out = f"V({c.d.nets()[v + '.a']})"
+    batch = run_document(c.d).get(out)
+    c.d.live_tstop = "indefinite"
+    s = LiveSession(c.d, chunk=1e-3)
+    for chunk in s:
+        if chunk["t"] >= 5e-3: s.cancel()
+    live = s.result.get(out)
+    assert s.result.status == "cancelled"
+    assert value_at(batch, 0.25e-3) == pytest.approx(5) and value_at(batch, 1.5e-3) == pytest.approx(0, abs=1e-9)
+    for t, want in ((2.25e-3, 5), (3e-3, 0), (4.25e-3, 5)):        # the period is the batch stop time, 2 ms
+        assert value_at(live, t) == pytest.approx(want, abs=1e-6), t
+
+
+def test_overview_is_bounded_and_keeps_the_extremes():
+    """G42, the record: 1e6 points through 10k chunks stay within `buckets` buckets, the extremes of the whole run
+    are kept exactly, and before() gives a time-ordered coarse series with one time base."""
+    from app.sim import Overview
+    o = Overview(1e-3, buckets=100)
+    for k in range(10_000):
+        ts = [(k * 100 + i) * 1e-5 for i in range(100)]
+        o.add({"a": [(t, math.sin(t)) for t in ts],
+               "b": [(t, 7.0 if k == 1234 and i == 50 else 0.0) for i, t in enumerate(ts)]})
+        assert len(o.b) <= 100
+    co = o.before(math.inf)
+    assert max(v for _, v in co["b"]) == 7.0 and min(v for _, v in co["a"]) == pytest.approx(-1, abs=1e-9)
+    assert [t for t, _ in co["a"]] == [t for t, _ in co["b"]] == sorted(t for t, _ in co["a"]) and len(co["a"]) <= 200
+
+
+def test_after_a_long_run_the_whole_run_is_kept_coarsely_with_its_extremes():
+    """G42, end to end: an indefinite run keeps the last stop time in full and, before it, the decimated record, so
+    a lux spike long out of the window is still in the result (its value exactly) after Stop."""
+    c, ldr, _, out = divider(tstop="2m")
+    c.d.live_tstop = "indefinite"
+    s = LiveSession(c.d, chunk=1e-3)
+    for k, chunk in enumerate(s, 1):
+        if k == 5: s.set_stimulus(ldr, 1000)
+        if k == 8: s.set_stimulus(ldr, 10)
+        if k == 40: s.cancel()
+    pts = s.result.get(out)
+    assert pts[0][0] < 1e-4 and pts[-1][0] == pytest.approx(40e-3)
+    assert s.result.stats(out)["max"] == pytest.approx(ldr_out(1000), abs=1e-9)
+    assert value_at(pts, 6e-3) == pytest.approx(ldr_out(1000), abs=1e-6)
+    window = [t for t, _ in pts if t >= 38e-3]
+    assert len(window) > 150 and len(pts) - len(window) <= 2 * s.overview.n

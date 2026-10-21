@@ -60,6 +60,7 @@ default = "30m"
 min = 0
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {c} {g} {e} bench_igbt VGETH={VGETH} ISAT={ISAT} RON={RON}"
 body = """

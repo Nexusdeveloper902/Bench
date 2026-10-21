@@ -63,6 +63,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = []
 device = "X"
 line = "{dev} {a} {b} bench_cap_esr C={C} ESR={esr} ESL={esl} RLEAK={rleak}"
 defs = ["models:passives/cap_esr.lib"]

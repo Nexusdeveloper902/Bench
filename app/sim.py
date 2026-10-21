@@ -3,6 +3,7 @@ text is built here; netlist lines, models, .save lines and vector names come fro
 the devices a live run may change from app.electrical.live_devices (docs/plans/ngspice-library/LIVE.md)."""
 import bisect
 import math
+import re
 import threading
 from dataclasses import dataclass, field
 import benchcore
@@ -159,7 +160,11 @@ def _live(part, kind, params):
     sec = c.sim.get("electrical") if c.simulated else None
     if not sec or sec.get("ground"):
         return {}, {}
-    return live_devices(sec, part, c.values(params, part))
+    devices, keys = live_devices(sec, part, c.values(params, part))
+    if "live" in sec:   # G35: the package's explicit list overrides the derived rule ([] = nothing is live)
+        keys = {k: s for k, s in keys.items() if k in sec["live"]}
+    # devices stay as derived (a change alters only what its key moves); a part with no live key declares none
+    return (devices if keys else {}), keys
 
 
 def _change(part, kind, params, key, value):
@@ -177,6 +182,53 @@ def _start_params(doc, nl):
 
 
 INDEFINITE_STEPS = 1e12   # an indefinite live run is a transient of tstep x this, never reached (LIVE.md)
+TARGET_WALL = 0.05        # G34: a live chunk aims at this much compute (wall) time, so controls answer within ~50 ms
+
+# G40: time-function slots ngspice fills from the run's tstop when missing or 0 -> (slot index, default from tstop).
+# PULSE(v1 v2 td tr tf pw per): pw, per = tstop; SIN(vo va freq ...): freq = 1/tstop; SFFM(vo va fc mdi fs): fc, fs =
+# 1/tstop. Slots before them that are missing get ngspice's own (tstop-free) defaults, PAD.
+_TSTOP_SLOTS = {"pulse": {5: lambda T: T, 6: lambda T: T}, "sin": {2: lambda T: 1 / T},
+                "sffm": {2: lambda T: 1 / T, 4: lambda T: 1 / T}}
+_PAD = {"pulse": lambda dt: ["0", "0", "0", repr(dt), repr(dt)], "sin": lambda dt: ["0", "0"],
+        "sffm": lambda dt: ["0", "0", "0", "0"]}
+_TFUNC = re.compile(r"(\{[^}]*\})|\b(pulse|sin|sffm|am)\b(\s*\(([^()]*)\))?", re.I)   # {expressions} are skipped
+_ZERO = re.compile(r"[+-]?(?:0+\.?0*|\.0+)(?:e[+-]?\d+)?[a-z]*", re.I)
+
+
+def pin_tstop_defaults(lines, tstop, tstep, strict):
+    """G40: the deck lines with every V/I time function that falls back to ngspice's tstop default (above) given
+    that default explicitly, computed from `tstop` (the batch stop time). A live run's own tstop is its duration
+    (tstep x 1e12 when indefinite), so without this a PULSE with no period would follow the live tstop, unlike the
+    batch run. strict (the live tstop differs): a function this cannot check (no parentheses, split over '+'
+    lines) or pin (AM without its MF and FC) raises ModelError instead of being passed on. A {expression} slot
+    counts as given."""
+    out = []
+    for line in lines:
+        toks = line.split(None, 3)   # name, n+, n-, the rest: only the rest can hold a time function
+        if line.lstrip()[:1].lower() not in ("v", "i") or len(toks) < 4:
+            out.append(line); continue
+
+        def fix(m):
+            if m[1]: return m[0]
+            name, args = m[2].lower(), m[4]
+            a = (args or "").replace(",", " ").split()
+            if args is None or name == "am":
+                if strict and (args is None or len(a) < 4 or any(_ZERO.fullmatch(x) for x in a[2:4])):
+                    raise ModelError(f"Live run refused: '{line.strip()}' may leave a time to the run's stop time, "
+                                     "and this live run's duration is not the stop time, so its waveform would differ "
+                                     "from the batch run's. Give every time of the source explicitly, as "
+                                     "PULSE(...)/SIN(...)/SFFM(...)/AM(...) on one line.")
+                return m[0]
+            slots = _TSTOP_SLOTS[name]
+            if len(a) < max(slots) + 1:
+                a += _PAD[name](tstep)[len(a):]
+            for i, f in slots.items():
+                while len(a) <= i: a.append("0")
+                if _ZERO.fullmatch(a[i]): a[i] = repr(f(tstop))
+            return f"{m[2]}({' '.join(a)})"
+        rest = toks[3]
+        out.append(line[:len(line) - len(rest)] + _TFUNC.sub(fix, rest))
+    return out
 
 
 def trim(series, t_from, cap):
@@ -189,6 +241,61 @@ def trim(series, t_from, cap):
     if cut > 0:
         for pts in series.values():
             del pts[:cut]
+
+
+class Overview:
+    """G42: a bounded, decimated record of a whole live run, kept beside the full-resolution window: per time bucket,
+    each series' min and max with their times. When there are more than `buckets`, neighbours merge pairwise (the
+    width doubles), so memory is bounded however long the run is, and the run's extremes are kept exactly."""
+
+    def __init__(self, width, buckets=2000):
+        self.w, self.n, self.b = width, buckets, []   # b: [[index, ta, tb, {name: [tmin, vmin, tmax, vmax]}]]
+
+    @staticmethod
+    def _merge(x, y):
+        for n, (t0, lo, t1, hi) in y.items():
+            s = x[n]
+            if lo < s[1]: s[0], s[1] = t0, lo
+            if hi > s[3]: s[2], s[3] = t1, hi
+
+    def add(self, series):
+        """Fold one chunk's new points ({name: [(t, v)]}, one shared time base) in."""
+        times = [t for t, _ in next(iter(series.values()), ())]
+        i = 0
+        while i < len(times):
+            k = int(times[i] // self.w)
+            j = max(i + 1, bisect.bisect_left(times, (k + 1) * self.w, i))
+            st = {}
+            for n, pts in series.items():
+                seg = pts[i:j]
+                lo, hi = min(seg, key=lambda p: p[1]), max(seg, key=lambda p: p[1])
+                st[n] = [lo[0], lo[1], hi[0], hi[1]]
+            if self.b and self.b[-1][0] == k:
+                self.b[-1][2] = times[j - 1]; self._merge(self.b[-1][3], st)
+            else:
+                self.b.append([k, times[i], times[j - 1], st])
+            i = j
+        while len(self.b) > self.n:
+            self.w *= 2
+            out = []
+            for k, ta, tb, st in self.b:
+                if out and out[-1][0] == k // 2:
+                    out[-1][2] = tb; self._merge(out[-1][3], st)
+                else:
+                    out.append([k // 2, ta, tb, st])
+            self.b = out
+
+    def before(self, t0):
+        """{name: [(t, v)]}: the coarse record before t0 (two points per bucket: its min and max in time order, at the
+        bucket's first and last time), to put in front of a window that starts at t0."""
+        out = {}
+        for k, ta, tb, st in self.b:
+            if ta >= t0: break
+            tb = tb if tb < t0 else (ta + t0) / 2
+            for n, (tl, lo, th, hi) in st.items():
+                pts = out.setdefault(n, [])
+                pts += [(ta, lo)] if ta == tb else [(ta, lo), (tb, hi)] if tl <= th else [(ta, hi), (tb, lo)]
+        return out
 
 
 def live_params(doc):
@@ -226,7 +333,7 @@ class LiveSession:
     last `window` of sim time, and at most `cap` points per series, so a long or indefinite run has bounded memory
     (a run no longer than the stop time keeps everything, as before)."""
 
-    def __init__(self, doc, chunk=None, realtime=None):
+    def __init__(self, doc, chunk=None, realtime=None, target=TARGET_WALL):
         self._lock = threading.Lock()
         self._run, self._pending, self._log, self._t = None, [], [], 0.0
         prep, self.result = _prepare(doc)
@@ -246,6 +353,14 @@ class LiveSession:
         # the chunk follows the window (the plot's time span), as the engine's default follows tstop
         chunk = chunk or (min(self.window / 100, 0.05 * realtime) if realtime else self.window / 100)
         self.cap = min(MAX_POINTS, MAX_SAMPLES // (len(nl["observables"]) + len(nl["derived"]) or 1))
+        self.overview = Overview(self.window / 1000)   # G42: the whole run, coarsely, beside the retained window
+        try:   # G40: time functions keep the batch run's tstop defaults (the replay, a batch run of another length, too)
+            pin = lambda ls: pin_tstop_defaults(ls, cfg["tstop"], cfg["tstep"], self._cfg["tstop"] != cfg["tstop"])
+            nl = {**nl, "lines": pin(nl["lines"]), "models": pin(nl["models"])}
+        except ModelError as e:
+            self.result = RunResult(False, "blocked", str(e), diagnostics=self._diags,
+                                    details=_details("ModelError", e, (), self._diags, _deck(nl)))
+            return
         self._nl, self._findings = nl, []
         self._start = _start_params(doc, nl)
         self._parts = {n: (k, dict(p)) for n, (k, p) in self._start.items()}
@@ -253,7 +368,7 @@ class LiveSession:
         try:
             s = _simulation(self._cfg, nl)
             self._findings = list(s.validate())
-            self._run = s.live(devices, chunk, realtime)
+            self._run = s.live(devices, chunk, realtime, target)
         except SIM_ERRORS as e:
             self.result = _failed(e, self._findings, self._diags, nl)
             return
@@ -286,6 +401,7 @@ class LiveSession:
         self._log += changes
         self._t = c["t"]
         series = _derive({n: c["series"][n] for n in self._nl["observables"]}, self._nl)
+        self.overview.add(series)
         for n, pts in series.items():
             self.result.series[n].extend(pts)
         trim(self.result.series, c["t"] - self.window, self.cap)
@@ -298,6 +414,10 @@ class LiveSession:
         r = self.result
         if r.status != "running":
             return
+        first = next(iter(r.series.values()), None)
+        if first:   # G42: the points trimmed from the window come back coarsely, so the whole run stays visible
+            for n, pts in self.overview.before(first[0][0]).items():
+                r.series[n][:0] = pts
         if error is not None:
             f = _failed(error, self._findings, self._diags, self._nl)
             r.status, r.message, r.details = "failed", f.message, f.details

@@ -53,6 +53,7 @@ min = 0
 min_exclusive = true
 
 [sim.electrical]
+live = ["R", "pos"]
 device = "X"
 line = "{dev} {a} {b} bench_rheostat R={R} POS={pos} RMIN={rmin}"
 body = """
