@@ -269,7 +269,8 @@ class StateBadge(QWidget):
     def set_state(self, key, compact=None):
         """compact: the dot only (a narrow top bar), the state text in the tooltip."""
         self.key = key; self.compact = self.compact if compact is None else compact
-        self.setFixedWidth(28 if self.compact else self.fontMetrics().horizontalAdvance(self.text()) + 40)
+        # the widest state's width whatever the state, so a state change never changes the top bar's fit
+        self.setFixedWidth(28 if self.compact else max(self.fontMetrics().horizontalAdvance(t) for t, *_ in theme.STATES.values()) + 40)
         self.setToolTip(f"Run state: {self.text()}"); self.update()
 
     def paintEvent(self, _):

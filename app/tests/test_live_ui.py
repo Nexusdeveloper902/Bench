@@ -260,8 +260,7 @@ def _kids(p):
     return sorted((c for c in p.findChildren(QWidget) if c.parentWidget() is p and c.isVisible()), key=lambda c: c.x())
 
 
-TOPBAR_WIDTHS = sorted({1024, 1100, 1169, 1170, 1239, 1240, 1280, 1519, 1520, 1600, 1920,
-                        *(x + d for t in MainWindow.FIT.values() for x in t for d in (-1, 0))})
+TOPBAR_WIDTHS = [*range(1024, 1700, 20), 1920]   # the fit is measured, not thresholded: sweep the whole range
 
 
 @pytest.mark.parametrize("analysis", ["transient", "ac"])

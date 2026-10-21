@@ -8,7 +8,7 @@ import gc
 import math
 import os
 import traceback
-from PySide6.QtCore import Qt, QSize, QThread, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QSize, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
                                QMessageBox, QPushButton, QSizePolicy, QSplitter, QToolButton, QVBoxLayout, QWidget)
@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
 
     # --- top bar ---
     def _topbar(self):
-        bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
+        self.bar = bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
         bar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)   # narrow windows compact it (see resizeEvent)
         lay = QHBoxLayout(bar); lay.setContentsMargins(16, 0, 16, 0); lay.setSpacing(8)
         app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Bench"); W.themed(app, lambda: app.setIcon(QPixmap(logo_pixmap())))
@@ -277,7 +277,7 @@ class MainWindow(QMainWindow):
         self.analysis.setCurrentIndex(int(ac)); self.ac_sweep.setCurrentText(self.doc.ac["sweep"])
         # AC: live runs are transient only, so the live controls leave the bar (F6 says why); one setting set is shown
         self.tran_box.setVisible(not ac); self.ac_box.setVisible(ac); self.live_box.setVisible(not ac)
-        self.b_live.setVisible(not ac or live); self._fit_topbar()
+        self.b_live.setVisible(not ac or live)
         self.a_gear.setChecked(self.doc.method == "gear")
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
@@ -308,22 +308,28 @@ class MainWindow(QMainWindow):
             self.notice.move(c + 12, theme.TOPBAR_H + 8)
             self.notice.raise_()
         self.notice.setVisible(bool(notice))
+        self._fit_topbar()   # last: the texts and icons set above change the bar's natural width
 
     def _invalid(self):
         """The run-setting errors of the current analysis (the other analysis' fields are hidden and unused)."""
         keys = AC_FIELDS if self.doc.analysis == "ac" else ("tstop", "tstep")
         return {k: v for k, v in self.invalid.items() if k in keys}
 
-    # G41 with the analysis picker always shown (G17): the widths below which the top bar drops, in this order, the
-    # run-state text (dot only) and file name, the field labels and dark toggle, the menu button's text, and the full
-    # width of its fields and buttons, per analysis (AC: three sweep fields, no live controls). Measured offscreen with
-    # the running font and the widest state text: no overlap and nothing squeezed from the 1024 px minimum up
-    # (test_live_ui).
-    FIT = {"transient": (1120, 1320, 1384, 1566), "ac": (1080, 1254, 1318, 1520)}
-
     def _fit_topbar(self):
-        w = self.width()
-        dot, narrow, icon, compact = (w < x for x in self.FIT[self.doc.analysis])   # compact: narrower fields, buttons
+        """G41 with the analysis picker always shown (G17): drop top-bar detail until the bar's natural width fits the
+        window, in this order: the full width of fields and buttons, the menu button's text, the field labels and dark
+        toggle, the run-state text (dot only) and file name. Measured from the bar's own size hint, so it holds for any
+        font (fixed pixel thresholds measured with one font overflowed on CI's)."""
+        lay = self.bar.layout()
+        lays = [lay, *(c.layout() for c in self.bar.findChildren(QWidget) if c.layout())]   # the boxes inside the bar
+        for level in range(5):
+            self._topbar_detail(dot=level > 3, narrow=level > 2, icon=level > 1, compact=level > 0)
+            # the restyled fields reach their boxes' layouts through posted layout requests: deliver them now
+            QApplication.sendPostedEvents(None, QEvent.Type.LayoutRequest)
+            for l in lays: l.invalidate()
+            if lay.sizeHint().width() <= self.width(): break
+
+    def _topbar_detail(self, dot, narrow, icon, compact):   # compact: narrower fields, buttons
         for fl in self.field_labels: fl.setHidden(narrow)   # the fields keep their tooltips
         self.live_for_lbl.setHidden(compact)   # the live-duration field keeps its tooltip
         self.dark_btn.setHidden(narrow); self.dark_sep.setHidden(narrow)   # also View > Dark mode
