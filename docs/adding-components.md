@@ -216,7 +216,8 @@ J level 3+; M levels 7, 60 (SOI3: aborts the process) and the others missing abo
 `ISWITCH`, `LPNP`; E/G `LAPLACE`; `if()`, `limit()`, `table()` in expressions; N (OSDI). K, F, H, W, O, U, Y, P and
 A reference other elements by name or need bracketed ports, so they belong in subcircuit bodies (see "Subcircuit
 parts"), not top-level parts. Bench pins ngspice's compatibility mode off (`unset ngbehavior` before every circuit), so PSpice and
-LTspice syntax is not translated, whatever a `.spiceinit` says.
+LTspice syntax is not translated, whatever a `.spiceinit` says. A package can opt in to PSpice mode for its own model
+files: see "PSpice-syntax model files".
 
 The shipped 2N2222 (`app/library/electrical/q_2n2222/component.toml`), the NPN transistor, is the example (an excerpt, so the doc-example test, which loads every `toml` block as a full part, skips it):
 
@@ -379,6 +380,54 @@ license = "MIT"
   ngspice as `<instance>.<node>` (`xu1.n2`, nested `xu1.xa.n2`).
 - **Dialect.** ngspice syntax only: Bench pins the compatibility mode off, so PSpice `IF()`/`LIMIT()`/`VSWITCH` and
   LTspice-only syntax fail. Vendor PSpice macromodels need a translation first.
+
+## PSpice-syntax model files (`compat = "ps"`)
+
+PSpice and LTspice macromodels use `IF()`, `LIMIT()`, `VSWITCH`, `PARAMS:` and similar. Plain ngspice rejects some and
+silently evaluates others wrongly (probed on 47: an included `LIMIT()` is 0, no error). A package opts in:
+
+```
+[sim.electrical]                        # an excerpt
+device = "X"
+line = "{dev} {i} {o} PSLIM LO={LO} HI={HI}"
+defs = ["models:vendor/pslim.lib"]      # package-local or models:<path>; needs the MANIFEST.toml record as usual
+compat = "ps"                           # the only value; no "body" with it
+model_kind = "third-party-subckt"
+```
+
+What the deck then holds: one `* bench-compat: ps` comment (once per deck, however many parts opt in), and for each file
+`* bench-def <label> <sha8>` plus `.include "<absolute path>"` instead of the inlined lines. `benchcore` sees the comment
+and sends `set ngbehavior=ps` after its usual `unset ngbehavior`, for that circuit only; the next deck is pinned off
+again. A deck with no opted-in part is byte for byte what it was.
+
+Probed behaviour, ngspice 47 (not what its manual says):
+
+- ps mode is NOT limited to included files. A `limit()` written in the main deck is translated too. A sweep of 12 native
+  B-source forms (`log`, `ln`, `**`, `^`, ternary, `pwr`, `u`, ...) gave identical values with and without ps, so a
+  Bench-authored deck is unaffected; the validator still refuses `limit()`, `IF()` and `VSWITCH` in the main deck.
+- The validator does not read `.include`d files. An instance of such a subckt gets `OPAQUE-X` (its body is not analysed),
+  and the package is marked "Static validation is limited". Nothing checks the file's elements, values or references: only
+  `.subckt`/`.ends` balance, names, port counts and the directive allowlist (no `.control`, no top-level `.param`/`.func`)
+  are checked at catalog load. A vendor file with top-level `.param` or `.func` must be edited by moving them into the body
+  (which the licence may forbid: see below) or is refused.
+- Only ngspice's `ps` is offered, not `psa`/`lt`/`ltpsa`.
+
+## Licence policy for third-party model files (G19)
+
+A file is added under `app/library/_models/` as `origin = "third-party"` only with a verified redistribution grant:
+
+1. The grant is in the vendor's own published terms (their licence page or the file's own header), and covers
+   redistributing copies of that file inside software. "Free to download", "for use with our simulator" and a licence on
+   a forum post are not grants. A third party's licence for a model the vendor merely hosts does not count.
+2. The clause is quoted in the MANIFEST `source`/`changes` text or the commit, with the date it was read, and the page
+   is kept reachable at `url`. A grant that applies to unmodified copies only means the file ships byte for byte
+   (`changes = "none"`).
+3. The `[[file]]` record is complete: `license` (SPDX id, or `LicenseRef-<vendor>`), `url` (the file's origin, not a
+   catalog page), `retrieved` (date), `sha256` (of the file as shipped; the catalog fails on a mismatch), `attribution`
+   (the copyright line the vendor requires), `version`, `changes`. The package carries `model_kind = "third-party-subckt"`
+   (or `third-party-model`) and, for package-local files, `[sim.electrical.provenance]`.
+4. Anything unverified is not copied: no file is copied "on assumption", from a mirror, from another tool's library or
+   from a forum. A model Bench needs and cannot ship is re-authored as a project model from the datasheet.
 
 ## Presentation
 

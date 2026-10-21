@@ -141,6 +141,35 @@ def test_spiceinit_cannot_change_the_compat_mode(tmp_path):
     assert out.stdout.startswith("REFUSED"), out.stdout + out.stderr
 
 
+PS_LIB = """* PSpice-syntax model
+.SUBCKT PSLIM in out PARAMS: LO=-1 HI=1
+E1 x 0 VALUE = { LIMIT(V(in), {LO}, {HI}) }
+R1 x out 1
+R2 out 0 1MEG
+.ENDS
+"""
+
+
+def test_compat_marker_selects_ps_mode_for_one_deck_only(tmp_path):
+    """G10: the deck comment `* bench-compat: ps` makes the engine `set ngbehavior=ps` after the usual unset, for that
+    circuit only. Without it an included LIMIT() is silently 0 (a wrong success); the next marker-free deck is pinned
+    off again."""
+    lib = tmp_path / "ps.lib"
+    lib.write_text(PS_LIB)
+
+    def out(marker):
+        s = Simulation("t").build_circuit(["V3 big 0 DC 3", "X2 big o2 PSLIM LO=-1 HI=2", "R10 o2 0 10k"])
+        s.add_model(f'.include "{lib}"')
+        if marker:
+            s.add_model("* bench-compat: ps")
+        s.configure(tstep=1e-5, tstop=1e-4).observe("v(o2)")
+        s.run()
+        return s.observable("v(o2)")[-1][1]
+    assert out(False) == 0.0
+    assert out(True) == pytest.approx(2.0, abs=1e-3)
+    assert out(False) == 0.0
+
+
 def test_validate_reports_class_and_scope_through_nested_subcircuits():
     """Task 4: findings carry `class` (syntax, dependency, connectivity, unsupported, limited, value) and `scope` ("" top
     level, ".subckt <name>" a definition, "x1.xa" an instance path); benchcore.validate needs no simulation session."""
