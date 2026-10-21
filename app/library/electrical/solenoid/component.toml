@@ -61,7 +61,7 @@ min = 0
 max = 1
 
 [sim.electrical]
-live = []
+live = ["pos"]   # W3: pos drives the stimulus node VSTIM, so a live run can step it
 device = "X"
 line = "{dev} {a} {b} bench_sol RC={rc} LO={lo} LC={lc} POS={pos}"
 body = """
