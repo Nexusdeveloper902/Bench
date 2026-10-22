@@ -55,6 +55,35 @@ class Worker:
         self.t.join()
 
 
+class Gated:
+    """Iterate a session on a thread that stops after chosen chunks until the test lets it go on, so the test thread
+    can act (set_stimulus, cancel) at an exact point of the run instead of after a guessed sleep. Cross-thread, as the UI
+    does it: the controls run on the test thread while the worker thread is between two chunks. Exit cancels and joins."""
+    def __init__(self, s, stops):
+        self.s, self.stops, self.at, self.go = s, set(stops), {n: threading.Event() for n in stops}, threading.Event()
+        self.t = threading.Thread(target=self._run)
+
+    def _run(self):
+        for n, _ in enumerate(self.s, 1):
+            if n in self.stops:
+                self.at[n].set(); self.go.wait(); self.go.clear()
+
+    def __enter__(self):
+        self.t.start()
+        return self
+
+    def reach(self, n):
+        """Block until the worker holds after chunk n (so every control acts between chunks n and n+1)."""
+        assert self.at[n].wait(30), f"the worker never reached chunk {n}"
+
+    def release(self):
+        self.go.set()
+
+    def __exit__(self, *exc):
+        self.s.cancel(); self.go.set()
+        self.t.join()
+
+
 # ---------------------------------------------------------------- what is live (package data only)
 @pytest.mark.parametrize("kind", sorted(STIMULI))
 def test_every_stimulus_param_is_live_and_flagged(kind):
@@ -104,12 +133,13 @@ def test_live_session_replays_as_a_batch_run():
     c.w(f"{cap}.a", f"{ldr}.b")
     c.w(f"{cap}.b", "0")
     s = LiveSession(c.d, chunk=1e-4, realtime=0.2)
-    with Worker(s) as w:
-        time.sleep(0.005)
+    with Gated(s, (10, 14)) as w:               # ~5 ms and ~7 ms later in the old timing: chunk 10 (t = 1 ms) and 14
+        w.reach(10)
         s.set_stimulus(ldr, "300")
-        time.sleep(0.007)
-        s.set_stimulus(v, 4, key="dc")
+        w.release(); w.reach(14)
+        s.set_stimulus(v, 4, key="dc")          # both while the worker holds: the same chunk boundary, deterministically
         s.set_stimulus(ldr, 2.0)
+        w.release()
         w.t.join()
     assert s.result.status == "success"
     log = s.changes
@@ -173,8 +203,8 @@ def test_pause_and_resume_keep_the_capacitor_continuous():
 def test_cancel_mid_run_then_batch_works():
     c, ldr, _, out = divider(tstop="5m")
     s = LiveSession(c.d, chunk=1e-4, realtime=0.05)
-    with Worker(s):
-        time.sleep(0.03)
+    with Gated(s, (1,)) as w:                   # cancel from the test thread right after the first chunk
+        w.reach(1)
     assert s.result.status == "cancelled" and s.state == "cancelled" and 0 < len(s.result.get(out)) < 400
     with pytest.raises(ModelError, match="no live run"):
         s.set_stimulus(ldr, 5)
@@ -217,6 +247,7 @@ def test_bad_live_changes_are_user_errors():
     assert replay_document(c.d, [(1e-3, ldr, "r10", 5.0)]).status == "blocked"
 
 
+@pytest.mark.timing   # wall-clock behaviour by definition: run serially on a quiet CPU
 def test_pacing_holds_the_requested_factor():
     c, *_ = divider(tstop="20m")
     s = LiveSession(c.d, realtime=0.1)
@@ -227,6 +258,7 @@ def test_pacing_holds_the_requested_factor():
 
 
 # ---------------------------------------------------------------- gap closure W2 (G34, G35, G40, G42)
+@pytest.mark.timing   # the last lines assert a chunk fits the 50 ms wall budget
 def test_adaptive_chunks_shrink_to_meet_the_wall_time_target():
     """G34: LiveSession sizes chunks to TARGET_WALL by default; a target no chunk can meet shrinks the next chunk
     to the floor (chunk / 1024) at once, and a change still lands on a boundary."""

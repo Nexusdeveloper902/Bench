@@ -18,7 +18,7 @@ from app.sim import run_document
 from app.tests.test_gui_workflow import qapp, select, show, win  # noqa: F401
 from app.tests.test_live import STIMULI, ldr_out
 from app.window import MainWindow
-from conftest import wait_for
+from conftest import wait_for, destroy
 
 TSTOP = 20e-3
 
@@ -95,6 +95,7 @@ def test_the_plot_grows_while_the_run_streams(win):
     w.stop_live(); finished(w)
 
 
+@pytest.mark.timing   # asserts sim time stands still across 400 ms of wall time
 def test_pause_holds_sim_time_and_resume_finishes_the_run(win):
     w = win
     start(w)
@@ -153,7 +154,7 @@ def test_closing_the_window_mid_run_leaves_no_worker_or_engine_running(qapp):
     assert run_document(d).ok                                     # the engine is free
     w2 = show(MainWindow()); w2._reset(ldr_doc()[0]); w2.run()
     assert w2.result.ok
-    w2.hide(); w2.close(); w2.deleteLater()
+    destroy(w2)
 
 
 def test_an_engine_error_mid_run_is_shown_like_a_batch_failure(win):
@@ -218,6 +219,7 @@ def test_replay_reruns_the_change_log_as_a_batch_run_that_matches(win):
     to_val, to_pos = slider_map(lo, hi, log)
     until_t(w, 4e-3)
     w.inspector.live_sliders["lux"].setValue(to_pos(300.0))
+    assert wait_for(lambda: len(w.live_result.changes) == 1)       # applied, so the next value cannot merge into its 50 ms flush
     until_t(w, 10e-3)
     w.inspector.live_sliders["lux"].setValue(to_pos(3.0))
     finished(w)
@@ -241,6 +243,7 @@ def test_apply_live_values_writes_the_final_values_as_one_undoable_edit(win):
     to_val, to_pos = slider_map(*CATALOG.get("LDR").param("lux").slider(10.0))
     until_t(w, 4e-3)
     w.inspector.live_sliders["lux"].setValue(to_pos(300.0))
+    assert wait_for(lambda: len(w.live_result.changes) == 1)       # applied, so the next value cannot merge into its 50 ms flush
     until_t(w, 10e-3)
     w.inspector.live_sliders["lux"].setValue(to_pos(1000.0))
     assert not w.a_apply_live.isEnabled()                         # not during the run
@@ -348,7 +351,7 @@ def test_a_dropped_windows_canvas_scene_is_deleted_on_the_gui_thread(qapp):
     for _ in range(3):
         w = show(MainWindow()); w._reset(ldr_doc()[0])
         w.canvas.sc.destroyed.connect(lambda *_: where.append(threading.current_thread().name), Qt.DirectConnection)
-        w.hide(); w.close(); w.deleteLater(); del w        # what the window fixture does
+        destroy(w); del w        # what the window fixture does
         t = threading.Thread(target=gc.collect, name="other"); t.start()
         while t.is_alive(): QTest.qWait(1)
         QTest.qWait(5)
