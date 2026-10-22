@@ -23,6 +23,14 @@ cd benchcore && maturin build && pip install --user --force-reinstall --break-sy
 
 `--break-system-packages` is for this machine only: its system Python is externally managed (PEP 668, `/usr/lib/python3.14/EXTERNALLY-MANAGED`), so pip refuses the install without it. A Python without that marker (a venv, CI) does not need it, which is why README.md omits it.
 
+## Subagent models
+
+Always set `model` explicitly when spawning subagents; never let them inherit Opus by default.
+
+- `haiku`: mechanical work (running tests/commands, timing, collecting output).
+- `sonnet`: analysis, audits, and implementation.
+- `opus`: only for hard debugging (e.g. a flake Sonnet failed to root-cause).
+
 ## Notes
 
 - Needs ngspice 47 + `libngspice.so`; `e09` needs OpenVAF via `OPENVAf` env.
