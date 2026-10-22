@@ -1,6 +1,7 @@
 """Live runs through app/sim.py (task 9.5a), real ngspice: which params are live (package data), LiveSession driven from
 a worker thread with controls from another, replay_document, refusal, recovery, pacing. Contract:
 docs/plans/ngspice-library/LIVE.md."""
+import gc
 import math
 import threading
 import time
@@ -40,22 +41,35 @@ def collect(s):
     return s.result
 
 
-class Worker:
+class _OffThread:
+    """Runs self.t with automatic gc off, the way the window does during a live run (73cb002): otherwise a collection
+    triggered on the worker could finalize Qt wrappers that earlier tests left as cyclic garbage, off the GUI thread.
+    Collect first (here, on the test thread) so none is pending when the worker starts."""
+    def _start(self):
+        gc.collect(); self._gc = gc.isenabled(); gc.disable()
+        self.t.start()
+
+    def _join(self):
+        self.t.join()
+        if self._gc: gc.enable()
+
+
+class Worker(_OffThread):
     """Iterate a session on a thread, as the UI will; on exit cancel and join, so a failing test never leaves a
     worker blocked in a paused run (which would hold the engine and hang the suite)."""
     def __init__(self, s):
         self.s, self.t = s, threading.Thread(target=collect, args=(s,))
 
     def __enter__(self):
-        self.t.start()
+        self._start()
         return self
 
     def __exit__(self, *exc):
         self.s.cancel()
-        self.t.join()
+        self._join()
 
 
-class Gated:
+class Gated(_OffThread):
     """Iterate a session on a thread that stops after chosen chunks until the test lets it go on, so the test thread
     can act (set_stimulus, cancel) at an exact point of the run instead of after a guessed sleep. Cross-thread, as the UI
     does it: the controls run on the test thread while the worker thread is between two chunks. Exit cancels and joins."""
@@ -69,7 +83,7 @@ class Gated:
                 self.at[n].set(); self.go.wait(); self.go.clear()
 
     def __enter__(self):
-        self.t.start()
+        self._start()
         return self
 
     def reach(self, n):
@@ -81,7 +95,7 @@ class Gated:
 
     def __exit__(self, *exc):
         self.s.cancel(); self.go.set()
-        self.t.join()
+        self._join()
 
 
 # ---------------------------------------------------------------- what is live (package data only)
