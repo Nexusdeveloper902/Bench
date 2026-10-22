@@ -2,6 +2,9 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"   # weekly stress
 
 permissions:
   contents: read
@@ -63,10 +66,7 @@ jobs:
           python-version: "3.14"
 
       - name: Python deps
-        run: pip install PySide6 matplotlib pytest maturin
-
-      - name: Rust tests
-        run: cd benchcore && cargo test
+        run: pip install PySide6 matplotlib pytest pytest-xdist maturin
 
       - name: Build and install benchcore wheel
         run: |
@@ -74,11 +74,12 @@ jobs:
           maturin build --release
           pip install --force-reinstall target/wheels/benchcore-*.whl
 
-      - name: benchcore Python tests
-        run: cd benchcore && python -m pytest -q tests/python
+      # Runs everything: cargo test + benchcore python + app suite (parallel, shuffled, then `timing` tests serially) + catalog.
+      # The shuffle seed and a repro command are printed in the log.
+      - name: Tests
+        run: scripts/test check
 
-      - name: App tests
-        run: python -m pytest -q app/tests
-
-      - name: Catalog check
-        run: python -m app.catalog
+      # Weekly / manual only: the same suites under varied conditions (probes, GIL interval, CPU contention). See docs/testing.md.
+      - name: Stress
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: scripts/test stress

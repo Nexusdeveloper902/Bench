@@ -7,6 +7,9 @@ PySide6 circuit editor (`app/`) over `benchcore` (Rust/PyO3 ngspice engine, buil
 
 ```bash
 python3 -m app                                                   # launch GUI
+scripts/test check                                               # EVERYTHING (app parallel+shuffled, timing, engine, catalog); needs pytest-xdist; see docs/testing.md
+scripts/test stress                                              # reliability matrix; run for live/threading/Qt-lifetime changes
+scripts/test check -- app/tests/test_canvas.py                   # focused loop only; never a substitute for `check`
 QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests         # app tests (headless)
 (cd benchcore && cargo test && python3 -m pytest -q tests/python)  # engine tests
 experiments/coupling-proto/scripts/run_all.sh                    # prototype e01–e11 -> experiments/coupling-proto/results/*.json
