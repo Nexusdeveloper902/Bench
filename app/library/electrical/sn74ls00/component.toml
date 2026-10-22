@@ -1,0 +1,148 @@
+format = 1
+id = "SN74LS00"
+version = 1
+name = "74LS00 quad 2-input NAND gate (TTL)"
+description = "Four independent 2-input NAND gates with TTL input thresholds and TTL output levels (14 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Logic gates"
+aliases = ["74LS00", "SN74LS00", "LS00"]
+keywords = ["SN74LS00", "LS00", "logic", "gate", "NAND"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "TTL levels: inputs switch between 1.2 V and 1.4 V above GND (guaranteed VIL 0.8 V, VIH 2.0 V) whatever the supply, outputs swing 0.25 V to 3.4 V at VCC = 5 V (scaled with the supply pins), 15 Ω output impedance in both states (the real output is asymmetric: 8 mA sink, 0.4 mA source).",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input."]
+docs = ["https://www.ti.com/lit/ds/symlink/sn74ls00.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "1A"
+at = [0, 40]
+description = "Gate 1 input A (pin 1)"
+
+[[pins]]
+id = "b1"
+name = "1B"
+at = [0, 60]
+description = "Gate 1 input B (pin 2)"
+
+[[pins]]
+id = "a2"
+name = "2A"
+at = [0, 80]
+description = "Gate 2 input A (pin 4)"
+
+[[pins]]
+id = "b2"
+name = "2B"
+at = [0, 100]
+description = "Gate 2 input B (pin 5)"
+
+[[pins]]
+id = "a3"
+name = "3A"
+at = [0, 120]
+description = "Gate 3 input A (pin 9)"
+
+[[pins]]
+id = "b3"
+name = "3B"
+at = [0, 140]
+description = "Gate 3 input B (pin 10)"
+
+[[pins]]
+id = "a4"
+name = "4A"
+at = [0, 160]
+description = "Gate 4 input A (pin 12)"
+
+[[pins]]
+id = "b4"
+name = "4B"
+at = [0, 180]
+description = "Gate 4 input B (pin 13)"
+
+[[pins]]
+id = "y1"
+name = "1Y"
+at = [120, 40]
+description = "Gate 1 output (pin 3)"
+
+[[pins]]
+id = "y2"
+name = "2Y"
+at = [120, 60]
+description = "Gate 2 output (pin 6)"
+
+[[pins]]
+id = "y3"
+name = "3Y"
+at = [120, 80]
+description = "Gate 3 output (pin 8)"
+
+[[pins]]
+id = "y4"
+name = "4Y"
+at = [120, 100]
+description = "Gate 4 output (pin 11)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [60, 0]
+description = "Positive supply (pin 14)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground (pin 7)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "15"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "10n"
+min = 0
+min_exclusive = true
+help = "Nominal delay of the gate itself; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {b1} {a2} {b2} {a3} {b3} {a4} {b4} {y1} {y2} {y3} {y4} {vcc} {gnd} bench_74ls00 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/gates.lib"]
+body = """
+.subckt bench_74ls00 a1 b1 a2 b2 a3 b3 a4 b4 y1 y2 y3 y4 vc gn params: ROUT=15 TPD=10n
+X1 vc gn a1 b1 y1 bench_d_nand2 LO=1.2 HI=1.4 RK=0 AK=1 VOLF=0.05 VOHF=0.68 ROUT={ROUT} TPD={TPD}
+X2 vc gn a2 b2 y2 bench_d_nand2 LO=1.2 HI=1.4 RK=0 AK=1 VOLF=0.05 VOHF=0.68 ROUT={ROUT} TPD={TPD}
+X3 vc gn a3 b3 y3 bench_d_nand2 LO=1.2 HI=1.4 RK=0 AK=1 VOLF=0.05 VOHF=0.68 ROUT={ROUT} TPD={TPD}
+X4 vc gn a4 b4 y4 bench_d_nand2 LO=1.2 HI=1.4 RK=0 AK=1 VOLF=0.05 VOHF=0.68 ROUT={ROUT} TPD={TPD}
+.ends bench_74ls00
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE d_nand2 behind bench_din/bench_dout bridges, pinout and levels from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/sn74ls00.pdf"
+version = "TI SDLS025D, revised May 2017"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VCC 4.75-5.25 V; VIH 2 V min, VIL 0.8 V max; VOH 3.4 V typ, VOL 0.25 V typ at 4 mA and 0.35 V at 8 mA; tpd 9 ns (low to high) and 10 ns (high to low) typ, CL = 15 pF."

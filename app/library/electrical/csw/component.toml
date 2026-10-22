@@ -1,0 +1,88 @@
+format = 1
+id = "CSW"
+version = 1
+name = "Current-controlled switch"
+description = "Switch between p and n, closed while the current from cp to cn exceeds IT + IH/2 and open below IT - IH/2 (ngspice W element, the control current is a sense source)."
+designator = "S"
+label = "I-SWITCH"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["current controlled switch", "relay-like switch"]
+keywords = ["switch", "current controlled", "threshold", "hysteresis", "subcircuit"]
+tags = ["control"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["The control branch is a 0 V sense source, so it does not change the circuit. Ideal threshold with hysteresis; no delay."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "P"
+at = [0, 20]
+
+[[pins]]
+id = "n"
+name = "N"
+at = [80, 20]
+
+[[pins]]
+id = "cp"
+name = "C+"
+at = [40, 0]
+
+[[pins]]
+id = "cn"
+name = "C-"
+at = [40, 60]
+
+[[params]]
+key = "it"
+label = "Threshold current"
+unit = "A"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ih"
+label = "Hysteresis current"
+unit = "A"
+default = "2m"
+min = 0
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p} {n} {cp} {cn} bench_csw IT={it} IH={ih} RON={ron} ROFF={roff}"
+body = """
+.subckt bench_csw p n cp cn params: IT=10m IH=2m RON=0.1 ROFF=1G
+VSENSE cp cn DC 0
+WSW p n VSENSE cswsw
+.model cswsw CSW(IT={IT} IH={IH} RON={RON} ROFF={ROFF})
+.ends bench_csw
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice CSW element with a 0 V sense source"
+license = "MIT"

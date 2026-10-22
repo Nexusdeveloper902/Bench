@@ -1,0 +1,8 @@
+* bench_bvd: Butterworth-Van Dyke equivalent of a resonator: motional series RLC (RM, LM, CM) in parallel with the static capacitance C0.
+* Used by crystals, ceramic resonators and piezo transducers. Values are set by each package (typical, not datasheet fits).
+.subckt bench_bvd a b params: LM=1m CM=1p RM=10 C0=1p
+R1 a n1 {RM}
+L1 n1 n2 {LM}
+C1 n2 b {CM}
+C2 a b {C0}
+.ends bench_bvd

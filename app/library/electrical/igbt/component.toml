@@ -1,0 +1,84 @@
+format = 1
+id = "IGBT"
+version = 1
+name = "IGBT"
+description = "Insulated-gate bipolar transistor as a VDMOS driving a PNP: about 1 V to 2.5 V when on, turns on above its gate threshold, with a turn-off current tail."
+designator = "Q"
+label = "IGBT"
+category = "Electrical"
+subcategory = "Thyristors and IGBT"
+aliases = ["insulated gate bipolar transistor"]
+keywords = ["IGBT", "insulated gate bipolar transistor", "power switch", "inverter", "motor drive"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent, not a device model: a three-node VDMOS driving a PNP. On-state voltage is about 0.9 V at 1 A, 1.3 V at 5 A and 2.6 V at 20 A with the defaults (the channel resistance falls as ISAT rises); saturation current at VGE = 15 V is set by ISAT. No co-packaged freewheel diode, no short-circuit withstand, no thermal behaviour, no Miller plateau fit.",
+               "The off-state blocks in both directions only up to the junction limits of the generic PNP (no breakdown voltage is modelled). Turn-off shows a current tail from the PNP's stored charge (500 ns); it is not fitted to a device.",
+               "The gate has no DC path, so drive it through a resistor or a voltage source."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[[params]]
+key = "VGETH"
+label = "Gate threshold"
+unit = "V"
+default = "5"
+min = 1
+max = 14
+
+[[params]]
+key = "ISAT"
+label = "Saturation current at 15 V"
+unit = "A"
+default = "120"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "RON"
+label = "On resistance"
+unit = "Ω"
+default = "30m"
+min = 0
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {c} {g} {e} bench_igbt VGETH={VGETH} ISAT={ISAT} RON={RON}"
+body = """
+.subckt bench_igbt c g e params: VGETH=5 ISAT=120 RON=30m
+* VDMOS (3-node) driving the base of a PNP: the MOSFET carries 1/(1+beta) of the current, the PNP the rest.
+* KP is chosen so the total current at VGE=15 V saturates at ISAT (beta = 10, so the MOSFET carries ISAT/11).
+.model igm VDMOS(Vto={VGETH} Kp={2*ISAT/11/((15-VGETH)**2)} Rd=20m Rs=0 Is=1e-30 Lambda=0)
+.model igq PNP(Is=1e-14 Bf=10 Br=0.1 Ikf=100 Rb=10m Tf=500n Tr=10n)
+RD c ce {RON}
+M1 b g e igm
+Q1 e b ce igq
+.ends bench_igbt
+"""
+model_kind = "equivalent"
+verification = "smoke"
+
+[sim.electrical.provenance]
+source = "Bench project; regenerative NPN/PNP pair (two-transistor SCR analogy), not a vendor model"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"

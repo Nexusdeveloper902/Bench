@@ -1,0 +1,61 @@
+format = 1
+id = "LED_COLOR"
+version = 1
+name = "LED (colour selectable)"
+description = "Light-emitting diode in six colours (infrared, red, yellow, green, blue, white) with a typical forward voltage for each: 1.25 V to 3.2 V at 20 mA."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["light emitting diode", "infrared LED", "IR LED", "white LED", "blue LED", "green LED"]
+keywords = ["LED", "light emitting diode", "indicator", "infrared", "IR", "colour", "white", "blue", "green", "red", "yellow"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic per-colour models, not a specific part: forward voltage at 20 mA is 1.25 V (IR), 1.95 V (red), 2.05 V (yellow), 2.15 V (green, GaP), 3.1 V (blue) and 3.2 V (white), with N, Rs and capacitance typical for each technology. Real parts vary by several tenths of a volt.",
+               "The green model is the GaP type (2.1 V); pure-green InGaN LEDs sit near 3 V, use the blue model for those.",
+               "Brightness on the canvas is a display mapping of the simulated current (the glow does not change colour). Luminous output, wavelength and thermal behaviour are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+indicator = "glow"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "color"
+label = "Colour"
+kind = "choice"
+choices = ["ir", "red", "yellow", "green", "blue", "white"]
+default = "red"
+
+[sim.electrical]
+device = "D"
+defs = ["models:semiconductors/led.lib"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.line]
+select = "color"
+ir = "{dev} {a} {k} bench_led_ir"
+red = "{dev} {a} {k} bench_led_red"
+yellow = "{dev} {a} {k} bench_led_yellow"
+green = "{dev} {a} {k} bench_led_green"
+blue = "{dev} {a} {k} bench_led_blue"
+white = "{dev} {a} {k} bench_led_white"
+
+[sim.electrical.provenance]
+source = "Bench project; one diode model per colour, forward voltage set to the typical range for each LED technology"
+license = "MIT"
+retrieved = "2026-10-11"

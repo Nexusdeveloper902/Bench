@@ -1,0 +1,93 @@
+format = 1
+id = "PRESSURE_BRIDGE"
+version = 1
+name = "Piezoresistive pressure bridge (linear)"
+description = "Ratiometric pressure sensor: the differential output is Vout = S·P·Vex, with S the sensitivity (V/V per bar), P the pressure and Vex the excitation. The pressure is a parameter."
+designator = "UP"
+label = "PRESSURE"
+category = "Sensors"
+subcategory = "Pressure"
+aliases = ["pressure sensor", "piezoresistive pressure sensor"]
+keywords = ["pressure", "bridge", "piezoresistive", "ratiometric", "sensor", "subcircuit"]
+tags = ["sensor", "pressure"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Linear equivalent: Vout = S·P·Vex with a generic sensitivity (2 mV/V per bar). Not a datasheet fit: no offset, no non-linearity, no hysteresis or temperature drift.",
+               "The input resistance (5 kΩ) and the output resistance (5 kΩ) are generic. The pressure is fixed during a batch run (a live run can change it)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vp"
+name = "Vex+"
+at = [0, 20]
+
+[[pins]]
+id = "vn"
+name = "Vex-"
+at = [0, 60]
+
+[[pins]]
+id = "op"
+name = "S+"
+at = [80, 20]
+
+[[pins]]
+id = "om"
+name = "S-"
+at = [80, 60]
+
+[[params]]
+key = "pres"
+label = "Pressure (bar)"
+default = "0"
+max = 10
+min = 0
+help = "Gauge pressure in bar"
+
+[[params]]
+key = "sens"
+label = "Sensitivity (V/V per bar)"
+default = "2m"
+min = 0
+min_exclusive = true
+help = "Generic value"
+
+[[params]]
+key = "rin"
+label = "Input resistance"
+unit = "Ω"
+default = "5k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rout"
+label = "Output resistance"
+unit = "Ω"
+default = "5k"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = ["pres"]
+device = "X"
+line = "{dev} {vp} {vn} {op} {om} bench_pbridge P={pres} SENS={sens} RIN={rin} ROUT={rout}"
+body = """
+.subckt bench_pbridge vp vn op om params: P=0 SENS=2m RIN=5k ROUT=5k
+VSTIM stim 0 DC {P}
+RSTIM stim 0 1G
+R1 vp vn {RIN}
+B1 n om V={SENS*V(stim)*V(vp,vn)}
+R2 op n {ROUT}
+.ends bench_pbridge
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; linear ratiometric bridge Vout = S·P·Vex, S generic"
+license = "MIT"

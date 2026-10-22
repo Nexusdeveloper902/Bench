@@ -1,0 +1,58 @@
+format = 1
+id = "BAT_AA"
+version = 1
+name = "AA alkaline cell, generic 1.5 V (approximate)"
+description = "Generic primary alkaline AA cell: a 1.5 V EMF behind about 0.2 Ω. Approximate: a fixed EMF and resistance, with no state of charge, discharge curve or ambient effects."
+designator = "BT"
+label = "AA"
+category = "Power"
+subcategory = "Batteries"
+aliases = ["AA battery", "alkaline", "LR6"]
+keywords = ["battery", "cell", "internal resistance", "source", "subcircuit"]
+tags = ["primary", "alkaline"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate Thevenin equivalent: a fixed EMF in series with a fixed internal resistance.",
+               "No state of charge, discharge curve, temperature, rate dependence, or cutoff. Values are generic, not from a datasheet."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [80, 15]
+
+[[params]]
+key = "voc"
+label = "EMF"
+unit = "V"
+default = "1.5"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rint"
+label = "Internal resistance"
+unit = "Ω"
+default = "0.2"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p} {n} bench_cell_thevenin VCELL={voc} RINT={rint}"
+defs = ["models:power/cell_thevenin.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic Thevenin cell model (EMF and internal resistance), approximate"
+license = "MIT"

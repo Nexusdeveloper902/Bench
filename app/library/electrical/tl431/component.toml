@@ -1,0 +1,55 @@
+format = 1
+id = "TL431"
+version = 1
+name = "TL431 adjustable shunt regulator"
+description = "Programmable shunt reference: the cathode sinks current until REF is 2.495 V above the anode. With a divider, VKA = 2.495 V x (1 + R1/R2) + IREF x R1, up to 36 V and 100 mA."
+designator = "U"
+category = "Electrical"
+subcategory = "Voltage references"
+aliases = ["TL431", "TL431A", "LM431", "shunt regulator"]
+keywords = ["reference", "shunt", "regulator", "TL431", "2.5 V", "programmable zener"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Vref follows the datasheet typicals: 2.495 V at 10 mA (VKA = Vref), -1.4 mV/V versus cathode voltage, 0.2 Ω dynamic impedance, 2 µA reference current; temperature drift is not modelled.",
+               "The minimum cathode current (0.4 mA) and the region where VKA is below Vref are not modelled: the output transistor regulates down to its own saturation.",
+               "The internal loop is fast and single-pole, so the datasheet's capacitive-load instability region (stability boundary curve) is not reproduced."]
+docs = ["https://www.ti.com/lit/ds/symlink/tl431.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "ref"
+name = "REF"
+at = [0, 40]
+description = "Reference input"
+
+[[pins]]
+id = "k"
+name = "K"
+at = [40, 0]
+description = "Cathode"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [40, 80]
+description = "Anode"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {k} {a} {ref} bench_shunt VREF0=2.4965 SLOPE=-1.4m ZK=0.2 IREF=2u"
+defs = ["models:analog/shunt_ref.lib"]
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_shunt (ideal reference, error amplifier, NPN output) with parameters fitted to the TL431 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/tl431.pdf"
+version = "TI SLVS543S, August 2004, revised May 2024 (section 6.5, TL431C)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals: Vref 2.495 V at VKA = Vref, IKA = 10 mA; dVref/dVKA -1.4 mV/V; Iref 2 uA; |ZKA| 0.2 ohm (1-100 mA). VREF0 = 2.495 + 1.4 mV/V x 2.495 V - 0.2 ohm x 10 mA = 2.4965 V."

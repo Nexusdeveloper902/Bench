@@ -1,0 +1,67 @@
+format = 1
+id = "MOV"
+version = 1
+name = "Varistor (MOV, approximate)"
+description = "Metal-oxide varistor as a symmetric power law: I = IK * (V / VC)^ALPHA, sign of V. Approximate clamp; IK is the current at the clamping voltage VC."
+designator = "RV"
+label = "MOV"
+category = "Electrical"
+subcategory = "Protection"
+aliases = ["MOV", "varistor", "surge arrester"]
+keywords = ["varistor", "MOV", "surge", "clamp", "transient", "protection", "subcircuit"]
+tags = ["protection"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate: a static power law. No energy rating, ageing, capacitance, temperature or leakage model.",
+               "Generic values; the clamp voltage is a parameter, not a part number."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 20]
+
+[[pins]]
+id = "b"
+at = [80, 20]
+
+[[params]]
+key = "vc"
+label = "Clamping voltage"
+unit = "V"
+default = "30"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ik"
+label = "Current at clamping voltage"
+unit = "A"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "alpha"
+label = "Nonlinearity (exponent)"
+default = "20"
+min = 1
+help = "Typical varistors are about 20 to 40; larger is sharper"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_mov VC={vc} IK={ik} ALPHA={alpha}"
+body = """
+.subckt bench_mov a b params: VC=30 IK=1m ALPHA=20
+BMOV a b I = {IK*sgn(V(a,b))*pow(abs(V(a,b))/VC,ALPHA)}
+.ends bench_mov
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; symmetric power-law varistor, approximate"
+license = "MIT"

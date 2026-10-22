@@ -129,15 +129,19 @@ def test_1_esp32_is_listed_under_microcontrollers(win):
 def test_2_search_and_category_filter_through_the_ui(win):
     lib = win.library
     type_search(win, "diode")
-    assert set(ids(win)) == {"D", "D_1N4148", "LED"}
+    shown = set(ids(win))                                       # the originals plus the batch B and E diodes (PHOTODIODE is a Sensor)
+    assert {"D", "D_1N4148", "LED", "ZENER", "D_1N5819", "PHOTODIODE"} <= shown
+    assert all(CATALOG.get(i).category == "Electrical" for i in shown - {"PHOTODIODE"})
     click_widget(lib.navs["Electrical"])                       # the category narrows the same query
-    assert set(ids(win)) == {"D", "D_1N4148", "LED"} and lib.navs["Electrical"].property("selected")
-    click_widget(lib.navs["Sensors"])                          # no sensor matches "diode": empty state says why
-    assert ids(win) == [] and lib.empty.isVisible() and "diode" in lib.empty_title.text()
-    type_search(win, "temperature")                            # the sensor is found inside its category
-    assert ids(win) == ["DHT22"]
+    assert set(ids(win)) == shown - {"PHOTODIODE"} and lib.navs["Electrical"].property("selected")
+    click_widget(lib.navs["Sensors"])                          # the one sensor that matches "diode" is the photodiode
+    assert ids(win) == ["PHOTODIODE"]
+    type_search(win, "motor")                                  # no sensor matches "motor": empty state says why
+    assert ids(win) == [] and lib.empty.isVisible() and "motor" in lib.empty_title.text()
+    type_search(win, "temperature")                            # the sensors are found inside their category
+    assert {"DHT22", "NTC_THERMISTOR", "RTD_PT100", "LM35"} <= set(ids(win)) and all(CATALOG.get(i).category == "Sensors" for i in ids(win))
     click_widget(lib.navs[None])                               # All: still the same query
-    assert ids(win) == ["DHT22"] and lib.navs[None].property("selected")
+    assert {"DHT22", "NTC_THERMISTOR", "RTD_PT100", "LM35"} <= set(ids(win)) and lib.navs[None].property("selected")
     type_search(win, "esp")                                    # alias-free name search across categories
     assert ids(win) == [ESP]
     type_search(win, "zzz")
@@ -341,7 +345,7 @@ def test_m17_sine_amplitude_is_one_volt(win):
     place(w, "V", 40, 100); place(w, "R", 180, 60); place(w, "GND", 440, 220)
     select(w, "V1")
     w.inspector.edits["mode"].setCurrentText("SIN"); QApplication.processEvents()
-    assert list(w.inspector.edits) == ["mode", "vo", "va", "freq"]
+    assert list(w.inspector.edits) == ["mode", "vo", "va", "freq", "ac", "acphase"]   # + the AC stimulus (G17)
     set_param(w, "V1", "Amplitude", "1")
     set_param(w, "V1", "Frequency", "1k")
     for a, b in (("V1.p", "R1.a"), ("R1.b", "GND1.g"), ("V1.n", "GND1.g")): wire(w, a, b)

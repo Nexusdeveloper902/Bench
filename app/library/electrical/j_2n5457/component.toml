@@ -1,0 +1,54 @@
+format = 1
+id = "J_2N5457"
+version = 1
+name = "2N5457 N-channel JFET"
+description = "General-purpose N-channel JFET amplifier/switch: IDSS about 3 mA, pinch-off about -2 V, gfs about 3 mS."
+designator = "Q"
+category = "Electrical"
+subcategory = "JFETs"
+aliases = ["2N5457", "MMBF5457"]
+keywords = ["jfet", "fet", "n-channel", "2N5457", "general purpose", "amplifier", "switch"]
+tags = ["JFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Fairchild datasheet typical values, not a vendor SPICE model: IDSS 3.0 mA at VDS = 15 V, Vto -2 V, gfs 3.0 mS at VGS = 0, Cgs 3 pF, Cgd 1.5 pF. Real parts vary: IDSS spans 1 to 5 mA and pinch-off -0.5 to -6 V.",
+               "The 2N5458 and 2N5459 grades have higher IDSS; use their datasheet values in a different model if you need them.",
+               "Level-1 (Shichman-Hodges) JFET: drain current Beta (VGS - Vto)^2 (1 + Lambda VDS). Lambda = 0.01 /V is an assumption (the datasheet gives no output conductance).",
+               "The gate must have a DC path to a defined voltage (the gate is a junction, not insulated). Gate leakage, noise and temperature dependence are not modelled."]
+docs = ["https://people.ece.cornell.edu/land/courses/ece4760/FinalProjects/s2012/ads264_mws228/Final%20Report/Final%20Report/2N54597%20N-Channel%20JFET.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "J"
+line = "{dev} {d} {g} {s} j2n5457"
+models = [".model j2n5457 NJF(Vto=-2 Beta=652u Lambda=0.01 Cgs=3p Cgd=1.5p)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; JFET parameter set fitted to the Fairchild datasheet values"
+url = "https://people.ece.cornell.edu/land/courses/ece4760/FinalProjects/s2012/ads264_mws228/Final%20Report/Final%20Report/2N54597%20N-Channel%20JFET.pdf"
+version = "Fairchild 2N5457/5458/5459 datasheet, Rev. G (copy hosted at Cornell)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: IDSS 1.0-5.0 mA, typ 3.0 mA (VDS=15 V, VGS=0); VGS(off) -0.5 to -6.0 V (ID=10 nA); |yfs| 1.0-5.0 mS, typ 3.0 mS (1 kHz); Ciss 4.5 pF typ, Crss 1.5 pF typ."

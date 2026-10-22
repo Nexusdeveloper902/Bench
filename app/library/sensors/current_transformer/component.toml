@@ -1,0 +1,83 @@
+format = 1
+id = "CURRENT_TRANSFORMER"
+version = 1
+name = "Current transformer with burden"
+description = "AC current transformer: the secondary carries Ip/N into a burden resistor, so the output voltage is Ip·RB/N. Valid above the frequency where the magnetising inductance is large against the burden. The turns ratio is a parameter."
+designator = "TC"
+label = "CT"
+category = "Sensors"
+subcategory = "Current sensing"
+aliases = ["CT", "AC current sensor"]
+keywords = ["current", "transformer", "burden", "turns ratio", "AC", "sense", "subcircuit"]
+tags = ["sensor", "magnetic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal coupling (K = 0.999) with a magnetising inductance. Accurate only where the magnetising reactance is much larger than the burden; there is no DC response (the primary is a short at DC).",
+               "No core saturation, hysteresis, phase error or burden-dependent ratio error; the output is the voltage across the burden only."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p1"
+name = "P1"
+at = [0, 15]
+
+[[pins]]
+id = "p2"
+name = "P2"
+at = [0, 45]
+
+[[pins]]
+id = "o1"
+name = "OUT+"
+at = [80, 15]
+
+[[pins]]
+id = "o2"
+name = "OUT-"
+at = [80, 45]
+
+[[params]]
+key = "n"
+label = "Turns ratio Ns/Np"
+default = "100"
+min = 0
+min_exclusive = true
+help = "The secondary carries Ip/N"
+
+[[params]]
+key = "lm"
+label = "Primary inductance"
+unit = "H"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rb"
+label = "Burden resistance"
+unit = "Ω"
+default = "10"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p1} {p2} {o1} {o2} bench_ct N={n} LM={lm} RB={rb}"
+body = """
+.subckt bench_ct p1 p2 o1 o2 params: N=100 LM=1 RB=10
+LP p1 p2 {LM}
+LS o1 o2 {LM*N*N}
+RB o1 o2 {RB}
+KCT LP LS 0.999
+.ends bench_ct
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ideal-coupling current transformer, Vout = Ip·RB/N above the magnetising corner"
+license = "MIT"

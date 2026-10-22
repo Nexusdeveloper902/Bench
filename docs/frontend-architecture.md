@@ -118,7 +118,10 @@ Only modal dialogs are monkeypatched.
 - Rotated two-terminal parts have pins off the 20 px grid (centre-based rotation); wiring is pin-to-pin so this
   does not affect connectivity.
 - One plot, one signal at a time (no overlay); no zoom beyond matplotlib defaults.
-- Runs are synchronous on the GUI thread; no cancel/pause.
+- Batch runs are synchronous on the GUI thread; no cancel/pause. Live runs (Live, F6) run on a worker thread with
+  pause/resume, stop and sliders: `docs/plans/ngspice-library/HANDOFF.md` "Task 9.5b". The "Live for" field before
+  the Live button sets their duration (a time, "Stop time" = the batch stop time, or "Indefinite" = until Stop);
+  past the stop time the plot scrolls over the last stop time of the run, and only that window is kept ("Task 9.7").
 - Stop time / time step are not part of undo history.
 - The scene is a fixed 1000 x 700 area (scrollable).
 - No pause/stop: the core is synchronous, so a running simulation cannot be interrupted. To bound it, a run is

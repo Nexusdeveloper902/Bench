@@ -4,22 +4,27 @@ The window composes the top bar (file actions, undo/redo, run settings, Run / Re
 library panel, the canvas (app.canvas), the inspector, the results dock (app.results) and the status bar. Everything
 per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the app.catalog
 Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
+import gc
+import math
 import os
 import traceback
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import QEvent, Qt, QSize, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter, QPixmap
-from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
+from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
                                QMessageBox, QPushButton, QSizePolicy, QSplitter, QToolButton, QVBoxLayout, QWidget)
-from .model import Document, ModelError, RUN_PARAMS, led_level, value_at
+from .model import Document, ModelError, LIVE_INDEFINITE, LIVE_STOP_TIME, RUN_PARAMS, led_level, value_at
 from .catalog import CATALOG
 from .components import format_si
-from .sim import run_document, RunResult
+from .sim import run_document, RunResult, LiveSession, live_params, trim
 from .history import History
 from .canvas import Canvas, pin_pos, wire_pts, part_rect   # re-exported: tests and scripts import them from here
 from .inspector import Inspector
 from .library import LibraryPanel
-from .results import ProblemsPanel, ResultsPanel, banner
+from .results import FIT_SECONDS, LIVE_FOR, ProblemsPanel, ResultsPanel, banner
 from . import theme, widgets as W
+
+AC_FIELDS = ("points", "fstart", "fstop")   # AC sweep text fields (G17); the sweep kind is a combo
+LIVE_AC = "Live runs are transient only: switch the analysis to Transient to run live."
 
 
 def logo_pixmap(px=28):
@@ -29,6 +34,21 @@ def logo_pixmap(px=28):
     p.drawRoundedRect(0, 0, px, px, theme.R_MD, theme.R_MD)
     p.drawPixmap((px - 20) // 2, (px - 20) // 2, W.svg_pixmap("pulse", theme.ON_PRIMARY, 20)); p.end()
     return pm
+
+
+class LiveWorker(QThread):
+    """Iterates one LiveSession off the Qt thread (LIVE.md threading rule 1). Each chunk reaches the window as a queued
+    signal; QThread.finished follows the last one. Core errors end the iteration inside the session (never raise)."""
+    chunk = Signal(object)
+
+    def __init__(self, session):
+        super().__init__(); self.session, self.error = session, None
+
+    def run(self):
+        try:
+            for c in self.session: self.chunk.emit(c)
+        except Exception:   # an app bug: shown as a failed run, never hidden
+            self.error = traceback.format_exc()
 
 
 # ---------------------------------------------------------------- main window
@@ -43,6 +63,19 @@ class MainWindow(QMainWindow):
         self.state = "idle"     # idle | running | completed | failed | blocked (no pause: the core runs synchronously)
         self.invalid = {}       # run-setting key -> message, for the fields that do not parse
         self.autoplay = False   # start looping after a Run of a time-varying source
+        # live run (task 9.5b): the session and its worker exist from start until the worker has finished
+        self.session, self.worker, self.paused, self.last_session, self.live_result = None, None, False, None, None
+        self.live_vals, self.live_pending, self.live_t, self.live_rtf = {}, {}, 0.0, 0.0
+        self.live_invalid = None   # why the live duration field does not parse (blocks Live only, not Run)
+        self.live_flush = QTimer(self); self.live_flush.setSingleShot(True); self.live_flush.setInterval(50)
+        self.live_flush.timeout.connect(self._live_flush)      # slider drags: at most one change per part per 50 ms
+        self.live_redraw = QTimer(self); self.live_redraw.setSingleShot(True); self.live_redraw.setInterval(50)
+        self.live_redraw.timeout.connect(self._live_redraw)    # chunks: at most one plot redraw per 50 ms
+        # While the worker runs, Python's cyclic gc runs only here, on the GUI thread: gc triggered on the worker thread
+        # would finalize Qt wrappers there, and PySide deletes Python-owned non-widget QObjects on the collecting
+        # thread (probed), racing the GUI thread's event delivery (segfault in notify_helper).
+        self.gc_timer, self.gc_ticks = QTimer(self), 0
+        self.gc_timer.setInterval(200); self.gc_timer.timeout.connect(self._collect)
         self.hist = History()
         self.clean = self.doc.to_dict()
         self.canvas = Canvas(self)
@@ -64,9 +97,18 @@ class MainWindow(QMainWindow):
         self.a_redo = act("Redo", self.redo, "Ctrl+Shift+Z", "Ctrl+Y", tip="Redo (Ctrl+Y)", icon="redo")
         self.a_rotate = act("Rotate", self.rotate_selected, "R", tip="Rotate the selected part 90° (R)")
         self.a_delete = act("Delete", self.delete_selected, tip="Delete the selected part or wire (Del)")
-        self.a_run = act("Run", self.run, "F5", tip="Run the transient simulation (F5)")
+        self.a_run = act("Run", self.run, "F5", tip="Run the simulation: the transient, or the AC sweep (F5)")
         self.a_rerun = act("Re-run", self.rerun, "Ctrl+F5", tip="Clear results and run again (Ctrl+F5)")
         self.a_reset = act("Reset", self.reset, tip="Clear the results (the circuit is kept)")
+        self.a_live = act("Live", self.live, "F6", tip="Live run (F6): the transient runs while you move sliders on "
+                          "sensors, pots, switches and sources; F6 again stops it")
+        self.a_pause = act("Pause live run", self.pause_live, "F7", tip="Pause or resume the live run (F7)")
+        self.a_apply_live = act("Apply live values", self.apply_live, tip="Write the last live run's final slider "
+                                "values into the circuit (one undo step)")
+        self.a_gear = act("Gear integration", self.set_gear, tip="Integrate with Gear instead of the trapezoidal rule: "
+                          "damps the alternating-sample ringing sharp edges excite on high-Q nodes (crystals, LC tanks), "
+                          "and real high-Q ringing slightly too")
+        self.a_gear.setCheckable(True)
         self.a_zoom_in = act("Zoom in", lambda: self.canvas.zoom_by(1.25), "Ctrl+=", "Ctrl++")
         self.a_zoom_out = act("Zoom out", lambda: self.canvas.zoom_by(1 / 1.25), "Ctrl+-")
         self.a_fit = act("Fit all parts", self.canvas.fit, "Ctrl+0")
@@ -78,6 +120,7 @@ class MainWindow(QMainWindow):
         self.inspector.param_edited.connect(self.edit_param)
         self.inspector.plot_requested.connect(self.probe_pin)
         self.inspector.delete_requested.connect(self.delete_selected)
+        self.inspector.live_edited.connect(self.live_set)
         # results dock: waveform viewer | Problems
         self.results, self.problems_panel = ResultsPanel(), ProblemsPanel()
         self.problems_panel.part_clicked.connect(self.select)
@@ -86,6 +129,14 @@ class MainWindow(QMainWindow):
                   "slider", "plotw", "fig", "ax", "timer"):
             setattr(self, n, getattr(self.results, n))      # the viewer's widgets, reachable from the window
         self.problems, self.problems_lbl = self.problems_panel.list, self.problems_panel.title
+        self.pace = self.results.pace
+        self.results.live_pause.clicked.connect(self.pause_live)
+        self.results.live_stop.clicked.connect(self.stop_live)
+        self.results.live_replay.clicked.connect(self.replay_live)
+        self.live_apply = QPushButton(self.a_apply_live.text()); self.live_apply.setProperty("link", True)   # G39
+        self.live_apply.setCursor(Qt.PointingHandCursor); self.live_apply.setToolTip(self.a_apply_live.toolTip())
+        self.live_apply.clicked.connect(self.apply_live)
+        self.results.ok_banner.layout().addWidget(self.live_apply, 0, Qt.AlignVCenter)   # beside Replay (parented)
         dock = QWidget(); dock.setObjectName("results"); dock.setFixedHeight(theme.DOCK_H)
         dl = QHBoxLayout(dock); dl.setContentsMargins(0, 0, 0, 0); dl.setSpacing(0)
         sep = QFrame(); sep.setObjectName("vsep")
@@ -118,7 +169,7 @@ class MainWindow(QMainWindow):
 
     # --- top bar ---
     def _topbar(self):
-        bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
+        self.bar = bar = QFrame(); bar.setObjectName("topbar"); bar.setFixedHeight(theme.TOPBAR_H)
         bar.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)   # narrow windows compact it (see resizeEvent)
         lay = QHBoxLayout(bar); lay.setContentsMargins(16, 0, 16, 0); lay.setSpacing(8)
         app = QToolButton(); app.setObjectName("appbtn"); app.setText(" Bench"); W.themed(app, lambda: app.setIcon(QPixmap(logo_pixmap())))
@@ -127,11 +178,12 @@ class MainWindow(QMainWindow):
         menu = QMenu(app)
         for title, acts in (("File", (self.a_new, self.a_open, self.a_save, self.a_saveas, None, self.a_led, self.a_blink)),
                             ("Edit", (self.a_undo, self.a_redo, self.a_rotate, self.a_delete)),
-                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset)),
+                            ("Simulation", (self.a_run, self.a_rerun, self.a_reset, None, self.a_live, self.a_pause,
+                                            self.a_apply_live, None, self.a_gear)),
                             ("View", (self.a_zoom_in, self.a_zoom_out, self.a_fit, None, self.a_dark))):
             sub = menu.addMenu(title)
             for a in acts: sub.addSeparator() if a is None else sub.addAction(a)
-        app.setMenu(menu); self.app_menu = menu
+        app.setMenu(menu); self.app_menu, self.app_btn = menu, app
         lay.addWidget(app); lay.addSpacing(8)
 
         def ibtn(a):
@@ -144,17 +196,49 @@ class MainWindow(QMainWindow):
         self.file_lbl = W.label("", "filename"); self.file_lbl.setTextFormat(Qt.RichText)
         self.file_lbl.setMinimumWidth(40); self.file_lbl.setMaximumWidth(260)
         lay.addWidget(self.file_lbl, 1); lay.addSpacing(8)
-        self.analysis = W.label("Transient", "chipbox"); self.analysis.setFixedHeight(28)   # the only analysis the core supports
-        self.analysis.setToolTip("Analysis type. The simulation core supports transient analysis only.")
+        # analysis (saved with the circuit): Transient, or AC (small-signal sweep, Bode result; G17)
+        self.analysis = QComboBox(); self.analysis.setObjectName("topcombo"); self.analysis.addItems(["Transient", "AC"])
+        self.analysis.setToolTip("Analysis: Transient (signals over time) or AC (small-signal frequency response of every "
+                                 "node: a Bode plot; give a source an AC magnitude)")
+        self.analysis.activated.connect(self.set_analysis)
         lay.addWidget(self.analysis)
         self.tstop, self.tstep = QLineEdit(), QLineEdit()
+        self.ac_points, self.ac_fstart, self.ac_fstop = QLineEdit(), QLineEdit(), QLineEdit()
+        self.ac_sweep = QComboBox(); self.ac_sweep.setObjectName("topcombo"); self.ac_sweep.addItems(["dec", "oct", "lin"])
+        self.ac_sweep.setProperty("short", True)   # three-letter items: a narrower combo (theme.py)
+        self.ac_sweep.setToolTip("AC sweep: points per decade (dec) or per octave (oct) on a log scale, or lin: points in total")
+        self.ac_sweep.activated.connect(self.ac_changed)
         self.field_labels = []
-        for lab, ed, tip in (("Stop time", self.tstop, "Simulated time span, e.g. 5m = 5 ms"),
-                             ("Time step", self.tstep, "Maximum solver step / output resolution, e.g. 10u = 10 µs")):
-            ed.setObjectName("topfield"); ed.setFixedSize(84, 28); ed.setProperty("help", tip); ed.setToolTip(tip)
-            ed.textEdited.connect(self.cfg_changed); ed.editingFinished.connect(self.cfg_changed)
-            fl = W.label(lab, "fieldlabel"); self.field_labels.append(fl)
-            lay.addWidget(fl); lay.addWidget(ed)
+        self.tran_box, self.ac_box = QWidget(), QWidget()   # the run settings of each analysis; one is shown
+        for box, fields, slot in (
+                (self.tran_box, (("Stop time", self.tstop, "Simulated time span, e.g. 5m = 5 ms"),
+                                 ("Time step", self.tstep, "Maximum solver step / output resolution, e.g. 10u = 10 µs")),
+                 self.cfg_changed),
+                (self.ac_box, (("Points", self.ac_points, "Points per decade (dec), per octave (oct) or in total (lin)"),
+                               ("From", self.ac_fstart, "Start frequency, e.g. 10 = 10 Hz"),
+                               ("To", self.ac_fstop, "Stop frequency, e.g. 1M = 1 MHz")), self.ac_changed)):
+            bl = QHBoxLayout(box); bl.setContentsMargins(0, 0, 0, 0); bl.setSpacing(8)
+            if box is self.ac_box: bl.addWidget(self.ac_sweep)
+            for lab, ed, tip in fields:
+                ed.setObjectName("topfield"); ed.setFixedHeight(28)   # widths: theme.py (#topfield, compact)
+                ed.setProperty("help", tip); ed.setToolTip(tip)
+                ed.textEdited.connect(slot); ed.editingFinished.connect(slot)
+                fl = W.label(lab, "fieldlabel"); self.field_labels.append(fl)
+                bl.addWidget(fl); bl.addWidget(ed)
+            lay.addWidget(box)
+        # live-run duration (task 9.7; saved with the circuit): a time, "Stop time" or "Indefinite"
+        self.live_for = QComboBox(); self.live_for.setObjectName("topcombo"); self.live_for.setEditable(True)
+        self.live_for.setInsertPolicy(QComboBox.NoInsert); self.live_for.addItems(LIVE_FOR)
+        self.live_for.setProperty("help", "Live run duration, in simulated time: type a time (e.g. 2, 500m), or pick "
+                                  "Stop time (the batch stop time) or Indefinite (until you press Stop; the plot then "
+                                  "scrolls over the last stop time of the run)")
+        self.live_for.setToolTip(self.live_for.property("help"))
+        self.live_for.lineEdit().textEdited.connect(self.live_for_changed)
+        self.live_for.lineEdit().editingFinished.connect(self.live_for_changed)
+        self.live_for.activated.connect(self.live_for_changed)
+        for sig in (self.live_for.lineEdit().editingFinished, self.live_for.activated):   # show the start of the text
+            sig.connect(lambda *_: self.live_for.lineEdit().setCursorPosition(0))
+        self.live_for_lbl = W.label("Live for", "fieldlabel"); self.field_labels.append(self.live_for_lbl)
         lay.addSpacing(8)
         self.b_run, self.b_rerun, self.b_reset = (QPushButton(t) for t in ("Run", "Re-run", "Reset"))
         for b, a, prim in ((self.b_run, self.a_run, True), (self.b_rerun, self.a_rerun, True), (self.b_reset, self.a_reset, False)):
@@ -163,26 +247,56 @@ class MainWindow(QMainWindow):
             if prim:
                 W.set_icon(b, "play", "ON_PRIMARY", 16); b.setIconSize(QSize(16, 16))
             lay.addWidget(b)
+        self.b_live = QPushButton("Live"); self.b_live.setObjectName("simbtn"); self.b_live.setProperty("primary", False)
+        self.b_live.setFixedSize(96, 32); self.b_live.setToolTip(self.a_live.toolTip()); self.b_live.clicked.connect(self.live)
+        W.set_icon(self.b_live, "pulse", "TEXT_2", 16); self.b_live.setIconSize(QSize(16, 16))
+        self.live_box = QWidget(); lb = QHBoxLayout(self.live_box); lb.setContentsMargins(0, 0, 0, 0); lb.setSpacing(8)
+        lb.addWidget(self.live_for_lbl); lb.addWidget(self.live_for)   # hidden for AC: live runs are transient only
+        lay.addSpacing(4); lay.addWidget(self.live_box)   # read with Live: "Indefinite | Live"
+        lay.addWidget(self.b_live)
         self.state_lbl = W.StateBadge(); lay.addWidget(self.state_lbl)
-        lay.addWidget(W.vline(24))
+        self.dark_sep = W.vline(24); lay.addWidget(self.dark_sep)
         db = QToolButton(); db.setObjectName("iconbtn"); db.setDefaultAction(self.a_dark); db.setToolButtonStyle(Qt.ToolButtonIconOnly)
-        db.setIconSize(QSize(18, 18)); db.setFixedSize(32, 32); lay.addWidget(db)   # visible toggle; also under menu > View
+        db.setIconSize(QSize(18, 18)); db.setFixedSize(32, 32); lay.addWidget(db); self.dark_btn = db   # visible toggle; also under menu > View
         return bar
 
     def _sync_controls(self):
         """Enable and label the run controls per the Run / Re-run / Reset table (design R2) and show the notice."""
-        s, running = self.state, self.state == "running"
+        s, live = self.state, self.session is not None
+        running = s == "running" or live          # batch Run, Re-run, Reset and the run settings wait for a live run
         stale = self.stale and self.result is None and s == "idle"
-        valid = not self.invalid
-        run = valid and s == "idle" and not stale
-        rerun = valid and (s in ("completed", "failed") or stale)
-        reset = valid and (s in ("completed", "failed") or stale)
+        ac = self.doc.analysis == "ac"
+        invalid = self._invalid()
+        valid = not invalid
+        run = valid and s == "idle" and not stale and not live
+        rerun = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
+        reset = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         for b, on in ((self.b_run, run), (self.b_rerun, rerun), (self.b_reset, reset)): b.setEnabled(on)
-        for w in (self.tstop, self.tstep, *self.field_labels): w.setEnabled(not running)
+        for w in (self.tstop, self.tstep, self.live_for, *self.field_labels, self.a_gear, self.analysis, self.ac_sweep,
+                  self.ac_points, self.ac_fstart, self.ac_fstop): w.setEnabled(not running)
+        self.analysis.setCurrentIndex(int(ac)); self.ac_sweep.setCurrentText(self.doc.ac["sweep"])
+        # AC: live runs are transient only, so the live controls leave the bar (F6 says why); one setting set is shown
+        self.tran_box.setVisible(not ac); self.ac_box.setVisible(ac); self.live_box.setVisible(not ac)
+        self.b_live.setVisible(not ac or live)
+        self.a_gear.setChecked(self.doc.method == "gear")
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
-        self.a_reset.setEnabled(self.result is not None or stale)
-        msg = next(iter(self.invalid.values()), None)
+        self.b_live.setText("Stop" if live else "Live")
+        self.b_live.setEnabled(live or (valid and not self.live_invalid and s != "running" and not ac))
+        self.b_live.setToolTip(LIVE_AC if ac and not live else self.a_live.toolTip())
+        W.set_icon(self.b_live, "stop" if live else "pulse", "TEXT_2", 16); self.a_live.setEnabled(s != "running")
+        self.a_pause.setEnabled(live); self.a_pause.setText("Resume live run" if self.paused else "Pause live run")
+        r = self.results
+        r.pace.setEnabled(not live)
+        r.live_row.setVisible(live); r.ok_banner.setVisible(not live)
+        r.live_pause.setText("Resume" if self.paused else "Pause")
+        W.set_icon(r.live_pause, "play" if self.paused else "pause", "TEXT_2", 14)
+        res = self.result   # a finished live run with changes can be replayed as a batch run
+        after = not live and res is not None and res is self.live_result and bool(res.changes) \
+            and self.last_session is not None
+        r.live_replay.setVisible(after); self.live_apply.setVisible(after); self.a_apply_live.setEnabled(after)
+        self.a_reset.setEnabled((self.result is not None or stale) and not live)
+        msg = next(iter(invalid.values()), None)
         # A failed/blocked run is shown in the results area only (design: results-running-blocked): a banner floating over
         # the canvas covered part badges (t9-blocked.png).
         notice = ("err", msg) if msg else ("warn", "Results out of date. Re-run to refresh.") if stale else None
@@ -194,13 +308,41 @@ class MainWindow(QMainWindow):
             self.notice.move(c + 12, theme.TOPBAR_H + 8)
             self.notice.raise_()
         self.notice.setVisible(bool(notice))
+        self._fit_topbar()   # last: the texts and icons set above change the bar's natural width
+
+    def _invalid(self):
+        """The run-setting errors of the current analysis (the other analysis' fields are hidden and unused)."""
+        keys = AC_FIELDS if self.doc.analysis == "ac" else ("tstop", "tstep")
+        return {k: v for k, v in self.invalid.items() if k in keys}
+
+    def _fit_topbar(self):
+        """G41 with the analysis picker always shown (G17): drop top-bar detail until the bar's natural width fits the
+        window, in this order: the full width of fields and buttons, the menu button's text, the field labels and dark
+        toggle, the run-state text (dot only) and file name. Measured from the bar's own size hint, so it holds for any
+        font (fixed pixel thresholds measured with one font overflowed on CI's)."""
+        lay = self.bar.layout()
+        lays = [lay, *(c.layout() for c in self.bar.findChildren(QWidget) if c.layout())]   # the boxes inside the bar
+        for level in range(5):
+            self._topbar_detail(dot=level > 3, narrow=level > 2, icon=level > 1, compact=level > 0)
+            # the restyled fields reach their boxes' layouts through posted layout requests: deliver them now
+            QApplication.sendPostedEvents(None, QEvent.Type.LayoutRequest)
+            for l in lays: l.invalidate()
+            if lay.sizeHint().width() <= self.width(): break
+
+    def _topbar_detail(self, dot, narrow, icon, compact):   # compact: narrower fields, buttons
+        for fl in self.field_labels: fl.setHidden(narrow)   # the fields keep their tooltips
+        self.live_for_lbl.setHidden(compact)   # the live-duration field keeps its tooltip
+        self.dark_btn.setHidden(narrow); self.dark_sep.setHidden(narrow)   # also View > Dark mode
+        self.file_lbl.setMinimumWidth(24 if narrow else 40); self.file_lbl.setHidden(dot)   # the window title keeps it
+        # the live-duration field keeps its width (it shows "Indefinite" whole); the menu keeps its tooltip
+        self.app_btn.setToolButtonStyle(Qt.ToolButtonIconOnly if icon else Qt.ToolButtonTextBesideIcon)
+        if dot != self.state_lbl.compact: self.state_lbl.set_state(self.state_lbl.key, dot)
+        if compact != bool(self.tstop.property("compact")):
+            for x in (self.tstop, self.tstep, self.ac_points, self.ac_fstart, self.ac_fstop, self.b_run, self.b_rerun,
+                      self.b_reset, self.b_live):
+                x.setProperty("compact", compact); theme.repolish(x)
 
     def resizeEvent(self, e):
-        compact = self.width() < 1240   # below the full top bar's width: no analysis chip, narrower fields and buttons
-        if compact != self.analysis.isHidden():
-            self.analysis.setHidden(compact)
-            for x in (self.tstop, self.tstep, self.b_run, self.b_rerun, self.b_reset):
-                x.setProperty("compact", compact); theme.repolish(x)
         super().resizeEvent(e); self._sync_controls()
 
     # --- file path lives on the document (Document.save/load set it) ---
@@ -291,6 +433,7 @@ class MainWindow(QMainWindow):
 
     # --- documents / files ---
     def _reset(self, doc):
+        self.end_live()
         self.doc, self.result, self.sel, self.sel_wire, self.stale = doc, None, None, None, False
         self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict(); self.open_banner.hide()
         self._show_result(); self.refresh()
@@ -352,7 +495,7 @@ class MainWindow(QMainWindow):
         return self._write(p if os.path.splitext(p)[1] else p + ".json")
 
     def _write(self, p):
-        self.cfg_changed()
+        self.cfg_changed(); self.ac_changed()
         try:
             self.doc.save(p)
         except ModelError as e:
@@ -361,7 +504,9 @@ class MainWindow(QMainWindow):
         return True
 
     def closeEvent(self, e):
-        e.accept() if self.maybe_save() else e.ignore()
+        if not self.maybe_save(): return e.ignore()
+        self.end_live()
+        e.accept()
 
     def _title(self):
         name, dirty = os.path.basename(self.path) if self.path else "untitled", self.dirty()
@@ -371,10 +516,28 @@ class MainWindow(QMainWindow):
 
     # --- simulation settings / params ---
     @staticmethod
-    def _si(text):
+    def _si(text, key="tstop"):
         """Run-setting text as shown: '5e-3' -> '5 ms' (unparseable text is shown as typed)."""
-        try: return format_si(RUN_PARAMS["tstop"].parse(text, "Run"), "s")
+        p = RUN_PARAMS[key]
+        try: return format_si(p.parse(text, "Run"), p.unit)
         except ModelError: return text
+
+    def ac_changed(self, *_):
+        """An AC sweep field changed: store it (text as typed) and validate it (G17)."""
+        d = self.doc
+        d.ac["sweep"] = self.ac_sweep.currentText()
+        for ed, k in zip((self.ac_points, self.ac_fstart, self.ac_fstop), AC_FIELDS):
+            if ed.text() != self._si(d.ac[k], k): d.ac[k] = ed.text()
+            try:
+                RUN_PARAMS[k].parse(ed.text(), "AC"); mark(ed, None); self.invalid.pop(k, None)
+            except ModelError as e:
+                mark(ed, str(e)); self.invalid[k] = str(e)
+        self._check_stale(); self._title(); self._sync_controls()
+
+    def set_analysis(self, *_):
+        """The analysis picker: Transient or AC (saved with the circuit)."""
+        self.doc.analysis = ("transient", "ac")[self.analysis.currentIndex()]
+        self._check_stale(); self._title(); self._sync_controls(); self.refresh()
 
     def cfg_changed(self, *_):
         d = self.doc
@@ -387,16 +550,40 @@ class MainWindow(QMainWindow):
                 mark(ed, str(e)); self.invalid[k] = str(e)
         self._check_stale(); self._title(); self._sync_controls()
 
+    def _live_for_text(self):
+        """The live duration as the field shows it: "Stop time", "Indefinite", or the time ('2 s')."""
+        t = self.doc.live_tstop.strip()
+        return "Stop time" if t.lower() in LIVE_STOP_TIME else "Indefinite" if t.lower() in LIVE_INDEFINITE else self._si(t)
+
+    def live_for_changed(self, *_):
+        """The live duration field changed: store it (as typed; "Stop time" = unset) and validate it."""
+        text = self.live_for.currentText().strip()
+        if text != self._live_for_text():
+            self.doc.live_tstop = "" if text.lower() in LIVE_STOP_TIME else text
+        try:
+            self.doc.live_duration(); self.live_invalid = None
+        except ModelError as e:
+            self.live_invalid = str(e)
+        mark(self.live_for, self.live_invalid); self._title(); self._sync_controls()
+
+    def set_gear(self):
+        """Simulation > Gear integration: a run setting, saved with the circuit (GAPS G30)."""
+        self.doc.method = "gear" if self.a_gear.isChecked() else "trap"
+        self._check_stale(); self._title(); self._sync_controls()
+
     def _key(self):
         d = self.doc
         return repr(({n: (p["kind"], p["params"]) for n, p in d.parts.items()}, sorted(map(sorted, d.wires)),
-                     d.tstop, d.tstep))
+                     d.tstop, d.tstep, d.method, d.analysis, d.ac))
 
     def _check_stale(self):
         if self.result is not None and self._key() != self.ran_key:
+            if self.session:   # an edit stops a live run: the circuit it simulates no longer exists
+                self.session.cancel()
             self.result, self.state, self.stale = None, "idle", True
             self._show_result()
-            self.set_status("results out of date - press Re-run", True)
+            self.set_status(("Live run stopped: the circuit changed. " if self.session else "")
+                            + "results out of date - press Re-run", True)
 
     def edit_param(self, n, k, v):
         if n in self.doc.parts:
@@ -410,9 +597,10 @@ class MainWindow(QMainWindow):
         self._sync_controls()
 
     def run(self):
+        if self.session: return   # batch runs wait for a live run (the engine is claimed; the controls are disabled)
         fw = self.focusWidget()
         if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
-        self.cfg_changed()
+        self.cfg_changed(); self.ac_changed()
         self.stale = False
         self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
         try:
@@ -428,8 +616,160 @@ class MainWindow(QMainWindow):
                                           if self.doc.definition(n) for k, v in self.doc.definition(n).animate_when):
             self.play()
 
+    # --- live runs (task 9.5b; engine contract: docs/plans/ngspice-library/LIVE.md) ---
+    def _pace(self):
+        """Sim seconds per wall second for the chosen pace, or None (as fast as possible)."""
+        r, d = self.pace.currentData(), self.doc.live_duration()
+        return (RUN_PARAMS["tstop"].parse(self.doc.tstop, "Run") if math.isinf(d) else d) / FIT_SECONDS if r == "fit" else r
+
+    def live(self):
+        """Start a live run, or stop the one in progress (the Live button toggles)."""
+        if self.session: return self.stop_live()
+        if self.state == "running": return
+        if self.doc.analysis != "transient": return self.set_status(LIVE_AC, True)
+        fw = self.focusWidget()
+        if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
+        self.cfg_changed(); self.live_for_changed()
+        if self.invalid: return
+        if self.live_invalid: return self.set_status(f"Live run: {self.live_invalid}", True)
+        self.stale, self.last_session = False, None
+        try:
+            s = LiveSession(self.doc, realtime=self._pace())
+        except Exception as e:   # never raises by contract; a raise is an app bug and is shown, not hidden
+            s = None; r = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}", details=traceback.format_exc())
+        if s is None or s.result.status != "running":   # blocked by the pre-check, or refused by the core
+            self.result, self.ran_key = (r if s is None else s.result), self._key()
+            self.set_status(("BLOCKED: " if self.result.status == "blocked" else "FAILED: ") + self.result.message, True)
+            return self._show_result()
+        f = s.result   # the window's own copy grows on the Qt thread from chunk payloads (rule 4)
+        self.live_result = RunResult(True, "running", "live run", {k: [] for k in f.series}, f.findings, f.diagnostics,
+                                     f.signals, f.details, f.excluded)
+        self.live_vals = {(p["part"], p["key"]): self.doc.definition(p["part"]).param(p["key"]).parse(
+            self.doc.parts[p["part"]]["params"][p["key"]], p["part"])
+            for p in sorted(live_params(self.doc), key=lambda p: not p["stimulus"])}
+        self.session, self.paused, self.live_pending, self.live_t, self.live_rtf = s, False, {}, 0.0, 0.0
+        self.result, self.ran_key = self.live_result, self._key()
+        self.live_span, self.live_cap, self.live_total = s.window, s.cap, s.tstop
+        self.results.xlim = (0.0, s.window)
+        self.worker = LiveWorker(s)
+        self.worker.chunk.connect(self._live_chunk); self.worker.finished.connect(self._live_done)
+        gc.disable(); self.gc_timer.start()   # gc on the GUI thread only until _live_done
+        self.worker.start()
+        self._show_result(); self._live_label(); self.refresh()
+        pace = self.pace.currentText().removeprefix("Pace: ")
+        self.set_status(f"Live run started (pace {pace}). Select a sensor, pot, switch or source to change it.")
+
+    def pause_live(self):
+        if not self.session: return
+        self.paused = not self.paused
+        self.session.pause() if self.paused else self.session.resume()
+        self.set_state("paused" if self.paused else "live"); self._live_label()
+        self.set_status("Live run paused: changes wait for Resume." if self.paused else "Live run resumed.")
+
+    def stop_live(self):
+        """Stop at the next chunk boundary (at once when paused); the worker then finishes and _live_done tidies up."""
+        if self.session:
+            self.session.cancel(); self.set_status("Stopping the live run...")
+
+    def end_live(self):
+        """Stop a live run and wait for its worker (window close, New/Open): never leave the worker blocked in a
+        paused run or holding the engine (LIVE.md rule 3). Waits for at most the chunk in progress."""
+        if self.worker:
+            self.session.cancel(); self.worker.wait(); self._live_done()
+
+    def _collect(self):
+        """GUI-thread gc during a live run: the young generations every 200 ms, everything every 10 s (~25 ms)."""
+        self.gc_ticks += 1
+        gc.collect(2 if self.gc_ticks % 50 == 0 else 1)
+
+    def live_set(self, part, key, value):
+        """A live control moved: coalesce (last value per param wins) and hand it to the session at most every 50 ms."""
+        if not self.session: return
+        self.live_vals[(part, key)] = value; self.live_pending[(part, key)] = value
+        if not self.live_flush.isActive(): self.live_flush.start()
+
+    def _live_flush(self):
+        pending, self.live_pending = self.live_pending, {}
+        for (part, key), v in pending.items():
+            if not self.session: return
+            try:
+                self.session.set_stimulus(part, v, key)
+            except ModelError as e:   # refused value, or the run just ended: say so, the run goes on
+                self.set_status(f"Live change refused: {e}", True)
+
+    def _live_chunk(self, c):
+        r = self.live_result
+        if r is not self.result: return   # dropped meanwhile (an edit made it stale): the worker is stopping
+        for n, pts in c["series"].items(): r.series[n].extend(pts)
+        trim(r.series, c["t"] - self.live_span, self.live_cap)   # the scrolling window (a no-op within the span)
+        r.changes += c["changes"]
+        self.live_t, self.live_rtf = c["t"], c["rtf"]
+        if not self.live_redraw.isActive(): self.live_redraw.start()
+
+    def _live_redraw(self):
+        if self.result is self.live_result and self.result is not None:
+            t, w = self.live_t, self.live_span   # the axis scrolls once the run passes its window
+            self.results.xlim = (max(0.0, t - w), max(w, t))
+            self.results.grow(); self._live_label(); self.draw()
+
+    def _live_label(self):
+        total = "∞" if math.isinf(self.live_total) else format_si(self.live_total, 's', 3)   # ∞: indefinite
+        what = "paused" if self.paused else f"{self.live_rtf:.3g}× real time" if self.live_rtf else "starting"
+        self.results.live_lbl.setText(f"t = {format_si(self.live_t, 's', 4)} / {total}   {what}")
+
+    def _live_done(self):
+        """The worker finished (completed, stopped, failed, or dropped by an edit): release the session and show
+        the outcome. The streamed result stays for scrubbing and replay; a failure is shown like a batch failure."""
+        if self.session is None: return   # end_live already did it
+        s, w = self.session, self.worker
+        self.session = self.worker = None; self.paused = False
+        self.gc_timer.stop(); gc.enable()
+        self.live_flush.stop(); self.live_redraw.stop(); self.live_pending = {}
+        w.wait()                          # finished is queued from the thread's last moments: let it exit first
+        s.close()                         # idempotent; the worker is done, so this never waits
+        self.last_session, self.results.xlim = s, None
+        r, f = self.live_result, s.result
+        if r is self.result and r is not None:
+            if w.error:
+                r.ok, r.status, r.message, r.details = False, "failed", "Internal error in the live run", w.error
+            else:
+                r.ok, r.status, r.message, r.details = f.status in ("success", "cancelled"), f.status, f.message, f.details
+            r.series = f.series   # the same points, plus the whole run before the window, coarsely (G42)
+            r.changes = s.changes
+            self.set_status({"success": "LIVE: ", "cancelled": "LIVE STOPPED: "}.get(r.status, "FAILED: ") + r.message,
+                            not r.ok)
+            self._show_result(); self.draw()
+        self.refresh()
+
+    def replay_live(self):
+        """Re-run the last live run's recorded changes as one batch run (deterministic) and show it as the result."""
+        s = self.last_session
+        if s is None or self.session: return
+        self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
+        r = s.replay()
+        if r.status == "blocked":   # too long for one batch run: keep the live result, say why
+            self._show_result(); return self.set_status(f"REPLAY BLOCKED: {r.message}", True)
+        self.result, self.ran_key = r, self._key()
+        self.set_status(("REPLAY: " if r.ok else "FAILED: ") + r.message + (f" ({len(r.changes)} changes)" if r.ok else ""),
+                        not r.ok)
+        self._show_result(); self.draw()
+
+    def apply_live(self):
+        """G39: write the last live run's final values (the last applied change per param) into the circuit as one
+        undoable edit. The run simulated the starting values, so its result is then out of date (Re-run)."""
+        s = self.last_session
+        if s is None or self.session or not s.changes: return
+        final = {(p, k): v for _, p, k, v in s.changes if p in self.doc.parts}
+        with self.hist.change(self.doc):
+            for (p, k), v in final.items():
+                self.doc.set_param(p, k, v if isinstance(v, str) else repr(float(v)))
+        self.refresh()
+        self.set_status(f"Applied {len(final)} live value{'s' * (len(final) != 1)} to the circuit "
+                        f"({', '.join(f'{p} {k}' for p, k in final)}). Undo reverts; Re-run to simulate them.")
+
     def reset(self):
         """Drop the results (circuit, settings and the picked signal are kept)."""
+        if self.session: return
         self.result, self.stale = None, False; self._show_result(); self.draw(); self.set_status("Results cleared")
 
     def rerun(self):
@@ -438,13 +778,15 @@ class MainWindow(QMainWindow):
     def _show_result(self):
         """Sync the viewer, state badge and controls with self.result (None = idle, or stale after an edit)."""
         r = self.result
-        self.results.set_view(r, "idle" if r is None else r.state, self.stale)
-        self.set_state("idle" if r is None else r.state)
+        s = ("idle" if r is None else ("paused" if self.paused else "live") if self.session and r is self.live_result
+             else r.state)
+        self.results.set_view(r, s, self.stale)
+        self.set_state(s)
 
     def part_current(self, name):
         """Core current series I(part) at the cursor time, or None."""
         r = self.result
-        sig = r.signal(f"I({name})") if r and r.ok else None
+        sig = r.signal(f"I({name})") if r and r.ok and r.analysis == "transient" else None   # AC: no instant
         return None if not sig or self.cur_t is None else value_at(r.series[sig["vector"]], self.cur_t)
 
     def led_glow(self, name):
@@ -485,10 +827,23 @@ class MainWindow(QMainWindow):
         for ed, v in ((self.tstop, doc.tstop), (self.tstep, doc.tstep)):
             if ed.text() != v and ed.text() != self._si(v) and not ed.hasFocus(): ed.setText(self._si(v))
         self.cfg_changed()
+        for ed, k in zip((self.ac_points, self.ac_fstart, self.ac_fstop), AC_FIELDS):
+            v = doc.ac[k]
+            if ed.text() != v and ed.text() != self._si(v, k) and not ed.hasFocus(): ed.setText(self._si(v, k))
+        self.ac_changed()
+        if self.live_for.currentText() != self._live_for_text() and not self.live_for.hasFocus():
+            self.live_for.setEditText(self._live_for_text()); self.live_for.lineEdit().setCursorPosition(0)
+        self.live_for_changed()
         has = self.sel in doc.parts
         self.a_delete.setEnabled(has or self.sel_wire in doc.wires); self.a_rotate.setEnabled(has)
         self.a_undo.setEnabled(self.hist.can_undo()); self.a_redo.setEnabled(self.hist.can_redo())
-        self.inspector.show_selection(doc, self.sel, self.sel_wire, ("Transient", self._si(doc.tstop), self._si(doc.tstep)))
+        live = {k: v for (p, k), v in self.live_vals.items() if p == self.sel} if self.session else None
+        a = doc.ac
+        run = ((("Analysis", "AC"), ("Sweep", f"{a['sweep']} {a['points']}"),
+                ("Range", f"{self._si(a['fstart'], 'fstart')} to {self._si(a['fstop'], 'fstop')}"))
+               if doc.analysis == "ac" else
+               (("Analysis", "Transient"), ("Stop time", self._si(doc.tstop)), ("Time step", self._si(doc.tstep))))
+        self.inspector.show_selection(doc, self.sel, self.sel_wire, run, live)
         self._problems()
         n, m = len(doc.parts), len(doc.wires)
         self.counts.setText(f"{n} part{'s' * (n != 1)}   {m} wire{'s' * (m != 1)}   grid 20 px")

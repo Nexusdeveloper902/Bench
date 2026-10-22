@@ -1,0 +1,84 @@
+format = 1
+id = "IND_COUPLED"
+version = 1
+name = "Coupled inductors"
+description = "Two inductors L1 and L2 with a coupling coefficient K (mutual M = K * sqrt(L1 * L2)). Each winding has a 1 GΩ leak so an open winding has a DC path."
+designator = "T"
+label = "K COUPLED"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["mutual inductance", "K coupled inductors"]
+keywords = ["coupled", "mutual", "inductor", "coupling", "subcircuit"]
+tags = ["passive", "magnetic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Linear coupling only: no core saturation, hysteresis or loss.",
+               "The 1 GΩ leak is a numerical DC path, not a model of insulation."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p1"
+name = "1+"
+at = [0, 20]
+
+[[pins]]
+id = "n1"
+name = "1-"
+at = [0, 60]
+
+[[pins]]
+id = "p2"
+name = "2+"
+at = [80, 20]
+
+[[pins]]
+id = "n2"
+name = "2-"
+at = [80, 60]
+
+[[params]]
+key = "L1"
+label = "Inductance L1"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "L2"
+label = "Inductance L2"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "K"
+label = "Coupling K"
+default = "0.95"
+min = 0
+min_exclusive = true
+max = 1
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p1} {n1} {p2} {n2} bench_ind_k L1={L1} L2={L2} K={K}"
+body = """
+.subckt bench_ind_k p1 n1 p2 n2 params: L1=10m L2=10m K=0.95
+LW1 p1 n1 {L1}
+LW2 p2 n2 {L2}
+KC LW1 LW2 {K}
+RLK1 p1 n1 1G
+RLK2 p2 n2 1G
+.ends bench_ind_k
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; two linear inductors with a K element"
+license = "MIT"

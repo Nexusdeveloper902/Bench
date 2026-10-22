@@ -1,0 +1,158 @@
+format = 1
+id = "CD4017"
+version = 1
+name = "CD4017B decade counter with decoded outputs"
+description = "Five-stage Johnson counter with ten decoded outputs, clock inhibit, asynchronous reset and a carry output (16 pins, 3 to 18 V supply)."
+designator = "U"
+category = "Electrical"
+subcategory = "Counters and shift registers"
+aliases = ["CD4017", "CD4017B", "4017"]
+keywords = ["CD4017B", "4017", "counter", "decade", "Johnson", "divider"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral model built from XSPICE digital code models behind analog bridges, not a vendor SPICE model: logic function is exact, electrical behavior is nominal.",
+               "Inputs switch at about half the supply (guaranteed VIL 0.3 x VCC, VIH 0.7 x VCC lie inside the 0.45 to 0.55 x VCC band where the output goes unknown), outputs swing from GND to VCC through the ROUT parameter.",
+               "The Johnson counter is built from d_dff stages with the datasheet decoding gates; the anti-lock gating of the real part is not needed because the reset state is always valid, so a corrupt Johnson state cannot occur.",
+               "Logic levels follow the supply pins: input thresholds and output swing scale with (VCC - GND), and the unknown region between the two input thresholds drives mid-level; supply current (static and dynamic), output current drawn from VCC, output current limit, input capacitance, clamp diodes and input leakage are not modelled.",
+               "One nominal propagation delay (the TPD parameter plus about 2 ns of bridge delay), equal for rising and falling edges and independent of load and supply; setup time, hold time, minimum pulse width and metastability are not checked.",
+               "Unconnected data and clock inputs read low (1 GΩ to GND); unconnected clear, preset, set, reset and load inputs read inactive and unconnected enable and output-enable inputs read enabled (1 GΩ to the rail). A real part leaves them undefined, so tie every input. Sequential parts power up with every output low. The clock input has a power-on gate: an edge counts only after the clock has been seen at its idle level, so a clock tied or held at its active level from t = 0 (for a rising-edge part, high) gives no edge at power-up, and the first real edge counts; an edge within about 5 ns of t = 0 is ignored."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4017b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 280]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "clk"
+name = "CLOCK"
+at = [0, 40]
+description = "Clock, advances on the rising edge while INH is low (pin 14)"
+
+[[pins]]
+id = "inh"
+name = "CLOCK INH"
+at = [0, 60]
+description = "Clock inhibit, high stops counting (pin 13)"
+
+[[pins]]
+id = "rst"
+name = "RESET"
+at = [0, 80]
+description = "Asynchronous reset, high returns the count to 0 (pin 15)"
+
+[[pins]]
+id = "q0"
+name = "Q0"
+at = [120, 40]
+description = "Decoded output 0, high only at count 0 (pin 3)"
+
+[[pins]]
+id = "q1"
+name = "Q1"
+at = [120, 60]
+description = "Decoded output 1, high only at count 1 (pin 2)"
+
+[[pins]]
+id = "q2"
+name = "Q2"
+at = [120, 80]
+description = "Decoded output 2, high only at count 2 (pin 4)"
+
+[[pins]]
+id = "q3"
+name = "Q3"
+at = [120, 100]
+description = "Decoded output 3, high only at count 3 (pin 7)"
+
+[[pins]]
+id = "q4"
+name = "Q4"
+at = [120, 120]
+description = "Decoded output 4, high only at count 4 (pin 10)"
+
+[[pins]]
+id = "q5"
+name = "Q5"
+at = [120, 140]
+description = "Decoded output 5, high only at count 5 (pin 1)"
+
+[[pins]]
+id = "q6"
+name = "Q6"
+at = [120, 160]
+description = "Decoded output 6, high only at count 6 (pin 5)"
+
+[[pins]]
+id = "q7"
+name = "Q7"
+at = [120, 180]
+description = "Decoded output 7, high only at count 7 (pin 6)"
+
+[[pins]]
+id = "q8"
+name = "Q8"
+at = [120, 200]
+description = "Decoded output 8, high only at count 8 (pin 9)"
+
+[[pins]]
+id = "q9"
+name = "Q9"
+at = [120, 220]
+description = "Decoded output 9, high only at count 9 (pin 11)"
+
+[[pins]]
+id = "co"
+name = "CARRY OUT"
+at = [120, 240]
+description = "Carry out: high for counts 0-4, low for 5-9 (pin 12)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [60, 280]
+description = "Ground (pin 8)"
+
+[[params]]
+key = "rout"
+label = "Output impedance"
+unit = "Ω"
+default = "400"
+min = 0
+min_exclusive = true
+help = "Series resistance of each output in both states"
+
+[[params]]
+key = "tpd"
+label = "Propagation delay"
+unit = "s"
+default = "60n"
+min = 0
+min_exclusive = true
+help = "Nominal clock-to-output (or input-to-output) delay of the logic; bridges add about 2 ns"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {clk} {inh} {rst} {q0} {q1} {q2} {q3} {q4} {q5} {q6} {q7} {q8} {q9} {co} {vdd} {vss} bench_cd4017 ROUT={rout} TPD={tpd}"
+defs = ["models:digital/io.lib", "models:digital/seq.lib"]
+body = """
+.subckt bench_cd4017 clk inh rst q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 co vc gn params: ROUT=400 TPD=60n
+X1 vc gn clk inh rst q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 co bench_d_cd4017  ROUT={ROUT} TPD={TPD}
+.ends bench_cd4017
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; XSPICE digital code models behind bench_din/bench_dout bridges, pinout and function table from the datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4017b.pdf"
+version = "TI SCHS027C, revised February 2004"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "VDD 3-18 V; exactly one decoded output high; Q0 after reset; CARRY OUT completes one cycle every 10 clocks; clock-to-output tpd about 60-100 ns typ."

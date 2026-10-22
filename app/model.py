@@ -6,7 +6,15 @@ from .components import ROTATIONS, ModelError, Param
 from .electrical import build_netlist, device_name
 FORMAT, VERSION = "sim-circuit", 2   # writer version; the reader accepts 0, 1 and 2 (docs/persistence.md)
 RUN_PARAMS = {"tstop": Param("tstop", "Stop time", "s", "5m", min=0, min_exclusive=True),
-              "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True)}
+              "tstep": Param("tstep", "Time step", "s", "10u", min=0, min_exclusive=True),
+              "live": Param("duration", "Live run duration", "s", "", min=0, min_exclusive=True),
+              "points": Param("points", "Points", "", "20", min=1),            # AC sweep (G17)
+              "fstart": Param("fstart", "Start frequency", "Hz", "1", min=0, min_exclusive=True),
+              "fstop": Param("fstop", "Stop frequency", "Hz", "1M", min=0, min_exclusive=True)}
+ANALYSES, SWEEPS = ("transient", "ac"), ("dec", "oct", "lin")   # AC: small-signal sweep, points per decade/octave/total
+AC_DEFAULTS = {"sweep": "dec", **{k: RUN_PARAMS[k].default for k in ("points", "fstart", "fstop")}}
+LIVE_STOP_TIME, LIVE_INDEFINITE = ("", "stop time"), ("indefinite", "inf", "∞")   # live duration words
+METHODS = ("trap", "gear")   # integration method; gear damps trapezoidal ringing (GAPS G30), trap is ngspice's default
 
 
 # Run size limits (a result is kept as Python (t, v) tuples, ~100 B per sample, and the core runs on the GUI thread):
@@ -14,6 +22,14 @@ MAX_POINTS = 100_000        # tstop / tstep; normal examples use 500-2000
 MAX_SAMPLES = 2_000_000     # points x estimated series (~3 per part): ~200 MB worst case
 NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")   # part names reach the SPICE deck verbatim: keep them inert
 MAX_COORD = 1e6             # canvas coordinates; larger overflows hit-testing
+
+
+def size_error(tstop, tstep, nparts):
+    """None, or why a batch run of tstop at tstep would exceed the result limits (MAX_POINTS, MAX_SAMPLES)."""
+    pts, series = tstop / tstep, 3 * nparts + 1
+    if pts > MAX_POINTS or pts * series > MAX_SAMPLES:
+        return (f"too many points ({pts:.3g} points x ~{series} signals; limit {MAX_POINTS:,} points "
+                f"/ {MAX_SAMPLES:,} samples)")
 
 
 def check_name(name):
@@ -59,6 +75,10 @@ class Document:
         self.wires = []      # [("R1.b", "C1.a"), ...]
         self.tstop = RUN_PARAMS["tstop"].default
         self.tstep = RUN_PARAMS["tstep"].default
+        self.method = "trap"
+        self.analysis = "transient"   # or "ac": the AC sweep in self.ac (texts as typed)
+        self.ac = dict(AC_DEFAULTS)
+        self.live_tstop = ""  # live-run duration as typed: "" = the stop time, "indefinite", or a time ("30", "2m")
         self.path = None     # file last saved to / loaded from (Save target; Save As = save(new_path))
         self._count = {}
         self.extra = {}      # unknown top-level keys of a loaded file, written back unchanged (newer writers)
@@ -180,20 +200,50 @@ class Document:
 
     # ---- simulation input ----
     def config(self):
-        """-> kwargs for Simulation.configure. Raises ModelError."""
+        """-> kwargs for Simulation.configure, or {"ac": (sweep, points, fstart, fstop)} for an AC analysis.
+        Raises ModelError."""
+        if self.analysis == "ac":
+            return {"ac": self.ac_sweep()}
         tstop = RUN_PARAMS["tstop"].parse(self.tstop, "Run")
         tstep = RUN_PARAMS["tstep"].parse(self.tstep, "Run")
         if tstep > tstop:
             raise ModelError("Run tstep must be <= tstop")
-        pts, series = tstop / tstep, 3 * len(self.parts) + 1
-        if pts > MAX_POINTS or pts * series > MAX_SAMPLES:
-            raise ModelError(f"Run: too many points ({pts:.3g} points x ~{series} signals; limit {MAX_POINTS:,} points "
-                             f"/ {MAX_SAMPLES:,} samples): increase the time step or shorten the stop time")
-        return {"tstep": tstep, "tstop": tstop, "tmax": tstep}
+        if err := size_error(tstop, tstep, len(self.parts)):
+            raise ModelError(f"Run: {err}: increase the time step or shorten the stop time")
+        return {"tstep": tstep, "tstop": tstop, "tmax": tstep, **({"method": self.method} if self.method != "trap" else {})}
+
+    def ac_sweep(self):
+        """The AC sweep -> (sweep, points, fstart, fstop), within the batch result limits. Raises ModelError."""
+        a = self.ac
+        if a["sweep"] not in SWEEPS:
+            raise ModelError(f"AC sweep must be one of {', '.join(SWEEPS)}, not {a['sweep']!r}")
+        n, f1, f2 = (RUN_PARAMS[k].parse(a[k], "AC") for k in ("points", "fstart", "fstop"))
+        if n != int(n):
+            raise ModelError(f"AC points must be a whole number, not {a['points']}")
+        if f2 <= f1:
+            raise ModelError("AC stop frequency must be above the start frequency")
+        pts = {"dec": n * math.log10(f2 / f1), "oct": n * math.log2(f2 / f1), "lin": n - 1}[a["sweep"]] + 1
+        if pts > MAX_POINTS or pts * (3 * len(self.parts) + 1) > MAX_SAMPLES:
+            raise ModelError(f"AC: too many points ({pts:.3g}; limit {MAX_POINTS:,} points / {MAX_SAMPLES:,} samples): "
+                             "fewer points or a narrower range")
+        return a["sweep"], int(n), f1, f2
+
+    def live_duration(self):
+        """Live-run duration in seconds: the stop time when unset, math.inf for indefinite. Raises ModelError."""
+        t = self.live_tstop.strip().lower()
+        if t in LIVE_STOP_TIME:
+            return RUN_PARAMS["tstop"].parse(self.tstop, "Run")
+        return math.inf if t in LIVE_INDEFINITE else RUN_PARAMS["live"].parse(self.live_tstop, "Live run")
 
     def sim_config(self):
-        """Simulation settings as persisted (text as typed). Only transient analysis exists in the core."""
-        return {"analysis": "transient", "tstop": self.tstop, "tstep": self.tstep}
+        """Simulation settings as persisted (text as typed). `analysis` is "transient" or "ac" (G17); `method`, `ac`
+        (the AC sweep) and `live_tstop` are written only when they are not the default, so files without them stay
+        byte-identical."""
+        out = {"analysis": self.analysis, "tstop": self.tstop, "tstep": self.tstep}
+        if self.method != "trap": out["method"] = self.method
+        if self.ac != AC_DEFAULTS: out["ac"] = dict(self.ac)
+        if self.live_tstop.strip(): out["live_tstop"] = self.live_tstop   # live-run duration (task 9.7)
+        return out
 
     def netlist(self):
         """-> electrical.build_netlist(...) dict over the modeled parts, plus "excluded": the unmodeled parts left out
@@ -203,7 +253,8 @@ class Document:
         if bad := [n for n in skip if self.wired(n)]:
             raise ModelError(f"{', '.join(bad)} cannot be simulated and {'is' if len(bad) == 1 else 'are'} wired to "
                              "the circuit: disconnect to run")
-        nl = build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG)
+        nl = build_netlist({n: p for n, p in self.parts.items() if n not in skip}, self.nets(), CATALOG,
+                           ac=self.analysis == "ac")
         return {**nl, "excluded": skip}
 
     def validate(self):
@@ -246,13 +297,13 @@ class Document:
             out.append(diag("NO-GROUND", "error", "No ground: place a Ground and wire it to the circuit."))
         for n, d in self.parts.items():
             if n in unm: continue
-            pins = self.pins(n)
+            c = get(d["kind"])
+            pins = [f"{n}.{t}" for t in c.model_pins]     # nc pins have no model port: never warned about
             loose = [p for p in pins if p not in wired]
             if len(loose) == len(pins) and n in devices:
                 out.append(diag("UNCONNECTED-PART", "error", f"{n} is not connected to anything.", n, pins))
             else:
                 out += [diag("UNCONNECTED-PIN", "warning", f"{p} is not connected.", n, [p]) for p in loose]
-            c = get(d["kind"])
             for k in c.fields(d["params"]):
                 try:
                     c.param(k).parse(d["params"][k], n)
@@ -402,8 +453,19 @@ class Document:
             if xtra: doc.parts[n]["extra"] = copy.deepcopy(xtra)
         doc.wires = wl
         doc.tstop, doc.tstep = (str(need(sim[k], (str, int, float), k)) for k in ("tstop", "tstep"))
-        if sim.get("analysis", "transient") != "transient":
-            raise ModelError(f"unsupported analysis {sim['analysis']}")
+        doc.analysis = sim.get("analysis", "transient")
+        if doc.analysis not in ANALYSES:
+            raise ModelError(f"unsupported analysis {doc.analysis!r} (use one of {', '.join(ANALYSES)})")
+        ac = need(sim.get("ac", {}), dict, "ac")
+        if bad := sorted(set(ac) - set(AC_DEFAULTS)):
+            raise ModelError(f"unknown AC setting {bad[0]!r} (use {', '.join(AC_DEFAULTS)})")
+        doc.ac = {**AC_DEFAULTS, **{k: str(need(v, (str, int, float), f"ac {k}")) for k, v in ac.items()}}
+        if doc.ac["sweep"] not in SWEEPS:
+            raise ModelError(f"unknown AC sweep {doc.ac['sweep']!r} (use one of {', '.join(SWEEPS)})")
+        doc.live_tstop = str(need(sim.get("live_tstop", ""), (str, int, float), "live_tstop"))
+        doc.method = sim.get("method", "trap")
+        if doc.method not in METHODS:
+            raise ModelError(f"unknown integration method {doc.method!r} (use one of {', '.join(METHODS)})")
         for kind, c in CATALOG.defs.items():  # keep auto-naming collision free
             k = len(c.designator)
             doc._count[kind] = max([int(n[k:]) for n, p in doc.parts.items()

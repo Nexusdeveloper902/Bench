@@ -13,6 +13,11 @@ from app.model import Document
 from app.sim import run_document
 from app.symbols import add_symbol
 import golden_netlists
+from test_library_batch_b import NEW as BATCH_B
+from test_library_batch_c import NEW as BATCH_C
+from test_library_batch_d import NEW as BATCH_D
+from test_library_batch_e import NEW as BATCH_E
+from test_converter_widths import WIDTH_PARTS
 
 KINDS = {"R", "C", "L", "V", "BAT", "I", "D", "GND", "LED", "SW"}     # the ten built-ins; seed packages add more
 ALL_CATEGORIES = ["Electrical", "Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # with the seeds
@@ -36,7 +41,7 @@ def interface_only(d):
 def test_builtin_catalog_has_ten_kinds_and_no_problems():
     assert KINDS <= set(CATALOG.defs) and CATALOG.problems == []
     assert CATALOG.categories() == ALL_CATEGORIES
-    assert {c.id for c in CATALOG.defs.values() if c.category == "Power"} == {"BAT"}
+    assert {c.id for c in CATALOG.defs.values() if c.category == "Power"} == {"BAT", "BAT_COIN", "BAT_AA", "BAT_LITHIUM"}
     assert all(c.readiness == "simulated" and c.path.is_relative_to(BUILTIN_ROOT) for c in CATALOG.defs.values() if c.id in KINDS)
     assert CATALOG.get("GND").ground and not CATALOG.get("R").ground
     with pytest.raises(ModelError, match="unknown component type NOPE"): CATALOG.get("NOPE")
@@ -48,7 +53,7 @@ def test_definition_discovered_under_category(extra_root):
     assert CATALOG.categories() == ALL_CATEGORIES[:1] + ["Microcontrollers", "Sensors", "Displays", "Audio", "Power"]   # TAXONOMY order, not alphabetical
     d = CATALOG.get("TEMP_SENSOR")
     assert d.name == "Thermistor" and d.terminals == ("a", "b") and d.defaults() == {"R": "100"}
-    assert [x.id for x in CATALOG.search("thermistor")] == ["TEMP_SENSOR"]
+    assert "TEMP_SENSOR" in [x.id for x in CATALOG.search("thermistor")]
     assert "TEMP_SENSOR" in [x.id for x in CATALOG.search(category="Sensors")]
     catalog.reload()                                                       # roots are rescanned: gone again
     assert "TEMP_SENSOR" not in CATALOG.defs and CATALOG.categories() == ALL_CATEGORIES
@@ -102,7 +107,8 @@ def test_search_name_alias_keyword_and_ranking(extra_root):
     # ranking: exact name, then name prefix, then other matches; ties by name
     write_def(extra_root, "RES_TOOL", name="Resistor tool", description="x")
     write_def(extra_root, "ZED", name="Zed", description="mentions resistor")
-    assert [d.id for d in CATALOG.search("resistor")] == ["R", "RES_TOOL", "SW", "ZED"]   # SW: its description says so
+    mine = {"R", "RES_TOOL", "SW", "ZED"}            # other shipped parts may mention resistors too
+    assert [d.id for d in CATALOG.search("resistor") if d.id in mine] == ["R", "RES_TOOL", "SW", "ZED"]   # SW: its description says so
 
 
 def test_search_prefix_alias_tags_and_subcategory(extra_root):
@@ -112,7 +118,8 @@ def test_search_prefix_alias_tags_and_subcategory(extra_root):
     write_def(extra_root, "C_YAK", name="Yak", aliases=["wid"], reload=False)         # exact alias: before the prefix tier
     write_def(extra_root, "D_TAG", name="Plain", tags=["qwertytag"], subcategory="Qwertysub", reload=False)
     catalog.reload([BUILTIN_ROOT, extra_root])
-    assert [d.id for d in CATALOG.search("wid")] == ["C_YAK", "B_WIDMARK", "A_MARKWID"]
+    mine = {"A_MARKWID", "B_WIDMARK", "C_YAK"}       # shipped parts may match "wid" too (bandwidth)
+    assert [d.id for d in CATALOG.search("wid") if d.id in mine] == ["C_YAK", "B_WIDMARK", "A_MARKWID"]
     assert [d.id for d in CATALOG.search("qwertytag")] == ["D_TAG"]                    # tags
     assert [d.id for d in CATALOG.search("qwertysub")] == ["D_TAG"]                    # subcategory
     assert [d.id for d in CATALOG.search("Semiconductors")] == ["D_1N4148", "Q_2N2222", "D", "LED"]
@@ -177,7 +184,11 @@ def test_category_filter_and_simulated_only(extra_root):
     assert CATALOG.get("BOARD").readiness == "interface" and not CATALOG.get("BOARD").simulated
     assert {d.id for d in CATALOG.search(category="Microcontrollers")} == {"BOARD", "ESP32_DEVKITC", "ARDUINO_UNO_R3"}
     assert "BOARD" in {d.id for d in CATALOG.search()} and "BOARD" not in {d.id for d in CATALOG.search(simulated_only=True)}
-    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222"}
+    assert {d.id for d in CATALOG.search(category="Electrical", simulated_only=True)} == (KINDS - {"BAT"}) | {"D_1N4148", "Q_2N2222", "OPAMP", "OPAMP_DUAL"} | {
+        "POT", "RHEOSTAT", "RNET4_ISO", "RNET4_BUS", "R_TOL", "IND_DCR", "IND_COUPLED", "XFMR_1N", "XFMR_CT", "T_LINE",
+        "CAP_CERAMIC", "CAP_ELECTROLYTIC", "CAP_TANTALUM", "CAP_FILM", "FUSE", "PTC", "MOV", "SPDT", "DPST", "DPDT",
+        "PUSH_NO", "PUSH_NC", "RELAY_SPDT", "RELAY_DPDT", "REED", "VSW", "CSW", "VSRC_EXP_SFFM", "ISRC_WAVE", "VSRC_PWL", "ISRC_PWL", "VCVS",
+        "VCCS", "CCCS", "CCVS", "SAT_AMP"} | {"BUCK_AVG", "BUCK_AVG_CTL", "BOOST_AVG", "BOOST_AVG_CTL"} | set(BATCH_B) | set(BATCH_C) | set(BATCH_D) | WIDTH_PARTS | {i for i in BATCH_E if CATALOG.get(i).category == "Electrical"}     # batch A (test_library_batch_a.py), B, C, D and E (test_library_batch_[bcde].py)
     assert CATALOG.search(category="Communication") == []
 
 
@@ -190,7 +201,7 @@ def _no_section(d): del d["sim"]
 def _mcu(d): d["capabilities"].append("sim:mcu")
 def _omit_pin(d): d["sim"]["electrical"]["line"] = "{dev} {a} {R}"
 def _attr(d): d["sim"]["electrical"]["line"] = "{dev} {a} {b} {dev.__class__}"
-def _dev_x(d): d["sim"]["electrical"]["device"] = "X"
+def _dev_x(d): d["sim"]["electrical"]["device"] = "X"                    # an X part without defs/body
 def _pres_pins(d): d["presentation"]["pins"] = []
 def _unit(d): d["params"][0]["unit"] = "parsec"
 def _choice_default(d): d["params"] = [{"key": "m", "label": "M", "kind": "choice", "choices": ["x", "y"], "default": "z"}]
@@ -220,7 +231,7 @@ INVALID = [
     (_dup_pin, "DEF-PIN", "pins[1].id"), (_same_pos, "DEF-PIN", "pins[1].at"), (_abc, "DEF-PARAM", "params[0].default"),
     (_no_section, "DEF-CAPABILITY", "capabilities"), (_mcu, "DEF-CAPABILITY", "capabilities"),
     (_omit_pin, "DEF-SIM", "sim.electrical.line"), (_attr, "DEF-SIM", "sim.electrical.line"),
-    (_dev_x, "DEF-SIM", "sim.electrical.device"), (_unit, "DEF-PARAM", "params[0].unit"),
+    (_dev_x, "DEF-SIM", "sim.electrical.line"), (_unit, "DEF-PARAM", "params[0].unit"),
     (_choice_default, "DEF-PARAM", "params[0].default"), (_when, "DEF-PARAM", "params[0].when"),
     (_escape, "DEF-FIELD", "presentation.symbol"), (_glow, "DEF-FIELD", "presentation.indicator"),
     (_no_iface, "DEF-CAPABILITY", "capabilities"), (_no_limits, "DEF-CAPABILITY", "limitations"),
@@ -397,11 +408,12 @@ def _multi(letter, pins, line, **elec):
     def m(d):
         d["pins"] = [{"id": p, "at": [0, 10 * i]} for i, p in enumerate(pins)]
         d["params"] = []
-        d["sim"]["electrical"] = {"device": letter, "line": line,
-                                  "models": [f".model {line.split()[-1]} NPN"], **elec}
+        d["sim"]["electrical"] = {"device": letter, "line": line,     # a model type the letter accepts
+                                  "models": [f".model {line.split()[-1]} {MODEL_TYPE[letter]}"], **elec}
     return m
 
 
+MODEL_TYPE = {"Q": "NPN", "M": "NMOS", "J": "NJF", "R": "NPN"}
 Q3 = ("Q", "cbe", "{dev} {c} {b} {e} qm")
 M4 = ("M", "dgsb", "{dev} {d} {g} {s} {b} nm")
 
@@ -480,3 +492,9 @@ def test_multi_terminal_netlist_and_current_pin(extra_root):
     assert q["pins"] == [f"{q['part']}.e"]          # first node field of the template, not pins[0] (= c)
     assert m["pins"] == [f"{m['part']}.d"]
     assert not [s for s in nl["signals"] if s["kind"] == "across"]
+
+
+def test_library_doc_is_current():
+    """docs/library.md is generated; regenerate with `python3 -m app.catalog --markdown > docs/library.md`."""
+    doc = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "library.md")
+    assert open(doc).read() == catalog.library_markdown(catalog.reload(catalog.default_roots()).defs)

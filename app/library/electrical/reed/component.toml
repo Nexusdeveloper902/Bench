@@ -1,0 +1,108 @@
+format = 1
+id = "REED"
+version = 1
+name = "Reed switch (coil-actuated)"
+description = "Normally open reed contact in a glass tube, actuated by a coil (the magnet's field stands in for the coil current). Pulls in at IPULL, releases below IREL."
+designator = "S"
+label = "REED"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["reed relay", "magnetic reed switch", "glass reed"]
+keywords = ["reed", "magnetic", "glass", "contact", "sensor", "subcircuit"]
+tags = ["electromechanical"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent: a coil R + L drives the contact through a voltage-controlled switch. No magnet or field model, no contact bounce, no capacitance.",
+               "Generic values, not a datasheet fit."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "c1"
+name = "1"
+at = [0, 20]
+
+[[pins]]
+id = "c2"
+name = "2"
+at = [80, 20]
+
+[[pins]]
+id = "k1"
+name = "K+"
+at = [0, 60]
+
+[[pins]]
+id = "k2"
+name = "K-"
+at = [80, 60]
+
+[[params]]
+key = "rc"
+label = "Coil resistance"
+unit = "Ω"
+default = "200"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lc"
+label = "Coil inductance"
+unit = "H"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ipull"
+label = "Pull-in current"
+unit = "A"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "irel"
+label = "Release current"
+unit = "A"
+default = "5m"
+min = 0
+min_exclusive = true
+help = "Must be below the pull-in current"
+
+[[params]]
+key = "ron"
+label = "Contact on resistance"
+unit = "Ω"
+default = "0.15"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Contact off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {c1} {c2} {k1} {k2} bench_reed RC={rc} LC={lc} IPULL={ipull} IREL={irel} RON={ron} ROFF={roff}"
+body = """
+.subckt bench_reed c1 c2 k1 k2 params: RC=200 LC=1m IPULL=10m IREL=5m RON=0.15 ROFF=1G
+.model reedsw SW(VT={(IPULL+IREL)*RC/2} VH={(IPULL-IREL)*RC/2} RON={RON} ROFF={ROFF})
+RCOIL k1 mid {RC}
+LCOIL mid k2 {LC}
+SREED c1 c2 k1 mid reedsw
+.ends bench_reed
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; simplified coil-driven normally open contact"
+license = "MIT"

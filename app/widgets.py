@@ -38,6 +38,7 @@ ICONS = {
     "up": '<polyline points="6 15 12 9 18 15"/>',
     "right": '<polyline points="9 6 15 12 9 18"/>',
     "play": '<polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/>',
+    "stop": '<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>',
     "pause": '<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>',
     "pulse": '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
     "hand": '<path d="M18 11V6a2 2 0 0 0-4 0v1M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/>'
@@ -260,13 +261,17 @@ class StateBadge(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         f = QFont(theme.FONT); f.setPixelSize(theme.SMALL_PX); f.setWeight(QFont.DemiBold); self.setFont(f)
-        self.key = "idle"; self.setFixedHeight(24); self.set_state("idle")
+        self.key, self.compact = "idle", False; self.setFixedHeight(24); self.set_state("idle")
 
     def text(self):
         return theme.STATES[self.key][0]
 
-    def set_state(self, key):
-        self.key = key; self.setFixedWidth(self.fontMetrics().horizontalAdvance(self.text()) + 40); self.update()
+    def set_state(self, key, compact=None):
+        """compact: the dot only (a narrow top bar), the state text in the tooltip."""
+        self.key = key; self.compact = self.compact if compact is None else compact
+        # the widest state's width whatever the state, so a state change never changes the top bar's fit
+        self.setFixedWidth(28 if self.compact else max(self.fontMetrics().horizontalAdvance(t) for t, *_ in theme.STATES.values()) + 40)
+        self.setToolTip(f"Run state: {self.text()}"); self.update()
 
     def paintEvent(self, _):
         text, col, hollow = theme.STATES[self.key]
@@ -275,6 +280,7 @@ class StateBadge(QWidget):
         p.setPen(QPen(c, 1.5)); p.setBrush(QColor(theme.PANEL)); p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 11, 11)
         if hollow: p.setBrush(Qt.NoBrush); p.setPen(QPen(c, 1.5)); p.drawEllipse(QRectF(10, 8, 8, 8))
         else: p.setPen(Qt.NoPen); p.setBrush(c); p.drawEllipse(QRectF(10, 8, 8, 8))
+        if self.compact: return
         p.setPen(c); p.setFont(self.font())
         p.drawText(QRectF(24, 0, self.width() - 24, 24), Qt.AlignVCenter | Qt.AlignLeft, text)
 

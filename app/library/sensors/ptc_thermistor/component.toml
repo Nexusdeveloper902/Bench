@@ -1,0 +1,85 @@
+format = 1
+id = "PTC_THERMISTOR"
+version = 1
+name = "PTC thermistor (posistor)"
+description = "Ceramic PTC thermistor: resistance rises by a large factor around its switching temperature. Modelled as a smooth step in log resistance. The temperature is a parameter."
+designator = "RT"
+label = "PTC"
+category = "Sensors"
+subcategory = "Temperature"
+aliases = ["posistor", "PTC thermistor"]
+keywords = ["temperature", "PTC", "switching", "Curie", "step", "resistor", "subcircuit"]
+tags = ["sensor", "passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic switching-curve equivalent: R25, the resistance ratio, the switching temperature and the width are generic values, not a datasheet fit.",
+               "The temperature is fixed during a batch run (a live run can change it): no self-heating, no thermal time constant and no voltage-dependent switching."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "temp"
+label = "Temperature (°C)"
+default = "25"
+min = -55
+max = 200
+help = "Body temperature in degrees Celsius"
+
+[[params]]
+key = "r25"
+label = "Resistance at 25 °C"
+unit = "Ω"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rratio"
+label = "Resistance ratio, hot/cold"
+default = "1000"
+min = 1
+help = "Resistance above the switching temperature divided by R25"
+
+[[params]]
+key = "tc"
+label = "Switching temperature (°C)"
+default = "120"
+min = -55
+max = 200
+
+[[params]]
+key = "w"
+label = "Transition width (K)"
+unit = ""
+default = "3"
+min = 0
+min_exclusive = true
+help = "Width of the log-resistance step; a smaller value is a sharper switch"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_ptc R25={r25} RRATIO={rratio} TC={tc} W={w} T={temp}"
+body = """
+.subckt bench_ptc a b params: R25=100 RRATIO=1000 TC=120 W=3 T=25
+VSTIM stim 0 DC {T}
+RSTIM stim 0 1G
+B1 a b I={V(a,b)/(R25*pow(RRATIO,1/(1+exp(-(V(stim)-TC)/W))))}
+.ends bench_ptc
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; logistic step in log resistance, R = R25·Rratio^s(T), s = 1/(1+exp(-(T-Tc)/W)); values generic"
+license = "MIT"

@@ -130,9 +130,18 @@ def test_floating_pin():
     d.connect("V1.n", "C1.b")
     res = run_document(d)
     assert not res.ok and res.message
-    d = rc(); d.disconnect("R1.b")               # dangling: cap node loses its only connection to R
+    # dangling: the cap node loses its only connection to R. Task 9.6 (G1): under UIC (every Bench run) a node held only
+    # by a capacitor to ground solves (it stays at the capacitor's initial 0 V), so this now runs with the app's
+    # unconnected-pin warnings instead of the core's NO-DC-PATH. A capacitor island with no path to ground is still
+    # refused by the core.
+    d = rc(); d.disconnect("R1.b")
     res = run_document(d)
-    assert not res.ok and res.message
+    assert res.ok and {g["code"] for g in res.diagnostics} == {"UNCONNECTED-PIN"}
+    assert max(abs(v) for _, v in res.get("V(C1)")) == 0.0
+    d = rc(); c2, c3 = d.add_part("C"), d.add_part("C")
+    d.connect(f"{c2}.a", f"{c3}.a"); d.connect(f"{c2}.b", f"{c3}.b")
+    res = run_document(d)
+    assert not res.ok and "NO-DC-PATH" in res.message
 
 
 def test_dangling_wire_part():

@@ -1,0 +1,53 @@
+format = 1
+id = "M_IRLZ44N"
+version = 1
+name = "IRLZ44N logic-level power MOSFET"
+description = "55 V, 47 A logic-level HEXFET in TO-220: VGS(th) about 1.5 V, RDS(on) about 20 mohm at 5 V / 25 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["IRLZ44N"]
+keywords = ["mosfet", "fet", "vdmos", "power", "IRLZ44N", "IRLZ44", "logic level", "TO-220", "power", "microcontroller", "switch"]
+tags = ["MOSFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Infineon datasheet, not a vendor SPICE model: threshold 1.5 V (250 uA), RDS(on) 21 mohm at 5 V / 25 A (maximum 25 mohm), gfs about 30 S at 25 A, gate charge about 41 nC at 5 V (maximum 48 nC).",
+               "Gate-drain capacitance varies between 150 pF (datasheet Crss, at high VDS) and 7.9 nF (at low VDS, chosen so the simulated gate charge to 5 V is about 41 nC). Body diode 1.1 V at 25 A (maximum 1.3 V); reverse recovery is not modelled.",
+               "Three-pin VDMOS model (body tied to source) with an integral body diode. The gate has no DC path, so drive it through a resistor or a voltage source. Temperature dependence, avalanche energy, safe operating area and self-heating are not modelled."]
+docs = ["https://www.infineon.com/assets/row/public/documents/24/49/infineon-irlz44npbf-datasheet-en.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} mirlz44n"
+models = [".model mirlz44n VDMOS(Vto=1.792 Kp=18 Rd=0.002281 Rs=0.0004026 Cgs=1.55n Cgdmin=150p Cgdmax=7.864n Cjo=1.42n Is=1e-13 Rb=10m bv=55 ibv=250u)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; VDMOS parameter set fitted to the Infineon datasheet values"
+url = "https://www.infineon.com/assets/row/public/documents/24/49/infineon-irlz44npbf-datasheet-en.pdf"
+version = "Infineon IRLZ44N datasheet, Rev. 2.1, 2026-08-12"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: V(BR)DSS >= 55 V; RDS(on) <= 22 mohm (10 V, 25 A), 25 mohm (5 V, 25 A), 35 mohm (4 V, 21 A); VGS(th) 1-2 V (250 uA); gfs >= 21 S (25 V, 25 A); Ciss 1700, Coss 400, Crss 150 pF (typ, 25 V); Qg <= 48 nC (5 V, 44 V, 25 A); VSD <= 1.3 V (25 A)."

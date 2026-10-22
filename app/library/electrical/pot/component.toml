@@ -1,0 +1,79 @@
+format = 1
+id = "POT"
+version = 1
+name = "Potentiometer"
+description = "Three-terminal linear potentiometer: resistance R between the ends a and b, wiper w at position pos (0 = wiper at a, 1 = wiper at b)."
+designator = "RV"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["pot", "variable resistor", "trimmer"]
+keywords = ["potentiometer", "wiper", "divider", "variable", "subcircuit"]
+tags = ["passive", "variable"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic linear taper with a fixed wiper resistance: no taper law, contact noise or wear.",
+               "Generic values, not a fit to one datasheet."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+value = "R"
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [0, 60]
+
+[[pins]]
+id = "w"
+name = "W"
+at = [40, 0]
+
+[[pins]]
+id = "b"
+name = "B"
+at = [80, 60]
+
+[[params]]
+key = "R"
+label = "Total resistance"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+help = "End-to-end resistance, a to b"
+
+[[params]]
+key = "pos"
+label = "Wiper position"
+default = "0.5"
+min = 0
+max = 1
+help = "0 = wiper at a, 1 = wiper at b"
+
+[[params]]
+key = "rw"
+label = "Wiper resistance"
+unit = "Ω"
+default = "1"
+min = 0
+min_exclusive = true
+help = "Contact resistance of the wiper; keeps both sections above zero"
+
+[sim.electrical]
+live = ["R", "pos"]
+device = "X"
+line = "{dev} {a} {w} {b} bench_pot R={R} POS={pos} RW={rw}"
+body = """
+.subckt bench_pot a w b params: R=10k POS=0.5 RW=1
+R1 a w {R*POS+RW}
+R2 w b {R*(1-POS)+RW}
+.ends bench_pot
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ideal two-section divider with a wiper resistance"
+license = "MIT"

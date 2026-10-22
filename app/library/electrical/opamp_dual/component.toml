@@ -1,0 +1,80 @@
+format = 1
+id = "OPAMP_DUAL"
+version = 1
+name = "Dual op-amp (ideal, single pole)"
+description = "Two independent generic op-amps (the single-pole OPAMP model) sharing one gain and gain-bandwidth setting."
+designator = "U"
+label = "OP-AMP x2"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["dual operational amplifier", "dual opamp"]
+keywords = ["amplifier", "op amp", "dual", "subcircuit"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Same model as OPAMP: no supply pins or rails, no slew-rate limit, offset, bias current or noise.",
+               "No crosstalk or shared supply between the two amplifiers."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 160]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp1"
+name = "+A"
+at = [0, 20]
+
+[[pins]]
+id = "inn1"
+name = "-A"
+at = [0, 60]
+
+[[pins]]
+id = "out1"
+name = "OUTA"
+at = [80, 40]
+
+[[pins]]
+id = "inp2"
+name = "+B"
+at = [0, 100]
+
+[[pins]]
+id = "inn2"
+name = "-B"
+at = [0, 140]
+
+[[pins]]
+id = "out2"
+name = "OUTB"
+at = [80, 120]
+
+[[params]]
+key = "aol"
+label = "Open-loop gain"
+default = "100k"
+min = 1
+help = "DC open-loop voltage gain of each amplifier, V/V"
+
+[[params]]
+key = "gbw"
+label = "Gain-bandwidth"
+unit = "Hz"
+default = "1meg"
+min = 0
+min_exclusive = true
+help = "Gain-bandwidth product of each amplifier"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp1} {inn1} {out1} {inp2} {inn2} {out2} bench_opamp_dual A={aol} GBW={gbw}"
+defs = ["models:generic/opamp.lib"]     # nested dependency: the body instantiates bench_opamp twice
+body = """
+.subckt bench_opamp_dual inp1 inn1 out1 inp2 inn2 out2 params: A=100k GBW=1meg
+XA inp1 inn1 out1 bench_opamp A={A} GBW={GBW}
+XB inp2 inn2 out2 bench_opamp A={A} GBW={GBW}
+.ends bench_opamp_dual
+"""
+model_kind = "project-subckt"
+verification = "analytic"

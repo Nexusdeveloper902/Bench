@@ -1,0 +1,80 @@
+format = 1
+id = "SPDT"
+version = 1
+name = "SPDT switch"
+description = "Single-pole double-throw manual switch: the common pin c connects to NO or to NC, chosen by the state."
+designator = "SW"
+label = "SPDT"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["single pole double throw", "changeover switch", "toggle SPDT"]
+keywords = ["switch", "throw", "changeover", "contact", "subcircuit"]
+tags = ["manual"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Static: the state is set in the inspector and does not change during a run.",
+               "Contacts are resistors (on and off values); no bounce, capacitance or leakage."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "c"
+name = "COM"
+at = [0, 30]
+
+[[pins]]
+id = "no"
+name = "NO"
+at = [80, 10]
+
+[[pins]]
+id = "nc"
+name = "NC"
+at = [80, 50]
+
+[[params]]
+key = "state"
+label = "Position"
+default = "NO"
+kind = "choice"
+choices = ["NO", "NC"]
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "0.01"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = ["state"]
+device = "X"
+body = """
+.subckt bench_spdt c no nc params: RNO=0.01 RNC=1e9
+RA c no {RNO}
+RB c nc {RNC}
+.ends bench_spdt
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; two resistive contacts sharing a common pin"
+license = "MIT"
+
+[sim.electrical.line]
+select = "state"
+NO = "{dev} {c} {no} {nc} bench_spdt RNO={ron} RNC={roff}"
+NC = "{dev} {c} {no} {nc} bench_spdt RNO={roff} RNC={ron}"

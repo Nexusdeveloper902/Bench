@@ -21,6 +21,7 @@
 - **Schematic editor.** Drag parts from a searchable library, wire them, move, rotate, undo and redo. Zoom 25–400 %, pan with middle-drag or <kbd>Space</kbd>+drag.
 - **Real simulation.** Circuits run through [ngspice](https://ngspice.sourceforge.io/) 47 via `benchcore`, not a toy solver.
 - **Live results.** A transient plot with a cursor readout, a time slider and Play. The LED glows by its core current as you scrub.
+- **Live runs.** Live (<kbd>F6</kbd>) runs the circuit while you move sliders for sensor stimuli, pots, switches and DC sources; the plot streams, and the change log replays as a batch run.
 - **Honest about what it can't do.** Each part carries a readiness badge. *Interface only* parts (ESP32, Arduino Uno, SSD1306, DHT22 …) can be placed and wired but are excluded from the run with a clear message, never silently faked.
 - **Data-driven component catalog.** A part is one `component.toml`. Drop it in a folder and it appears in the library, no code change.
 - **Stale-result handling.** Edit after a run and the badge flips to *Out of date* until you re-run.
@@ -104,7 +105,7 @@ flowchart LR
 | [`app/`](app) | PySide6 editor: canvas, library, inspector, results, theme |
 | [`app/library/`](app/library) | Built-in component packages, grouped by category |
 | [`benchcore/`](benchcore) | Rust kernel + electrical domain over libngspice, exposed to Python with PyO3 |
-| [`docs/`](docs) | Frontend design, persistence, testing, milestone and review reports |
+| [`docs/`](docs) | Frontend design, persistence, testing, component library list, milestone and review reports |
 | [`experiments/`](experiments) | Throwaway spikes, reference only |
 
 ## Adding components
@@ -118,25 +119,17 @@ app/library/electrical/d_1n4148/
 └── icon.svg         # library icon (optional)
 ```
 
-Set `SIM_COMPONENT_PATH` to extra directories to load your own packages, then validate:
+Parts backed by a `.subckt` carry it inline or in files, with shared model files in `app/library/_models/`
+(see [`docs/adding-components.md`](docs/adding-components.md)). Set `SIM_COMPONENT_PATH` to extra directories to load your own packages, then validate:
 
 ```bash
 python3 -m app.catalog ~/my-parts
 ```
 
-<details>
-<summary><b>Built-in library (17 parts)</b></summary>
-
-| Category | Parts |
-|---|---|
-| Electrical | resistor, capacitor, inductor, diode, 1N4148, LED, 2N2222 (NPN transistor), switch, voltage source, current source, ground |
-| Power | battery |
-| Microcontrollers | ESP32 DevKitC, Arduino Uno R3 |
-| Sensors | DHT22 |
-| Displays | SSD1306 (I²C) |
-| Audio | piezo buzzer |
-
-</details>
+The built-in library covers passives, sources, switches and relays, diodes, transistors, thyristors, analog ICs
+(op-amps, comparators, 555, regulators, references, analog switches), 74HC/74LS/CD4000 logic and 8-bit converters,
+and sensors, crystals and electromechanical parts. The full list, generated from the packages, is
+in [`docs/library.md`](docs/library.md).
 
 Full guide with worked examples: [`docs/adding-components.md`](docs/adding-components.md).
 

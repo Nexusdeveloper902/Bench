@@ -1,0 +1,95 @@
+format = 1
+id = "SPEAKER"
+version = 1
+name = "Loudspeaker (Thiele-Small electrical equivalent)"
+description = "Loudspeaker driver as its Thiele-Small electrical equivalent: voice-coil Re and Le in series with the motional branch, a parallel RLC with Rp = Bl²/Rms, Lp = Cms·Bl² and Cp = Mms/Bl². The driver parameters are inputs."
+designator = "LS"
+label = "SPEAKER"
+category = "Electrical"
+subcategory = "Transducers"
+aliases = ["speaker", "driver", "loudspeaker"]
+keywords = ["speaker", "Thiele-Small", "voice coil", "driver", "transducer", "audio", "subcircuit"]
+tags = ["transducer", "audio"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Linear small-signal Thiele-Small equivalent: no voice-coil inductance variation with displacement, no back-EMF beyond the Bl coupling, no cone breakup, no enclosure or air-load model, no acoustic output.",
+               "Generic driver values (Re 6 Ω, Le 0.1 mH, Bl 3.5 T·m, Mms 10 g, Cms 0.5 mm/N, Rms 1 N·s/m), not a datasheet fit. The motional resonance is at about 71 Hz."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "+"
+at = [0, 30]
+
+[[pins]]
+id = "b"
+name = "-"
+at = [80, 30]
+
+[[params]]
+key = "re"
+label = "DC resistance Re"
+unit = "Ω"
+default = "6"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "le"
+label = "Voice-coil inductance Le"
+unit = "H"
+default = "0.1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "bl"
+label = "Force factor Bl (T·m)"
+default = "3.5"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "mms"
+label = "Moving mass Mms (kg)"
+default = "0.01"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "cms"
+label = "Suspension compliance Cms (m/N)"
+default = "0.0005"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rms"
+label = "Mechanical resistance Rms (N·s/m)"
+default = "1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {a} {b} bench_spk RE={re} LE={le} BL={bl} MMS={mms} CMS={cms} RMS={rms}"
+body = """
+.subckt bench_spk a b params: RE=6 LE=0.1m BL=3.5 MMS=0.01 CMS=0.0005 RMS=1
+R1 a n1 {RE}
+L1 n1 n2 {LE}
+R2 n2 b {BL*BL/RMS}
+L2 n2 b {CMS*BL*BL}
+C2 n2 b {MMS/(BL*BL)}
+.ends bench_spk
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Thiele-Small electrical analogy: Rp = Bl²/Rms, Lp = Cms·Bl², Cp = Mms/Bl²; generic driver values"
+license = "MIT"

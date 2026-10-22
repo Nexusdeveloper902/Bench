@@ -1,0 +1,67 @@
+format = 1
+id = "REG_79XX"
+version = 1
+name = "79xx fixed negative regulator"
+description = "Three-terminal fixed negative linear regulator (uA7905 ... uA7915) with the output voltage as a choice: 1.1 V dropout at 1 A, 1.5 mA bias current, current limit about 2.1 A."
+designator = "U"
+category = "Electrical"
+subcategory = "Regulators"
+aliases = ["7905", "7912", "7915", "LM7905", "uA7905", "79xx"]
+keywords = ["regulator", "linear", "7905", "7912", "fixed", "negative", "power supply"]
+tags = ["power", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Pass transistors are generic Darlington models with an ideal reference and error amplifier: no thermal shutdown, safe-area protection, foldback, ripple-rejection roll-off or temperature drift.",
+               "Line and load regulation are better than the datasheet (no internal sense resistance); a supply step at start-up overshoots the output by up to about 0.6 V before it settles."]
+docs = ["https://www.ti.com/lit/ds/symlink/ua79.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 0]
+description = "Common (pin 1)"
+
+[[pins]]
+id = "in"
+name = "IN"
+at = [0, 40]
+description = "Input, negative (pin 2)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output, negative (pin 3)"
+
+[[params]]
+key = "vout"
+label = "Output voltage"
+unit = "V"
+kind = "choice"
+choices = ["-5", "-8", "-12", "-15"]
+default = "-5"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {gnd} {in} {out} bench_79xx VOUT={vout}"
+defs = ["models:analog/linreg.lib"]
+body = """
+.subckt bench_79xx gn in out params: VOUT=-5
+X1 in out gn gn bench_linreg_neg VREF={VOUT} VHD=-0.4 IQ=1.5m RSC=0.33
+.ends bench_79xx
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_linreg_neg with parameters fitted to the uA79xx datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/ua79.pdf"
+version = "TI SLVS058H, June 1976, revised November 2006"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals: output -5 V (+-4 %) and the other options; dropout 1.1 V at 1 A; bias current 1.5 mA (7905); peak output current 2.1 A. Fit: VHD -0.4 V gives about 1.1 V dropout at 1 A; RSC 0.33 ohm limits near 2.1 A."

@@ -1,0 +1,115 @@
+format = 1
+id = "LM386"
+version = 1
+name = "LM386 low-voltage audio amplifier"
+description = "Low-voltage audio power amplifier (8 pins): gain 20 with pins 1 and 8 open, 200 with a capacitor between them, in between with a resistor; output biased at VS/2, about 325 mW into 8 Ω on 6 V."
+designator = "U"
+category = "Electrical"
+subcategory = "Audio amplifiers"
+aliases = ["LM386", "LM386N-1", "audio amplifier"]
+keywords = ["audio", "amplifier", "speaker", "LM386", "power amplifier"]
+tags = ["audio", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Gain is set by the pins 1-8 network only: components from pin 1 or 8 to the output (bass boost) do not interact with the internal 15 kΩ feedback here.",
+               "Output swing stops 0.7 V inside each rail (325 mW into 8 Ω on 6 V); output current comes from the model's ground reference, not from VS; no distortion, current limit or thermal behaviour.",
+               "300 kHz bandwidth at gain 20 (one pole, same pole at gain 200); BYPASS sets the VS/2 bias through two 15 kΩ resistors, so a bypass capacitor slows the start-up exactly as on the IC."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm386.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 160]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "g1"
+name = "GAIN"
+at = [0, 80]
+description = "Gain set (pin 1)"
+
+[[pins]]
+id = "inn"
+name = "-IN"
+at = [0, 40]
+description = "Inverting input (pin 2)"
+
+[[pins]]
+id = "inp"
+name = "+IN"
+at = [0, 60]
+description = "Non-inverting input (pin 3)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 160]
+description = "Ground (pin 4)"
+
+[[pins]]
+id = "vo"
+name = "VOUT"
+at = [80, 40]
+description = "Output (pin 5)"
+
+[[pins]]
+id = "vs"
+name = "VS"
+at = [40, 0]
+description = "Supply, 4-12 V (pin 6)"
+
+[[pins]]
+id = "byp"
+name = "BYPASS"
+at = [0, 120]
+description = "Bias bypass (pin 7)"
+
+[[pins]]
+id = "g8"
+name = "GAIN"
+at = [0, 100]
+description = "Gain set (pin 8)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {g1} {inn} {inp} {gnd} {vo} {vs} {byp} {g8} bench_lm386"
+body = """
+.subckt bench_lm386 g1 inn inp gn vo vs byp g8
+.model bench_386_d D(Is=1e-15 N=0.01)
+Rinp inp gn 50k
+Rinn inn gn 50k
+* the differential input is forced across the gain network: 150 ohm + (1.35 kohm || whatever is wired from pin 1 to 8)
+Ein e1 g1 inp inn 1
+Vsen e1 e2 DC 0
+R150 e2 g8 150
+R1k35 g8 g1 1.35k
+Rfl g1 gn 100meg
+* output = VS/2 (BYPASS divider) + 2 x 15 kohm x network current: gain = 30k / (150 + Z(1-8))
+Rb1 vs byp 15k
+Rb2 byp gn 15k
+Ebias vb gn byp gn 1
+Fo vb o Vsen 1
+Ro o vb 30k
+Co o vb 17.7p
+Rsup vs gn 1.6k
+* swing limit 0.7 V inside each rail, then the output buffer
+Eo n gn o gn 1
+Rn n nc 1
+Ehi hi1 gn vs gn 1
+Vhi hi1 hi DC 0.7
+Vlo lo gn DC 0.7
+Dh nc hi bench_386_d
+Dl lo nc bench_386_d
+Eout ob gn nc gn 1
+Rout ob vo 0.1
+.ends bench_lm386
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; behavioural LM386 using the datasheet's internal 15 kohm / 1.35 kohm / 150 ohm gain network"
+url = "https://www.ti.com/lit/ds/symlink/lm386.pdf"
+version = "TI SNAS545D, May 2004, revised August 2023 (section 6.5 and the internal schematic)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals at VS = 6 V: gain 26 dB (pins 1, 8 open) and 46 dB (10 uF from pin 1 to 8); bandwidth 300 kHz; input resistance 50 kohm; quiescent current 4 mA; 325 mW into 8 ohm at 10 % THD (fit: 0.7 V swing loss per rail)."

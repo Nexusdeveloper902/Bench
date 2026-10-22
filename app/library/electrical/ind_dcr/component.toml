@@ -1,0 +1,69 @@
+format = 1
+id = "IND_DCR"
+version = 1
+name = "Inductor with DCR"
+description = "Inductor with its winding resistance (DCR) in series: L in series with R."
+designator = "L"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["choke with DCR", "coil with resistance"]
+keywords = ["inductor", "DCR", "winding", "choke", "subcircuit"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic: no core saturation, no frequency-dependent loss, no winding capacitance.",
+               "Generic values, not a fit to one datasheet."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+value = "L"
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [80, 15]
+
+[[params]]
+key = "L"
+label = "Inductance"
+unit = "H"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "dcr"
+label = "DC resistance"
+unit = "Ω"
+default = "0.5"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ic"
+label = "Initial current"
+unit = "A"
+default = "0"
+help = "Current a to b at t = 0"
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {a} {b} bench_ind_dcr L={L} DCR={dcr} IC={ic}"
+body = """
+.subckt bench_ind_dcr a b params: L=1m DCR=0.5 IC=0
+RDC a m {DCR}
+LIND m b {L} IC={IC}
+.ends bench_ind_dcr
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ideal inductor in series with a winding resistance"
+license = "MIT"

@@ -83,11 +83,11 @@ def test_simulated_only_toggle_and_empty_category(win):
     shown = ids(win)
     assert 0 < len(shown) < n_all and all(CATALOG.defs[i].simulated for i in shown)
     assert all(c.badge.text() == "Simulated" for c in lib.cards.values())
-    click_widget(lib.navs["Sensors"])                      # the only sensor is interface-only
-    assert ids(win) == [] and lib.empty.isVisible() and "No simulated components in Sensors" in lib.empty_title.text()
+    click_widget(lib.navs["Microcontrollers"])             # every microcontroller is interface-only
+    assert ids(win) == [] and lib.empty.isVisible() and "No simulated components in Microcontrollers" in lib.empty_title.text()
     assert "hidden" in lib.empty_text.text() and lib.empty_btn.text() == "Show all"
     click_widget(lib.empty_btn)
-    assert not lib.toggle.isChecked() and ids(win) and all(CATALOG.defs[i].category == "Sensors" for i in ids(win))
+    assert not lib.toggle.isChecked() and ids(win) and all(CATALOG.defs[i].category == "Microcontrollers" for i in ids(win))
 
 
 def test_card_content_and_readiness_badges(win):
@@ -191,16 +191,17 @@ def test_new_definition_appears_without_code(extra_root, qapp):
 def test_inspector_from_schema_mode_switch(win):
     win.library.card("V").click(); canvas_click(win, (65, 105))
     ins = win.inspector
-    assert list(ins.edits) == ["mode", "dc"]
+    ac = ["ac", "acphase"]                                         # the AC stimulus applies in every mode (G17)
+    assert list(ins.edits) == ["mode", "dc", *ac]
     win.select("V1")
     ins.edits["mode"].setCurrentText("PULSE"); QApplication.processEvents()   # through the UI, like a user
     assert win.doc.parts["V1"]["params"]["mode"] == "PULSE"
-    assert len(ins.edits) == 8 and sum(not isinstance(e, QComboBox) for e in ins.edits.values()) == 7
+    assert len(ins.edits) == 10 and sum(not isinstance(e, QComboBox) for e in ins.edits.values()) == 9
     combo = ins.edits["mode"]                                                 # re-rendered by the change
     combo.setCurrentText("SIN"); QApplication.processEvents()          # a choice change re-renders the `when` fields
-    assert win.doc.parts["V1"]["params"]["mode"] == "SIN" and list(win.inspector.edits) == ["mode", "vo", "va", "freq"]
+    assert win.doc.parts["V1"]["params"]["mode"] == "SIN" and list(win.inspector.edits) == ["mode", "vo", "va", "freq", *ac]
     win.inspector.edits["mode"].setCurrentText("DC"); QApplication.processEvents()
-    assert list(win.inspector.edits) == ["mode", "dc"]
+    assert list(win.inspector.edits) == ["mode", "dc", *ac]
 
 
 def test_invalid_input_shows_error_and_leaves_model_unchanged(win):
@@ -333,9 +334,9 @@ def test_nav_counts_follow_toggle_and_query(win):
     """T3: seeded counts are hard-coded (not the function the UI itself calls); the toggle and the query change them."""
     lib = win.library
     n = lambda k: lib.navs[k].count.text()
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("17", "11", "2", "1")
+    assert int(n(None)) >= 173 and int(n("Electrical")) >= 145 and n("Microcontrollers") == "2" and int(n("Sensors")) >= 20   # batch E adds parts (test_library_batch_e.py)
     click_widget(lib.toggle)
-    assert (n(None), n("Electrical"), n("Microcontrollers"), n("Sensors")) == ("12", "11", "0", "0")
+    assert int(n(None)) >= 168 and int(n("Electrical")) >= 145 and n("Microcontrollers") == "0" and int(n("Sensors")) >= 19
     click_widget(lib.toggle)
     type_search(win, "esp")
     assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")

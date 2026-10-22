@@ -1,0 +1,75 @@
+format = 1
+id = "CAP_ELECTROLYTIC"
+version = 1
+name = "Electrolytic capacitor (ESR/ESL)"
+description = "Aluminium electrolytic capacitor: large capacitance, higher ESR and a leakage resistance. Generic values; polarised in practice."
+designator = "C"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["aluminium electrolytic", "bulk capacitor", "e-cap"]
+keywords = ["capacitor", "electrolytic", "bulk", "ESR", "leakage", "subcircuit"]
+tags = ["passive", "polarised"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Polarity is not enforced: reverse bias is not modelled and nothing is reported.",
+               "Generic: no ripple-current limit, ESR temperature dependence, ageing or dielectric absorption."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+value = "C"
+box = [0, 0, 80, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "+"
+at = [0, 20]
+
+[[pins]]
+id = "b"
+name = "-"
+at = [80, 20]
+
+[[params]]
+key = "C"
+label = "Capacitance"
+unit = "F"
+default = "100u"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "esr"
+label = "ESR"
+unit = "Ω"
+default = "0.5"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "esl"
+label = "ESL"
+unit = "H"
+default = "20n"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rleak"
+label = "Leakage resistance"
+unit = "Ω"
+default = "1meg"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {a} {b} bench_cap_esr C={C} ESR={esr} ESL={esl} RLEAK={rleak}"
+defs = ["models:passives/cap_esr.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic series-ESR/ESL equivalent with a leakage resistance"
+license = "MIT"

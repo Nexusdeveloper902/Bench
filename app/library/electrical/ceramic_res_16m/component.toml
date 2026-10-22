@@ -1,0 +1,74 @@
+format = 1
+id = "CERAMIC_RES_16M"
+version = 1
+name = "Ceramic resonator 16 MHz (BVD)"
+description = "16 MHz ceramic resonator as a Butterworth-Van Dyke equivalent: a lower-Q series RLC (Rs, Ls, Cs) in parallel with a large static capacitance. Typical values."
+designator = "Y"
+label = "16 MHz"
+category = "Electrical"
+subcategory = "Timing"
+aliases = ["ceramic resonator", "ceramic clock resonator"]
+keywords = ["resonator", "ceramic", "16 MHz", "clock", "BVD", "subcircuit"]
+tags = ["timing", "resonator"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Butterworth-Van Dyke equivalent: a lower-Q (about 1000) element than a quartz crystal, with a wider resonance. Overtones, drive level, temperature and ageing are not modelled.",
+               "Typical values, not a datasheet fit: Ls 198 µH, Cs 0.5 pF, Rs 20 Ω, Cp 40 pF, which give fs = 16 MHz.",
+               "The two pins have no DC path through the resonator: a pin wired only to it starts at 0 V and follows through its capacitances (Bench runs with UIC); give it a DC path where its bias matters."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "lm"
+label = "Motional inductance Ls"
+unit = "H"
+default = "197.9u"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "cm"
+label = "Motional capacitance Cs"
+unit = "F"
+default = "0.5p"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rm"
+label = "Series resistance Rs"
+unit = "Ω"
+default = "20"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "c0"
+label = "Shunt capacitance Cp"
+unit = "F"
+default = "40p"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {a} {b} bench_bvd LM={lm} CM={cm} RM={rm} C0={c0}"
+defs = ["models:resonators/bvd.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; BVD equivalent with typical 16 MHz ceramic values (generic, not a datasheet fit)"
+license = "MIT"

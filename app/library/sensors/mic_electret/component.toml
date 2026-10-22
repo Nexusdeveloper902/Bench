@@ -1,0 +1,90 @@
+format = 1
+id = "MIC_ELECTRET"
+version = 1
+name = "Electret microphone (JFET stage equivalent)"
+description = "Electret condenser microphone as an electrical equivalent: a drain-biased current source that carries the sound-driven signal into the drain resistor. The sound pressure level and the frequency are parameters."
+designator = "MK"
+label = "MIC"
+category = "Sensors"
+subcategory = "Acoustic and ultrasonic"
+aliases = ["electret mic", "condenser microphone"]
+keywords = ["microphone", "acoustic", "sound", "SPL", "electret", "JFET", "sensor", "subcircuit"]
+tags = ["sensor", "acoustic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Equivalent: the sound-driven drain current is a sine current source of amplitude 10^(sens/20)·p/RD, with p = 20 µPa·10^(SPL/20). The sensitivity (generic −44 dBV/Pa) is typical, not a datasheet fit.",
+               "Only one pure tone is modelled (no spectrum, no frequency response, no directivity). The bias is a fixed current sink; the JFET's supply and the bias network are ideal.",
+               "No noise, distortion, clipping or wind and humidity effects."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [30, 0]
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [30, 60]
+
+[[params]]
+key = "spl"
+label = "Sound pressure level (dB SPL)"
+default = "94"
+min = 0
+max = 130
+help = "94 dB SPL is 1 Pa RMS, the usual calibrator level"
+
+[[params]]
+key = "freq"
+label = "Tone frequency (Hz)"
+unit = "Hz"
+default = "1k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "sens"
+label = "Sensitivity (dBV/Pa)"
+default = "-44"
+help = "Open-circuit output in dB re 1 V per pascal"
+
+[[params]]
+key = "rd"
+label = "Drain resistor"
+unit = "Ω"
+default = "2.2k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ibias"
+label = "Bias drain current"
+unit = "A"
+default = "0.5m"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = []
+device = "X"
+line = "{dev} {vdd} {out} bench_mic SPL={spl} FREQ={freq} SENS={sens} RD={rd} IBIAS={ibias}"
+body = """
+.subckt bench_mic vdd out params: SPL=94 FREQ=1k SENS=-44 RD=2.2k IBIAS=0.5m
+VSTIM stim 0 SIN(0 {20e-6*pow(10,SPL/20)} {FREQ})
+RSTIM stim 0 1G
+R1 vdd out {RD}
+I1 out 0 DC {IBIAS}
+G1 out 0 stim 0 {pow(10,SENS/20)/RD}
+.ends bench_mic
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; electret sensitivity as a current source into the drain resistor; generic −44 dBV/Pa"
+license = "MIT"

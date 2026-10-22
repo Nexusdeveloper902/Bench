@@ -1,0 +1,54 @@
+format = 1
+id = "Q_BC547B"
+version = 1
+name = "BC547B NPN transistor"
+description = "General-purpose 100 mA, 45 V NPN, gain group B: hFE about 300 at 2 mA, VBE about 0.66 V, VCE(sat) about 80 mV at 10 mA / 0.5 mA."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["BC547", "BC547B", "BC337 class"]
+keywords = ["transistor", "bjt", "npn", "bipolar", "BC547", "BC546", "BC548", "general purpose", "European"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Philips datasheet's typical values for the B gain group, not a vendor SPICE model: hFE about 305 at 2 mA (5 V), VBE 0.66 V, VCE(sat) 0.08 V at 10 mA / 0.5 mA.",
+               "Gain group A and C parts differ (hFE about 180 and 520); use the generic NPN with another Bf for those. Tf = 0.4 ns is an assumption in line with the 100 MHz minimum fT.",
+               "Early voltage Vaf is an assumption (the datasheet gives none); temperature dependence, noise and breakdown voltages are not modelled.",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://www.komponenten.es.aau.dk/fileadmin/komponenten/Data_Sheet/Transistor/BC547.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} qbc547b"
+models = [".model qbc547b NPN(Is=16.4f Bf=380 Vaf=100 Ikf=0.3 Ise=60f Ne=1.5 Br=5 Rb=10 Rc=3 Re=0.2 Cje=13p Cjc=4p Mje=0.33 Mjc=0.33 Vje=0.75 Vjc=0.75 Tf=0.4n Tr=50n)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Philips datasheet values"
+url = "https://www.komponenten.es.aau.dk/fileadmin/komponenten/Data_Sheet/Transistor/BC547.pdf"
+version = "Philips BC546/BC547/BC548 product specification, 2004 Nov 25 (copy hosted at Aalborg University)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (BC547B): hFE 200-450 (typ 290) at 2 mA/5 V and 150 typ at 10 uA; VBE 580-700 mV (typ 660) at 2 mA, <= 770 mV at 10 mA; VCE(sat) 90 mV typ, <= 250 mV at 10 mA/0.5 mA; Cc = 1.5 pF at 10 V, Ce = 11 pF at 0.5 V; fT >= 100 MHz."

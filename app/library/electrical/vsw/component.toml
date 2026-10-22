@@ -1,0 +1,81 @@
+format = 1
+id = "VSW"
+version = 1
+name = "Voltage-controlled switch"
+description = "Switch between p and n, closed when the control voltage (cp - cn) exceeds VT + VH/2 and open below VT - VH/2 (ngspice S element)."
+designator = "S"
+label = "V-SWITCH"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["voltage controlled switch", "analog switch", "VCS"]
+keywords = ["switch", "voltage controlled", "threshold", "hysteresis", "analog switch"]
+tags = ["control"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal threshold with hysteresis; the control draws no current and has no delay or charge injection."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "P"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "N"
+at = [60, 15]
+
+[[pins]]
+id = "cp"
+name = "C+"
+at = [30, 0]
+
+[[pins]]
+id = "cn"
+name = "C-"
+at = [30, 40]
+
+[[params]]
+key = "vt"
+label = "Threshold"
+unit = "V"
+default = "1"
+
+[[params]]
+key = "vh"
+label = "Hysteresis"
+unit = "V"
+default = "0.1"
+min = 0
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "S"
+line = "{dev} {p} {n} {cp} {cn} vsw_{dev_lc}"
+models = [".model vsw_{dev_lc} SW(VT={vt} VH={vh} RON={ron} ROFF={roff})"]
+current = "@{dev_lc}[i]"
+model_kind = "model"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice SW model parameters, generic"
+license = "MIT"

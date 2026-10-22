@@ -1,0 +1,85 @@
+format = 1
+id = "NE555"
+version = 1
+name = "NE555 timer"
+description = "Bipolar 555 timer (8 pins) for astable, monostable and Schmitt-trigger circuits: thresholds at 2/3 and 1/3 VCC (CONT overrides), discharge transistor, reset, totem-pole output."
+designator = "U"
+category = "Electrical"
+subcategory = "Timers"
+aliases = ["555", "NE555", "LM555", "NA555"]
+keywords = ["555", "timer", "astable", "monostable", "oscillator", "pulse"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Behavioural: ideal threshold comparators and an SR latch built from voltage-controlled switches; the 2/3 and 1/3 VCC levels come from the internal 3 x 5 kΩ divider exactly.",
+               "RESET has only a 1 GΩ leak to GND, so an unwired RESET holds the timer in reset: tie it to VCC when unused (as the datasheet says).",
+               "No propagation delay, output rise/fall time, supply-current spike or temperature drift; TRIG and THRES draw no bias current (1 GΩ leaks only)."]
+docs = ["https://www.ti.com/lit/ds/symlink/ne555.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 120]
+description = "Ground (pin 1)"
+
+[[pins]]
+id = "trig"
+name = "TRIG"
+at = [0, 40]
+description = "Trigger: output goes high while below 1/3 VCC (pin 2)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output (pin 3)"
+
+[[pins]]
+id = "reset"
+name = "RESET"
+at = [0, 100]
+description = "Active-low reset (pin 4); tie to VCC when unused"
+
+[[pins]]
+id = "ctrl"
+name = "CONT"
+at = [0, 80]
+description = "Control voltage: 2/3 VCC divider tap (pin 5)"
+
+[[pins]]
+id = "thr"
+name = "THRES"
+at = [0, 60]
+description = "Threshold: output goes low above CONT (pin 6)"
+
+[[pins]]
+id = "dis"
+name = "DISCH"
+at = [80, 60]
+description = "Discharge, open collector, on while the output is low (pin 7)"
+
+[[pins]]
+id = "vcc"
+name = "VCC"
+at = [40, 0]
+description = "Supply, 4.5-16 V (pin 8)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {gnd} {trig} {out} {reset} {ctrl} {thr} {dis} {vcc} bench_ne555"
+defs = ["models:analog/ne555.lib"]
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; behavioural 555 (divider, switch comparators, switch latch, fitted output and discharge stages)"
+url = "https://www.ti.com/lit/ds/symlink/ne555.pdf"
+version = "TI SLFS022K, September 1973, revised March 2026 (sections 5.5, NE555)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Fitted to: VOL 0.1 V at 10 mA, 0.4 V at 50 mA (8 ohm); VOH 13.3 V at -100 mA and 12.5 V at -200 mA on 15 V (diode + 7.7 ohm); discharge 0.15 V at 8 mA (19 ohm); reset threshold 0.7 V; supply current 3 mA at 5 V and 10 mA at 15 V (output low). Timing closed forms: astable f = 1.44 / ((RA + 2 RB) C), monostable t = 1.1 R C."

@@ -1,0 +1,68 @@
+format = 1
+id = "REG_78XX"
+version = 1
+name = "78xx fixed positive regulator"
+description = "Three-terminal fixed positive linear regulator (uA7805 ... uA7824) with the output voltage as a choice: 2 V dropout at 1 A, 4.2 mA bias current, current limit about 2.2 A."
+designator = "U"
+category = "Electrical"
+subcategory = "Regulators"
+aliases = ["7805", "7812", "7815", "LM7805", "uA7805", "78xx"]
+keywords = ["regulator", "linear", "7805", "7812", "fixed", "positive", "power supply"]
+tags = ["power", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Pass transistors are generic Darlington models with an ideal reference and error amplifier: no thermal shutdown, safe-area protection, foldback, ripple-rejection roll-off or temperature drift.",
+               "Line and load regulation are better than the datasheet (no internal sense resistance); a supply step at start-up overshoots the output by up to about 0.6 V before it settles.",
+               "One current limit (peak 2.2 A) for every voltage: the datasheet's short-circuit current (750 mA for the 7805, 350 mA for the 7812) comes from foldback, which is not modelled."]
+docs = ["https://www.ti.com/lit/ds/symlink/ua78.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "in"
+name = "IN"
+at = [0, 40]
+description = "Input (pin 1)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [40, 80]
+description = "Common (pin 2)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output (pin 3)"
+
+[[params]]
+key = "vout"
+label = "Output voltage"
+unit = "V"
+kind = "choice"
+choices = ["5", "8", "10", "12", "15", "24"]
+default = "5"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {in} {gnd} {out} bench_78xx VOUT={vout}"
+defs = ["models:analog/linreg.lib"]
+body = """
+.subckt bench_78xx in gn out params: VOUT=5
+X1 in out gn gn bench_linreg_pos VREF={VOUT} VHD=0.65 IQ=4.2m RSC=0.3
+.ends bench_78xx
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_linreg_pos with parameters fitted to the uA78xx datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/ua78.pdf"
+version = "TI SLVS056P, May 1976, revised January 2015 (sections 7.5-7.10)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals: output 5 V (+-4 %) and the other options; dropout 2 V at 1 A; bias current 4.2 mA (7805), 4.3 mA (7812); peak output current 2.2 A; load regulation 15 mV (5 mA-1.5 A, 7805). Fit: VHD 0.65 V gives 2 V dropout at 1 A; RSC 0.3 ohm limits near 2.2-2.3 A."

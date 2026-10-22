@@ -1,0 +1,256 @@
+* Sequential and counter cores (project-authored, simplified): XSPICE d_dff / d_jkff / d_dlatch and gates between bench_din and
+* bench_dout stages (io.lib). Parameters: see gates.lib. SA/RA: 1 when the set / reset pin is active low.
+* A pin that is active low and unconnected reads inactive (pulled to vc); other unconnected pins read low.
+.subckt bench_d_dff vc gn d ck s r q qb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n SA=0 RA=0
+Xd vc gn d dd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn ck dc bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={SA} PU={SA}
+Xr vc gn r dr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={RA} PU={RA}
+A1 dd dc ds dr dq dqn ff
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+Xq vc gn dq q bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Xqb vc gn dqn qb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_dff
+.subckt bench_d_jk vc gn j k ck s r q qb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n SA=0 RA=0
+Xj vc gn j dj bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xk vc gn k dk bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn ck dc bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={SA} PU={SA}
+Xr vc gn r dr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={RA} PU={RA}
+A1 dj dk dc ds dr dq dqn ff
+.model ff d_jkff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+Xq vc gn dq q bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Xqb vc gn dqn qb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_jk
+.subckt bench_d_jkn vc gn j k ck s r q qb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n SA=0 RA=0
+Xj vc gn j dj bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xk vc gn k dk bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn ck dck0 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model gi d_inverter(rise_delay={TD} fall_delay={TD})
+Ack dck0 dc gi
+Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={SA} PU={SA}
+Xr vc gn r dr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={RA} PU={RA}
+A1 dj dk dc ds dr dq dqn ff
+.model ff d_jkff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+Xq vc gn dq q bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Xqb vc gn dqn qb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_jkn
+.subckt bench_d_latbit vc gn d le oe q params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xd vc gn d dd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 dd le NULL NULL dq NULL lat
+.model lat d_dlatch(data_delay={TPD} enable_delay={TPD} set_delay={TPD} reset_delay={TPD})
+Xq vc gn dq oe q bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_latbit
+.subckt bench_d_lat8 vc gn d1 d2 d3 d4 d5 d6 d7 d8 le oeb q1 q2 q3 q4 q5 q6 q7 q8 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xle vc gn le dle bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xoe vc gn oeb doe bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=0
+XL1 vc gn d1 dle doe q1 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL2 vc gn d2 dle doe q2 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL3 vc gn d3 dle doe q3 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL4 vc gn d4 dle doe q4 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL5 vc gn d5 dle doe q5 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL6 vc gn d6 dle doe q6 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL7 vc gn d7 dle doe q7 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+XL8 vc gn d8 dle doe q8 bench_d_latbit LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TPD={TPD}
+.ends bench_d_lat8
+.subckt bench_d_sr595 vc gn ser srclk rclk srclrb oeb qa qb qc qd qe qf qg qh qs params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xser vc gn ser dser bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xsck vc gn srclk dsck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xrck vc gn rclk drck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xclr vc gn srclrb dclr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=1
+Xoe vc gn oeb doe bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=0
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+AS0 dser dsck NULL dclr s0 NULL ff
+AS1 s0 dsck NULL dclr s1 NULL ff
+AS2 s1 dsck NULL dclr s2 NULL ff
+AS3 s2 dsck NULL dclr s3 NULL ff
+AS4 s3 dsck NULL dclr s4 NULL ff
+AS5 s4 dsck NULL dclr s5 NULL ff
+AS6 s5 dsck NULL dclr s6 NULL ff
+AS7 s6 dsck NULL dclr s7 NULL ff
+AR0 s0 drck NULL NULL r0 NULL ff
+XQ0 vc gn r0 doe qa bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR1 s1 drck NULL NULL r1 NULL ff
+XQ1 vc gn r1 doe qb bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR2 s2 drck NULL NULL r2 NULL ff
+XQ2 vc gn r2 doe qc bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR3 s3 drck NULL NULL r3 NULL ff
+XQ3 vc gn r3 doe qd bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR4 s4 drck NULL NULL r4 NULL ff
+XQ4 vc gn r4 doe qe bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR5 s5 drck NULL NULL r5 NULL ff
+XQ5 vc gn r5 doe qf bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR6 s6 drck NULL NULL r6 NULL ff
+XQ6 vc gn r6 doe qg bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AR7 s7 drck NULL NULL r7 NULL ff
+XQ7 vc gn r7 doe qh bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+XQS vc gn s7 qs bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_sr595
+.subckt bench_d_sr4094 vc gn strobe data clock oe q1 q2 q3 q4 q5 q6 q7 q8 qs qsb params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xst vc gn strobe dst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd vc gn data dd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xck vc gn clock dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xoe vc gn oe doe bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+.model lat d_dlatch(data_delay={TPD} enable_delay={TPD} set_delay={TPD} reset_delay={TPD})
+AS0 dd dck NULL NULL s0 NULL ff
+AS1 s0 dck NULL NULL s1 NULL ff
+AS2 s1 dck NULL NULL s2 NULL ff
+AS3 s2 dck NULL NULL s3 NULL ff
+AS4 s3 dck NULL NULL s4 NULL ff
+AS5 s4 dck NULL NULL s5 NULL ff
+AS6 s5 dck NULL NULL s6 NULL ff
+AS7 s6 dck NULL NULL s7 NULL ff
+AL0 s0 dst NULL NULL l0 NULL lat
+XQ0 vc gn l0 doe q1 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL1 s1 dst NULL NULL l1 NULL lat
+XQ1 vc gn l1 doe q2 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL2 s2 dst NULL NULL l2 NULL lat
+XQ2 vc gn l2 doe q3 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL3 s3 dst NULL NULL l3 NULL lat
+XQ3 vc gn l3 doe q4 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL4 s4 dst NULL NULL l4 NULL lat
+XQ4 vc gn l4 doe q5 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL5 s5 dst NULL NULL l5 NULL lat
+XQ5 vc gn l5 doe q6 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL6 s6 dst NULL NULL l6 NULL lat
+XQ6 vc gn l6 doe q7 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AL7 s7 dst NULL NULL l7 NULL lat
+XQ7 vc gn l7 doe q8 bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Ainv dck dnck inv
+.model inv d_inverter(rise_delay={TPD} fall_delay={TPD})
+ANS s7 dnck NULL NULL sn NULL ff
+XQS vc gn s7 qs bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+XQSB vc gn sn qsb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_sr4094
+.subckt bench_d_cnt161 vc gn clrb clk a b c d enp ent loadb qa qb qc qd rco params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xclr vc gn clrb dclr bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=1
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xld vc gn loadb dld bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
+Xep vc gn enp dep bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
+Xet vc gn ent det bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=0 PU=1
+Xpa vc gn a dpa bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xpb vc gn b dpb bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xpc vc gn c dpc bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xpd vc gn d dpd bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+.model g2 d_and(rise_delay={TPD} fall_delay={TPD})
+.model gx d_xor(rise_delay={TPD} fall_delay={TPD})
+.model go d_or(rise_delay={TPD} fall_delay={TPD})
+.model gi d_inverter(rise_delay={TPD} fall_delay={TPD})
+Ald dld nld gi
+Acnt [dep det] cnt g2
+Ant0 cnt t0 buf
+.model buf d_buffer(rise_delay={TPD} fall_delay={TPD})
+At1 [cnt q0] t1 g2
+At2 [cnt q0 q1] t2 g2
+At3 [cnt q0 q1 q2] t3 g2
+Ax0 [q0 t0] cn0 gx
+Aa0 [dld cn0] m0 g2
+Ab0 [nld dpa] l0 g2
+Ao0 [m0 l0] dd0 go
+AF0 dd0 dck NULL dclr q0 NULL ff
+XQ0 vc gn q0 qa bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Ax1 [q1 t1] cn1 gx
+Aa1 [dld cn1] m1 g2
+Ab1 [nld dpb] l1 g2
+Ao1 [m1 l1] dd1 go
+AF1 dd1 dck NULL dclr q1 NULL ff
+XQ1 vc gn q1 qb bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Ax2 [q2 t2] cn2 gx
+Aa2 [dld cn2] m2 g2
+Ab2 [nld dpc] l2 g2
+Ao2 [m2 l2] dd2 go
+AF2 dd2 dck NULL dclr q2 NULL ff
+XQ2 vc gn q2 qc bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Ax3 [q3 t3] cn3 gx
+Aa3 [dld cn3] m3 g2
+Ab3 [nld dpd] l3 g2
+Ao3 [m3 l3] dd3 go
+AF3 dd3 dck NULL dclr q3 NULL ff
+XQ3 vc gn q3 qd bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Arc [det q0 q1 q2 q3] drco g2
+XRCO vc gn drco rco bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_cnt161
+.subckt bench_d_cd4017 vc gn clk inh rst q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 co params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xinh vc gn inh dinh bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xrst vc gn rst drst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+.model g2 d_and(rise_delay={TPD} fall_delay={TPD})
+.model gi d_inverter(rise_delay={TPD} fall_delay={TPD})
+Ai dinh ninh gi
+Ag [dck ninh] gck g2
+AJ0 nj4 gck NULL drst j0 nj0 ff
+AJ1 j0 gck NULL drst j1 nj1 ff
+AJ2 j1 gck NULL drst j2 nj2 ff
+AJ3 j2 gck NULL drst j3 nj3 ff
+AJ4 j3 gck NULL drst j4 nj4 ff
+AD0 [nj0 nj4] o0 g2
+XQ0 vc gn o0 q0 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD1 [j0 nj1] o1 g2
+XQ1 vc gn o1 q1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD2 [j1 nj2] o2 g2
+XQ2 vc gn o2 q2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD3 [j2 nj3] o3 g2
+XQ3 vc gn o3 q3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD4 [j3 nj4] o4 g2
+XQ4 vc gn o4 q4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD5 [j0 j4] o5 g2
+XQ5 vc gn o5 q5 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD6 [nj0 j1] o6 g2
+XQ6 vc gn o6 q6 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD7 [nj1 j2] o7 g2
+XQ7 vc gn o7 q7 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD8 [nj2 j3] o8 g2
+XQ8 vc gn o8 q8 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AD9 [nj3 j4] o9 g2
+XQ9 vc gn o9 q9 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+XCO vc gn nj4 co bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_cd4017
+.subckt bench_d_rip4 vc gn clk rst q1 q2 q3 q4 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xck vc gn clk dck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model gi d_inverter(rise_delay={TD} fall_delay={TD})
+Ack dck dnck gi
+Xrst vc gn rst drst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+AF1 nq1 dnck NULL drst q1 nq1 ff
+XQ1 vc gn q1 q1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF2 nq2 nq1 NULL drst q2 nq2 ff
+XQ2 vc gn q2 q2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF3 nq3 nq2 NULL drst q3 nq3 ff
+XQ3 vc gn q3 q3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF4 nq4 nq3 NULL drst q4 nq4 ff
+XQ4 vc gn q4 q4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_rip4
+.subckt bench_d_rip12 vc gn clk rst q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 q12 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=15n TD=1n
+Xck vc gn clk dck bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model gi d_inverter(rise_delay={TD} fall_delay={TD})
+Ack dck dnck gi
+Xrst vc gn rst drst bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model ff d_dff(clk_delay={TPD} set_delay={TPD} reset_delay={TPD})
+AF1 nq1 dnck NULL drst q1 nq1 ff
+XQ1 vc gn q1 q1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF2 nq2 nq1 NULL drst q2 nq2 ff
+XQ2 vc gn q2 q2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF3 nq3 nq2 NULL drst q3 nq3 ff
+XQ3 vc gn q3 q3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF4 nq4 nq3 NULL drst q4 nq4 ff
+XQ4 vc gn q4 q4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF5 nq5 nq4 NULL drst q5 nq5 ff
+XQ5 vc gn q5 q5 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF6 nq6 nq5 NULL drst q6 nq6 ff
+XQ6 vc gn q6 q6 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF7 nq7 nq6 NULL drst q7 nq7 ff
+XQ7 vc gn q7 q7 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF8 nq8 nq7 NULL drst q8 nq8 ff
+XQ8 vc gn q8 q8 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF9 nq9 nq8 NULL drst q9 nq9 ff
+XQ9 vc gn q9 q9 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF10 nq10 nq9 NULL drst q10 nq10 ff
+XQ10 vc gn q10 q10 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF11 nq11 nq10 NULL drst q11 nq11 ff
+XQ11 vc gn q11 q11 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+AF12 nq12 nq11 NULL drst q12 nq12 ff
+XQ12 vc gn q12 q12 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_rip12

@@ -1,0 +1,62 @@
+format = 1
+id = "LM317"
+version = 1
+name = "LM317 adjustable positive regulator"
+description = "Three-terminal adjustable positive regulator: holds 1.25 V between OUT and ADJ, so VOUT = 1.25 V x (1 + R2/R1) + IADJ x R2 with IADJ = 50 µA."
+designator = "U"
+category = "Electrical"
+subcategory = "Regulators"
+aliases = ["LM317", "LM317T", "adjustable regulator"]
+keywords = ["regulator", "adjustable", "LM317", "linear", "1.25 V", "power supply"]
+tags = ["power", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Pass transistors are generic Darlington models with an ideal reference and error amplifier: no thermal shutdown, safe-area protection, foldback, ripple-rejection roll-off or temperature drift.",
+               "Line and load regulation are better than the datasheet (no internal sense resistance); a supply step at start-up overshoots the output by up to about 0.6 V before it settles.",
+               "Its 3.5 mA operating current returns through OUT, so the output rises with less than about 3.5 mA of load, as on the real part (minimum load current); dropout (about 2 V at 1 A) is an assumption, the datasheet table does not list it.",
+               "Current limit 2.2 A at any input-output difference (the datasheet drops to 0.4 A at 40 V through safe-area protection)."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm317.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "adj"
+name = "ADJ"
+at = [40, 80]
+description = "Adjust (pin 1)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output (pin 2)"
+
+[[pins]]
+id = "in"
+name = "IN"
+at = [0, 40]
+description = "Input (pin 3)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {adj} {out} {in} bench_lm317"
+defs = ["models:analog/linreg.lib"]
+body = """
+.subckt bench_lm317 adj out in
+X1 in out adj out bench_linreg_pos VREF=1.25 VHD=0.65 IQ=3.5m RSC=0.3
+Iadj in adj DC 50u
+.ends bench_lm317
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_linreg_pos with parameters fitted to the LM317 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm317.pdf"
+version = "TI SLVS044Z, September 1997, revised April 2025 (section 6.6)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals: reference 1.25 V (OUT to ADJ); adjustment pin current 50 uA; minimum load current 3.5 mA; current limit 2.2 A (VIN - VOUT <= 15 V); load regulation 0.1 %."

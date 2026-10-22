@@ -1,0 +1,74 @@
+format = 1
+id = "LM35"
+version = 1
+name = "LM35 temperature sensor (10 mV/°C)"
+description = "Precision centigrade sensor: the output is 10 mV per degree Celsius with 0 V at 0 °C, referenced to ground. The temperature is a parameter; only the electrical behaviour is modelled."
+designator = "UT"
+category = "Sensors"
+subcategory = "Temperature"
+aliases = ["LM35DZ", "centigrade sensor"]
+keywords = ["temperature", "analog", "10 mV", "centigrade", "sensor", "subcircuit"]
+tags = ["sensor", "temperature"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioural equivalent: Vout = 10 mV/°C × T, with a 0.1 Ω output resistance (generic). The accuracy classes and the ±0.5 °C tolerance are not modelled.",
+               "The supply current and the supply range are not modelled; the supply pin is tied with a 1 GΩ leak. Self-heating and the thermal time constant are not modelled.",
+               "Temperature range -55 to 150 °C (the device's range). The temperature is fixed during a batch run (a live run can change it)."]
+docs = ["https://www.ti.com/product/LM35"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "vs"
+name = "+Vs"
+at = [0, 15]
+
+[[pins]]
+id = "out"
+name = "Vout"
+at = [60, 30]
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [0, 45]
+
+[[params]]
+key = "temp"
+label = "Temperature (°C)"
+default = "25"
+min = -55
+max = 150
+help = "Sensor temperature in degrees Celsius"
+
+[[params]]
+key = "rout"
+label = "Output resistance"
+unit = "Ω"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = ["temp"]
+device = "X"
+line = "{dev} {vs} {out} {gnd} bench_lm35 T={temp} ROUT={rout}"
+body = """
+.subckt bench_lm35 vs out gn params: T=25 ROUT=0.1
+VSTIM stim gn DC {T}
+RSTIM stim gn 1G
+E1 n gn stim gn 0.01
+R1 n out {ROUT}
+R2 vs gn 1G
+.ends bench_lm35
+"""
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "TI LM35 precision centigrade temperature sensor datasheet (SNIS159): 10 mV/°C, 0 V at 0 °C"
+url = "https://www.ti.com/product/LM35"
+license = "MIT"
+notes = "Project-authored behaviour from the datasheet's transfer characteristic; not the vendor's model."

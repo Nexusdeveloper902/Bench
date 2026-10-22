@@ -1,0 +1,54 @@
+format = 1
+id = "M_BSS138"
+version = 1
+name = "BSS138 N-channel MOSFET"
+description = "50 V, 220 mA logic-level N-MOSFET in SOT-23: VGS(th) about 1.2 V, RDS(on) about 1.4 ohm at 10 V / 0.22 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["BSS138"]
+keywords = ["mosfet", "fet", "vdmos", "power", "BSS138", "SOT-23", "logic level", "level shifter"]
+tags = ["MOSFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Diodes Incorporated datasheet, not a vendor SPICE model: threshold 1.2 V (250 uA), RDS(on) 1.4 ohm at 10 V / 0.22 A, gfs 0.2 S at 0.2 A.",
+               "Capacitances are about 70 % of the datasheet maxima (Ciss 36 pF, Coss 18 pF, Crss 5.6 pF) with Cgd held constant.",
+               "Gate-source threshold is below 2 V but RDS(on) is only specified at 10 V; at 3.3 V gate drive the model conducts about 0.06 A at 1 V VDS.",
+               "Three-pin VDMOS model (body tied to source) with an integral body diode. The gate has no DC path, so drive it through a resistor or a voltage source. Temperature dependence, avalanche energy, safe operating area and self-heating are not modelled."]
+docs = ["https://www.diodes.com/assets/Datasheets/BSS138.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} mbss138"
+models = [".model mbss138 VDMOS(Vto=1.197 Kp=0.1 Rd=0.224 Rs=0.0396 Cgs=30p Cgdmin=5.6p Cgdmax=5.6p Cjo=43.7p bv=50 ibv=250u)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; VDMOS parameter set fitted to the Diodes datasheet values"
+url = "https://www.diodes.com/assets/Datasheets/BSS138.pdf"
+version = "Diodes Incorporated BSS138, DS30144 Rev. 25-2"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: VGS(th) 0.5-1.5 V, typ 1.2 V (250 uA); RDS(on) 1.4 ohm typ, <= 3.5 ohm (10 V, 0.22 A); gfs >= 100 mS (25 V, 0.2 A); Ciss <= 50 pF, Coss <= 25 pF, Crss <= 8 pF."

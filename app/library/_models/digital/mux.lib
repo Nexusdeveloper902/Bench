@@ -1,0 +1,47 @@
+* Digital multiplexer cores (project-authored, simplified): XSPICE gates between bench_din and bench_dout stages (io.lib).
+.subckt bench_d_mux8 vc gn d0 d1 d2 d3 d4 d5 d6 d7 a b c gb y w params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=20n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xc vc gn c dc bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xg vc gn gb dg bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=0
+Xd0 vc gn d0 dd0 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd1 vc gn d1 dd1 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd2 vc gn d2 dd2 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd3 vc gn d3 dd3 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd4 vc gn d4 dd4 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd5 vc gn d5 dd5 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd6 vc gn d6 dd6 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xd7 vc gn d7 dd7 bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model g5 d_and(rise_delay={TPD} fall_delay={TPD})
+.model go d_or(rise_delay={TPD} fall_delay={TPD})
+.model gi d_inverter(rise_delay={TPD} fall_delay={TPD})
+Ana da na gi
+Anb db nb gi
+Anc dc nc gi
+At0 [dd0 na nb nc dg] t0 g5
+At1 [dd1 da nb nc dg] t1 g5
+At2 [dd2 na db nc dg] t2 g5
+At3 [dd3 da db nc dg] t3 g5
+At4 [dd4 na nb dc dg] t4 g5
+At5 [dd5 da nb dc dg] t5 g5
+At6 [dd6 na db dc dg] t6 g5
+At7 [dd7 da db dc dg] t7 g5
+Ay [t0 t1 t2 t3 t4 t5 t6 t7] dy go
+Aw dy dw gi
+XY vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+XW vc gn dw w bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_mux8
+.subckt bench_d_mux2 vc gn s gb a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=12n TD=1n
+Xs vc gn s ds bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xg vc gn gb dg bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1 PU=0
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+.model g3 d_and(rise_delay={TPD} fall_delay={TPD})
+.model go d_or(rise_delay={TPD} fall_delay={TPD})
+.model gi d_inverter(rise_delay={TPD} fall_delay={TPD})
+Ans ds ns gi
+Ata [da ns dg] ta g3
+Atb [db ds dg] tb g3
+Ay [ta tb] dy go
+XY vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_mux2

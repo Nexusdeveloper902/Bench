@@ -1,0 +1,185 @@
+# Provenance of every shared definition file under app/library/_models/ (one [[file]] per file).
+# Keys: path (relative to _models/), origin ("project" | "third-party"), source, url (required for third-party),
+# version, license (SPDX id, or LicenseRef-<name> with LICENSES/<name>.txt), attribution, retrieved (YYYY-MM-DD),
+# sha256 (of the file as shipped), changes (what differs from upstream). The catalog rejects a package that uses a
+# models: file whose record is missing, incomplete or has a stale sha256.
+
+[[file]]
+path = "generic/opamp.lib"
+origin = "project"
+source = "Bench project; textbook single-pole op-amp (VCVS gain stage, RC pole, unity buffer, output resistance)"
+license = "MIT"
+retrieved = "2026-10-10"
+sha256 = "eddf6c18b9c12c5903b5d6be87e17a7c4f3b34e3c4ea0713e503b1d544553d43"
+changes = "none"
+
+[[file]]
+path = "passives/cap_esr.lib"
+origin = "project"
+source = "Bench project; capacitor with series ESR and ESL and a parallel leak (generic equivalent circuit)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "67abf67d1ba885994b9cf85c5944e1efe488c3c4c9a18f435bc88de26b4afb9f"
+changes = "none"
+
+[[file]]
+path = "protection/trip.lib"
+origin = "project"
+source = "Bench project; time-delay overcurrent element built from F, S and RC elements (behavioural, not thermal)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "62e70802baf005ec956a0aa8981970dfe2d04e12cafbd87abd70c739073cb73f"
+changes = "none"
+
+[[file]]
+path = "power/cell_thevenin.lib"
+origin = "project"
+source = "Bench project; Thevenin cell model (EMF in series with internal resistance)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "c8c71d3430d0eb49e2bf88a2e8015e87b869671fa475d920c180ee296c501da4"
+changes = "none"
+
+[[file]]
+path = "semiconductors/led.lib"
+origin = "project"
+source = "Bench project; one diode model per LED colour (forward voltage matched to the typical range per technology)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "49ec07cf4723b75bfcbec54905bb737146cb3c3b52ea872a398ef97bb214f8ae"
+changes = "Forward voltage values are typical ranges for each LED technology, not a specific part."
+
+[[file]]
+path = "semiconductors/scr.lib"
+origin = "project"
+source = "Bench project; regenerative NPN/PNP pair SCR subcircuit (not a vendor model)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "4187ceaa507788f52723dcca9150cc87c049f9edb33df4209c7100aab96fc7ff"
+changes = "none"
+
+[[file]]
+path = "analog/opamp_macro.lib"
+origin = "project"
+source = "Bench project; two-stage op-amp macromodel (clamped transconductance, integrator, rail clamps, output buffer) from linear E/G sources, diodes and passives"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "cc75c1592e79c77bfeb7ceed01cdff7de856ea45bc539ad0ef5875cdd33a5059"
+changes = "none"
+
+[[file]]
+path = "analog/comparator.lib"
+origin = "project"
+source = "Bench project; open-collector comparator from a clamped transconductance stage, an RC delay and a voltage-controlled switch"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "da100021ee6d3fd6a8dd1ae3746bb218e49234658714b1933817e498c01c6417"
+changes = "none"
+
+[[file]]
+path = "analog/ne555.lib"
+origin = "project"
+source = "Bench project; behavioural 555 timer (resistor divider, switch comparators, switch latch, fitted output and discharge stages)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "ceaa6441158740246f8b84fe1e8d6b884d5aea9b39ec6d681a0d0c71a1469bc0"
+changes = "none"
+
+[[file]]
+path = "analog/shunt_ref.lib"
+origin = "project"
+source = "Bench project; shunt reference core (ideal reference with slope and dynamic-impedance terms, error amplifier, NPN output)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "7d7228b71ec5b8b15a5459e0361a7784a84c75105c6d0cbd461c494868805d74"
+changes = "none"
+
+[[file]]
+path = "analog/linreg.lib"
+origin = "project"
+source = "Bench project; linear regulator cores (Darlington pass element, current-limit transistor, ideal reference and single-pole error amplifier), positive and negative"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "0b75d4fd945a468e8badd4c8aa29a7e118d9e19e442cf44030e672fefec48fa8"
+changes = "none"
+
+[[file]]
+path = "analog/aswitch.lib"
+origin = "project"
+source = "Bench project; CMOS analog switch element (voltage-controlled switch with constant on resistance and a (VDD + VSS) / 2 threshold)"
+license = "MIT"
+retrieved = "2026-10-11"
+sha256 = "9441749330c1238a28b1fac885a71f86cbd30f41607ee421f11a2b2d593b3d97"
+changes = "none"
+
+[[file]]
+path = "digital/io.lib"
+origin = "project"
+source = "Bench project; digital I/O stages (supply-ratiometric adc_bridge input stage, dac_bridge output stage with output impedance and tri-state switch, switch-based Schmitt input)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "427d0c14a178f083232c38c6f4926c3807f8c4bad76ca5a85d9a9141e2c9390d"
+changes = "none"
+
+[[file]]
+path = "digital/gates.lib"
+origin = "project"
+source = "Bench project; logic gate and buffer cores (XSPICE d_nand/d_nor/d_and/d_or/d_xor/d_inverter/d_buffer behind the digital I/O stages)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "b24b0649db7d0866d8e8353e50f5aba1bf2efc5f8e3412d89e20a7ec1677fe7d"
+changes = "none"
+
+[[file]]
+path = "digital/seq.lib"
+origin = "project"
+source = "Bench project; sequential and counter cores (flip-flops, latches, counters, shift registers) from XSPICE d_dff/d_jkff/d_dlatch behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "e1b958a5b14728d175e9483f41ddc0c8ccb8b0e9da8ba8f718f73d8f4cea60ab"
+changes = "none"
+
+[[file]]
+path = "digital/mux.lib"
+origin = "project"
+source = "Bench project; digital multiplexer cores from XSPICE gates behind the digital I/O stages"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "97904fa1de5d2362fc3d78423f5555091bfb1a81654464b9c715a7b35eaaa4d6"
+changes = "none"
+
+[[file]]
+path = "digital/conv.lib"
+origin = "project"
+source = "Bench project; N-bit ADC (adc_bridge quantiser registered by d_dff) and R-2R DAC ladder"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "1278daf21317ac4a28366a7fc20052c1e07d780797a29f88d09bed04c763fef2"
+changes = "none"
+
+[[file]]
+path = "sensors/rtd.lib"
+origin = "project"
+source = "Bench project; platinum RTD Callendar-Van Dusen equation with the IEC 60751:2008 A and B coefficients"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "23b637b24c9bcdbb3a7f49d7f9d97012a2bd0cbd515527cf23a00c4d24806c87"
+changes = "none"
+
+[[file]]
+path = "resonators/bvd.lib"
+origin = "project"
+source = "Bench project; Butterworth-Van Dyke resonator equivalent (motional RLC in parallel with C0)"
+license = "MIT"
+retrieved = "2026-10-12"
+sha256 = "de032119f5f9362ef37cb41d8bab3eed45d14315e590a7c45170f40ba8dddcb1"
+changes = "none"
+
+[[file]]
+path = "power/pwm_avg.lib"
+origin = "project"
+source = "Bench project; averaged (PWM-switch, state-space) CCM buck and boost converter cores, after Vorperian's PWM switch model and Erickson and Maksimovic, Fundamentals of Power Electronics"
+license = "MIT"
+retrieved = "2026-10-20"
+sha256 = "4f971ebbecf2dc18a7eaa5ed85575d77bbf056dfa18ba047bca017a24fc1ca1f"
+changes = "none"

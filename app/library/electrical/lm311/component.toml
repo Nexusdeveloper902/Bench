@@ -1,0 +1,91 @@
+format = 1
+id = "LM311"
+version = 1
+name = "LM311 comparator"
+description = "Single comparator with an open-collector output and a separate emitter (ground) pin, for ±15 V or single supplies: 50 mA output, about 140 ns switching delay at 5 mV overdrive."
+designator = "U"
+category = "Electrical"
+subcategory = "Comparators"
+aliases = ["LM311", "LM311N", "LM211"]
+keywords = ["comparator", "open collector", "emitter output", "fast", "LM311"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "BALANCE and BAL/STROBE (pins 5, 6) are drawn but have no model port (nc pins): offset balancing and strobing are not modelled, so wiring a trimmer or a strobe to them does nothing.",
+               "The on resistance (15 Ω) matches 0.75 V at 50 mA; at 8 mA the model gives 0.12 V where the datasheet shows 0.23 V. The large-overdrive delay (50 ns) is an assumption.",
+               "The input stage is referenced to ground, not to the supply pins: the common-mode range, input protection and output behaviour with the supply off are not modelled."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm311.pdf", "https://ngspice.sourceforge.io/docs.html"]
+nc = ["bal", "strb"]            # no model port
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "inp"
+name = "+"
+at = [0, 40]
+description = "Non-inverting input (pin 2)"
+
+[[pins]]
+id = "inn"
+name = "-"
+at = [0, 60]
+description = "Inverting input (pin 3)"
+
+[[pins]]
+id = "out"
+name = "COL"
+at = [80, 40]
+description = "Collector output (pin 7)"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply (pin 8)"
+
+[[pins]]
+id = "vee"
+name = "V-"
+at = [40, 80]
+description = "Negative supply (pin 4)"
+
+[[pins]]
+id = "emit"
+name = "EMIT"
+at = [80, 60]
+description = "Emitter of the output transistor (pin 1); ground it for a ground-referenced output"
+
+[[pins]]
+id = "bal"
+name = "BAL"
+at = [20, 80]
+description = "Balance (pin 5); no model port, not simulated"
+
+[[pins]]
+id = "strb"
+name = "STRB"
+at = [60, 80]
+description = "Balance / strobe (pin 6); no model port, not simulated"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {inp} {inn} {vcc} {vee} {out} {emit} bench_lm311"
+defs = ["models:analog/comparator.lib"]
+body = """
+.subckt bench_lm311 inp inn vcc vee out emit
+X1 inp inn vcc vee out emit bench_comparator AVD=200k VOS=2m IB=100n RON=15 TD=50n TOD5=140n IQ=5.1m
+.ends bench_lm311
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_comparator with parameters fitted to the LM311 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm311.pdf"
+version = "TI SLCS007K, September 1973, revised March 2017 (sections 6.6 and 6.7, LM311 column)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals at VCC = +-15 V: VIO 2 mV; IIB 100 nA; AVD 200 V/mV; VOL 0.75 V at 50 mA; ICC+ 5.1 mA; response 115 ns (low to high) and 165 ns (high to low) at 5 mV overdrive (model: 140 ns both ways)."

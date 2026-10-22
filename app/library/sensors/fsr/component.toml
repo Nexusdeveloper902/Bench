@@ -1,0 +1,86 @@
+format = 1
+id = "FSR"
+version = 1
+name = "Force-sensitive resistor"
+description = "Force-sensitive resistor: R = R(F1)·(F/F1)^(−n), a power law in force, in parallel with a no-load leakage resistance. The force is a parameter."
+designator = "RF"
+label = "FSR"
+category = "Sensors"
+subcategory = "Force and position"
+aliases = ["FSR", "force sensing resistor", "pressure-sensitive resistor"]
+keywords = ["force", "pressure", "load", "resistor", "power law", "sensor", "subcircuit"]
+tags = ["sensor", "passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic power-law equivalent with a fixed exponent: RREF, FREF and the exponent are generic values, not a datasheet fit. Force must be positive; the no-load case is the leakage resistance.",
+               "No hysteresis, drift or creep; the force is fixed during a batch run (a live run can change it); the sensing area and the load application are not modelled."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "force"
+label = "Force (N)"
+default = "1"
+max = 100
+scale = "log"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rref"
+label = "Resistance at the reference force"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "fref"
+label = "Reference force (N)"
+default = "1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "expo"
+label = "Power-law exponent n"
+default = "1"
+min = 0
+min_exclusive = true
+help = "Generic; sensors in this class are often between 0.7 and 1.2"
+
+[[params]]
+key = "rleak"
+label = "No-load leakage resistance"
+unit = "Ω"
+default = "10meg"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_fsr F={force} RREF={rref} FREF={fref} EXPO={expo} RLEAK={rleak}"
+body = """
+.subckt bench_fsr a b params: F=1 RREF=10k FREF=1 EXPO=1 RLEAK=10meg
+VSTIM stim 0 DC {F}
+RSTIM stim 0 1G
+B1 a b I={V(a,b)*(1/RLEAK+1/(RREF*pow(V(stim)/FREF,-EXPO)))}
+.ends bench_fsr
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic power-law force-sensitive resistor R = Rref·(F/Fref)^-n in parallel with a leakage resistance"
+license = "MIT"

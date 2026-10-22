@@ -1,0 +1,126 @@
+format = 1
+id = "DAC_8BIT"
+version = 1
+name = "Generic 8-bit R-2R DAC"
+description = "Generic 8-bit digital-to-analog converter built as an R-2R resistor ladder: OUT = REF x code / 256 with an output resistance of R."
+designator = "U"
+label = "DAC"
+category = "Electrical"
+subcategory = "Data converters"
+aliases = ["DAC_8BIT", "DAC", "R-2R ladder", "8-bit DAC"]
+keywords = ["DAC", "R-2R ladder", "8-bit DAC", "DAC", "converter", "digital to analog", "R-2R", "ladder"]
+tags = ["logic", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored R-2R ladder (resistors and voltage-controlled switches only): output = (REF - GND) x code / 256 + GND with no load, exact for ideal resistors and switches.",
+               "Each bit is read against the VTH parameter (default 2.5 V above GND, with 0.1 V hysteresis) because the part has no supply pins; drive the inputs from logic that swings above it.",
+               "Leg switches have 1 mΩ on resistance and 1 GΩ off resistance; resistor mismatch, switch resistance mismatch, glitch energy, settling time and reference input impedance are not modelled. Resolution is fixed at 8 bits because a part's pin count cannot depend on a parameter; DAC_4BIT, DAC_8BIT, DAC_10BIT and DAC_12BIT are the same model at four widths.",
+               "Unconnected bit inputs read low (1 GΩ to GND)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 220]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "d0"
+name = "D0"
+at = [0, 40]
+description = "Input bit 0 (least significant): switches its ladder leg"
+
+[[pins]]
+id = "d1"
+name = "D1"
+at = [0, 60]
+description = "Input bit 1: switches its ladder leg"
+
+[[pins]]
+id = "d2"
+name = "D2"
+at = [0, 80]
+description = "Input bit 2: switches its ladder leg"
+
+[[pins]]
+id = "d3"
+name = "D3"
+at = [0, 100]
+description = "Input bit 3: switches its ladder leg"
+
+[[pins]]
+id = "d4"
+name = "D4"
+at = [0, 120]
+description = "Input bit 4: switches its ladder leg"
+
+[[pins]]
+id = "d5"
+name = "D5"
+at = [0, 140]
+description = "Input bit 5: switches its ladder leg"
+
+[[pins]]
+id = "d6"
+name = "D6"
+at = [0, 160]
+description = "Input bit 6: switches its ladder leg"
+
+[[pins]]
+id = "d7"
+name = "D7"
+at = [0, 180]
+description = "Input bit 7 (most significant): switches its ladder leg"
+
+[[pins]]
+id = "ref"
+name = "REF"
+at = [120, 40]
+description = "Reference voltage: full scale is REF"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [120, 60]
+description = "Analog output, resistance R (ladder open end)"
+
+[[pins]]
+id = "gnd"
+name = "GND"
+at = [60, 220]
+description = "Ground and logic low reference"
+
+[[params]]
+key = "r"
+label = "Ladder resistance R"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+help = "Ladder resistor R (the legs use 2R); this is also the output resistance"
+
+[[params]]
+key = "vth"
+label = "Input threshold"
+unit = "V"
+default = "2.5"
+min = 0
+min_exclusive = true
+help = "Bit inputs above this voltage (relative to GND) select REF, below it GND; 0.1 V hysteresis"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {d0} {d1} {d2} {d3} {d4} {d5} {d6} {d7} {ref} {out} {gnd} bench_dac8 R={r} VTH={vth}"
+defs = ["models:digital/io.lib", "models:digital/conv.lib"]
+body = """
+.subckt bench_dac8 d0 d1 d2 d3 d4 d5 d6 d7 ref out gn params: R=10k VTH=2.5
+X1 d0 d1 d2 d3 d4 d5 d6 d7 ref out gn bench_d_dac8 R={R} VTH={VTH}
+.ends bench_dac8
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; textbook R-2R ladder with voltage-controlled switches"
+version = "not applicable"
+license = "MIT"
+retrieved = "2026-10-12"
+notes = "Generic model, no datasheet. Unloaded output = REF * code / 256; output resistance R."

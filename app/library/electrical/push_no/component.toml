@@ -1,0 +1,68 @@
+format = 1
+id = "PUSH_NO"
+version = 1
+name = "Pushbutton (normally open)"
+description = "Momentary pushbutton, normally open: closed only while pressed."
+designator = "SW"
+label = "PUSH NO"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["push button NO", "momentary switch", "tactile switch"]
+keywords = ["pushbutton", "momentary", "normally open", "button", "switch"]
+tags = ["manual", "momentary"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Static: the press state is set in the inspector; no bounce or travel time.",
+               "Contact is a resistor (on and off values)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "state"
+label = "State"
+default = "released"
+kind = "choice"
+choices = ["released", "pressed"]
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "0.05"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+live = ["state"]
+device = "R"
+current = "@{dev_lc}[i]"
+model_kind = "primitive"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; a resistor that is Ron while pressed and Roff while released"
+license = "MIT"
+
+[sim.electrical.line]
+select = "state"
+pressed = "{dev} {a} {b} {ron}"
+released = "{dev} {a} {b} {roff}"

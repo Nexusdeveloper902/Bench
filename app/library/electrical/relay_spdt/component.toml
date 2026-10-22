@@ -1,0 +1,116 @@
+format = 1
+id = "RELAY_SPDT"
+version = 1
+name = "Relay, SPDT (coil R + L)"
+description = "Electromechanical relay: coil resistance and inductance drive a changeover contact. Pulls in when the coil current reaches IPULL and releases below IREL."
+designator = "K"
+label = "RELAY SPDT"
+category = "Electrical"
+subcategory = "Switches"
+aliases = ["relay", "changeover relay", "SPDT relay"]
+keywords = ["relay", "coil", "contact", "changeover", "electromechanical", "subcircuit"]
+tags = ["electromechanical"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent: the contact is a voltage-controlled switch driven by coil current (no flux, armature or spring model).",
+               "No contact bounce, timing spread or coil back-EMF beyond the inductance; the NC contact is driven by an offset source, so it is exact only in this model.",
+               "Generic values, not a datasheet fit."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "cl1"
+name = "A1"
+at = [0, 20]
+
+[[pins]]
+id = "cl2"
+name = "A2"
+at = [0, 60]
+
+[[pins]]
+id = "c"
+name = "COM"
+at = [80, 20]
+
+[[pins]]
+id = "no"
+name = "NO"
+at = [80, 40]
+
+[[pins]]
+id = "nc"
+name = "NC"
+at = [80, 60]
+
+[[params]]
+key = "rc"
+label = "Coil resistance"
+unit = "Ω"
+default = "100"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "lc"
+label = "Coil inductance"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ipull"
+label = "Pull-in current"
+unit = "A"
+default = "30m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "irel"
+label = "Release current"
+unit = "A"
+default = "10m"
+min = 0
+min_exclusive = true
+help = "Must be below the pull-in current"
+
+[[params]]
+key = "ron"
+label = "Contact on resistance"
+unit = "Ω"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Contact off resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {cl1} {cl2} {c} {no} {nc} bench_relay_spdt RC={rc} LC={lc} IPULL={ipull} IREL={irel} RON={ron} ROFF={roff}"
+body = """
+.subckt bench_relay_spdt cl1 cl2 c no nc params: RC=100 LC=10m IPULL=30m IREL=10m RON=0.1 ROFF=1G
+.model relsw SW(VT={(IPULL+IREL)*RC/2} VH={(IPULL-IREL)*RC/2} RON={RON} ROFF={ROFF})
+RCOIL cl1 mid {RC}
+LCOIL mid cl2 {LC}
+VKEY x mid DC {(IPULL+IREL)*RC}
+SNO c no cl1 mid relsw
+SNC c nc x cl1 relsw
+.ends bench_relay_spdt
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; simplified coil-current-controlled changeover contact"
+license = "MIT"

@@ -1,0 +1,58 @@
+* Logic gate and buffer cores (project-authored, simplified): input stages, one XSPICE d_* gate and an output stage.
+* Parameters: LO/HI/RK/AK input thresholds (see io.lib), VOLF/VOHF output levels as fractions of the supply, ROUT output
+* impedance, TPD the gate delay of the code model (the input and output bridges add about 2*TD), TD bridge delay.
+* The defaults describe the 74HC family at 5 V.
+.subckt bench_d_nand2 vc gn a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 [da db] dy g
+.model g d_nand(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_nand2
+.subckt bench_d_nor2 vc gn a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 [da db] dy g
+.model g d_nor(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_nor2
+.subckt bench_d_and2 vc gn a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 [da db] dy g
+.model g d_and(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_and2
+.subckt bench_d_or2 vc gn a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 [da db] dy g
+.model g d_or(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_or2
+.subckt bench_d_xor2 vc gn a b y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xb vc gn b db bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 [da db] dy g
+.model g d_xor(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_xor2
+.subckt bench_d_inv vc gn a y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+A1 da dy g
+.model g d_inverter(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_inv
+.subckt bench_d_sinv vc gn a y params: VP=0.6 VN=0.38 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_dsch VP={VP} VN={VN} TD={TD}
+A1 da dy g
+.model g d_inverter(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy y bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_sinv
+.subckt bench_d_tbuf vc gn a oeb y params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=9n TD=1n
+Xa vc gn a da bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Xe vc gn oeb de bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV=1
+A1 da dy g
+.model g d_buffer(rise_delay={TPD} fall_delay={TPD})
+Xo vc gn dy de y bench_dout3 VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_tbuf

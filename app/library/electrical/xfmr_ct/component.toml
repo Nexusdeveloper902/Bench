@@ -1,0 +1,92 @@
+format = 1
+id = "XFMR_CT"
+version = 1
+name = "Transformer, center-tapped secondary"
+description = "Primary Lm and a center-tapped secondary (two halves of N^2 * Lm / 4 in series, coupled to the primary with K). Each half sees N/2 of the primary voltage."
+designator = "T"
+label = "XFMR CT"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["center-tapped transformer", "CT transformer", "split-secondary transformer"]
+keywords = ["transformer", "center tap", "split", "full-wave", "subcircuit"]
+tags = ["passive", "magnetic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal-coupling model: magnetising inductance and coupling only. No core loss, saturation or winding resistance.",
+               "The two halves are equal. The 1 GΩ leaks are numerical DC paths, not insulation."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p1"
+name = "P+"
+at = [0, 20]
+
+[[pins]]
+id = "p2"
+name = "P-"
+at = [0, 60]
+
+[[pins]]
+id = "s1"
+name = "S+"
+at = [80, 0]
+
+[[pins]]
+id = "ct"
+name = "CT"
+at = [80, 40]
+
+[[pins]]
+id = "s2"
+name = "S-"
+at = [80, 80]
+
+[[params]]
+key = "LM"
+label = "Primary inductance"
+unit = "H"
+default = "10m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "N"
+label = "Turns ratio (whole secondary)"
+default = "2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "K"
+label = "Coupling K"
+default = "0.99"
+min = 0
+min_exclusive = true
+max = 1
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p1} {p2} {s1} {ct} {s2} bench_xfmr_ct LM={LM} N={N} K={K}"
+body = """
+.subckt bench_xfmr_ct p1 p2 s1 ct s2 params: LM=10m N=2 K=0.99
+LPRI p1 p2 {LM}
+LHA s1 ct {LM*N*N/4}
+LHB ct s2 {LM*N*N/4}
+KPA LPRI LHA {K}
+KPB LPRI LHB {K}
+KAB LHA LHB {K}
+RLK1 p1 p2 1G
+RLK2 s1 ct 1G
+RLK3 ct s2 1G
+.ends bench_xfmr_ct
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; two equal coupled half-windings with a centre tap"
+license = "MIT"

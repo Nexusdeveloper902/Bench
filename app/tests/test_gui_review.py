@@ -79,12 +79,13 @@ def test_run_fields_show_si_and_examples_roundtrip(win):
 
 
 def test_inspector_fields_readable_at_1300x850(win):
-    """B7: a PULSE source's 7 fields must each be a usable size and the Play row must not overlap the plot."""
+    """B7: a PULSE source's 9 fields (7 PULSE + AC magnitude and phase, G17) must each be a usable size and the Play
+    row must not overlap the plot."""
     w = win; w.resize(1300, 850)
     w._reset(Document.blink_example()); select(w, "V1")
     assert wait_for(lambda: all(e.isVisible() for e in w.inspector.edits.values()))
     eds = list(w.inspector.edits.values())
-    assert len([e for e in eds if isinstance(e, QLineEdit)]) == 7
+    assert len([e for e in eds if isinstance(e, QLineEdit)]) == 9
     for e in [e for e in eds if not isinstance(e, QLabel)]:
         assert e.width() >= 100 and e.height() >= 20, (type(e).__name__, e.size())
     assert w.minimumSizeHint().height() <= 850

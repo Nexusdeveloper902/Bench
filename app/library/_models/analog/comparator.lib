@@ -1,0 +1,29 @@
+* bench_comparator: voltage comparator with an open-collector output (project-authored, behavioural structure from
+* linear sources, diodes and a voltage-controlled switch).  Ports: inp inn vcc vee out emit.
+* The output switch (out -> emit, series RON) closes when inn > inp (output low), as an open-collector NPN does.
+* Stage 1: G1 (1 mS) into R1 || C1, clamped to +-1 V: DC gain AVD; the time to swing the clamp gives the
+*   overdrive-dependent response, set so that a 5 mV overdrive answers in TOD5. Stage 2: E2 buffers n1 into R2-C2, which adds a fixed delay TD
+*   (the response to a large overdrive). The supply pins draw IQ only; inputs see IB and 1 Tohm to node 0.
+* VOS: input offset (V, added to the + input). IB: bias current into each input (A; negative = out of the pin).
+.subckt bench_comparator inp inn vcc vee out emit params: AVD=200k VOS=0 IB=0 RON=35 TD=300n TOD5=1.3u IQ=0.4m
+.model bench_cmp_dclamp D(Is=1e-15 N=0.01)
+.model bench_cmp_sw SW(VT=0 VH=0.1 RON=0.01 ROFF=1e10)
+Rinp inp 0 1e12
+Rinn inn 0 1e12
+Ibp inp 0 DC {IB}
+Ibn inn 0 DC {IB}
+Vos ip inp DC {VOS}
+Iq vcc vee DC {IQ}
+G1 0 n1 inn ip 1m
+R1 n1 0 {AVD/1m}
+C1 n1 0 {(TOD5-TD)*0.005/1.18*1m}
+Vcp cp 0 DC 1
+Vcn 0 cn DC 1
+D1 n1 cp bench_cmp_dclamp
+D2 cn n1 bench_cmp_dclamp
+E2 n1b 0 n1 0 1
+R2 n1b n2 1k
+C2 n2 0 {TD/0.8/1k}
+S1 out sw n2 0 bench_cmp_sw
+Ron sw emit {RON}
+.ends bench_comparator

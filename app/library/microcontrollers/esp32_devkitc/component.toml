@@ -4,6 +4,7 @@ version = 1
 name = "ESP32-DevKitC V4"
 description = "Espressif development board with an ESP32-WROOM-32 module and two 19-pin headers (J2, J3)."
 designator = "U"
+label = "ESP32"
 category = "Microcontrollers"
 subcategory = "Development boards"
 aliases = ["ESP32", "ESP-WROOM-32", "DevKitC"]

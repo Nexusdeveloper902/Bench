@@ -1,0 +1,62 @@
+format = 1
+id = "Q_TIP120"
+version = 1
+name = "TIP120 NPN Darlington transistor"
+description = "5 A, 60 V NPN Darlington power transistor with internal base-emitter resistors and collector-emitter diode: hFE about 1400-2400, VCE(sat) about 1 V at 3 A / 12 mA."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["TIP120", "TIP121", "TIP122", "Darlington"]
+keywords = ["TIP120", "darlington", "power", "TO-220", "motor driver", "relay driver"]
+tags = ["TO-220", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored subcircuit (not a vendor SPICE model) with the datasheet's internal 8 k and 120 ohm resistors; two transistor models fitted so hFE is about 1400 at 0.5 A and 2400 at 3 A (VCE = 3 V), VCE(sat) 1.0 V at 3 A / 12 mA and 1.2 V at 5 A / 20 mA, VBE 1.65 V at 3 A.",
+               "Cob is 100 pF per stage (datasheet maximum 200 pF). Early voltage and Ikf are assumptions; the damper diode is a generic silicon diode with a 100 V breakdown. The TIP121 and TIP122 differ only in voltage rating, which this model does not enforce."]
+docs = ["https://led.det.polito.it/datasheet/TIP122.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "X"
+line = "{dev} {c} {b} {e} bench_darlington"
+body = """
+.subckt bench_darlington c b e
+* Two-stage NPN Darlington with the internal 8 k / 120 ohm base-emitter resistors and the collector-emitter damper diode.
+.model dq1 NPN(Is=200f Bf=150 Vaf=100 Ikf=0.5 Ise=10p Ne=1.5 Br=2 Rb=1 Rc=0.5 Re=0.1 Tf=100n Tr=1u Cjc=100p Vjc=0.75 Mjc=0.33)
+.model dq2 NPN(Is=200f Bf=90 Vaf=100 Ikf=3 Ise=10p Ne=1.5 Br=2 Rb=0.5 Rc=0.12 Re=0.03 Tf=100n Tr=1u Cjc=100p Vjc=0.75 Mjc=0.33)
+.model ddmp D(Is=1p N=1.1 Rs=0.05 BV=100)
+Q1 c b m dq1
+Q2 c m e dq2
+R1 b m 8k
+R2 m e 120
+D1 e c ddmp
+.ends bench_darlington
+"""
+model_kind = "project-subckt"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; two-transistor Darlington subcircuit fitted to the Fairchild TIP120 datasheet values"
+url = "https://led.det.polito.it/datasheet/TIP122.pdf"
+version = "Fairchild TIP120/121/122 datasheet, Rev. A1, June 2001 (copy hosted at Politecnico di Torino)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: hFE >= 1000 at 0.5 A and 3 A (VCE=3 V; typ 2500 at 4 A in the onsemi edition); VCE(sat) <= 2.0 V at 3 A/12 mA and <= 4.0 V at 5 A/20 mA; VBE(on) <= 2.5 V at 3 A; Cob <= 200 pF."

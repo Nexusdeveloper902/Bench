@@ -1,0 +1,92 @@
+format = 1
+id = "TL072"
+version = 1
+name = "TL072 dual JFET-input op-amp"
+description = "Dual JFET-input op-amp (8 pins), behavioural fit: GBW 5.25 MHz, 20 V/µs, 65 pA bias, ±13.5 V swing on ±15 V into 10 kΩ."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog ICs"
+aliases = ["TL072", "TL072C", "TL072CP"]
+keywords = ["op amp", "dual", "JFET", "audio", "TL072", "operational amplifier"]
+tags = ["analog", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Fixed fit for the TL072C (the TL072H is a different design); the input common-mode limit and phase reversal near the negative rail, and the output current limit, are not modelled.",
+               "The output current comes from the model's ground reference, not from the supply pins: the supply pins draw only the quiescent current IQ (and clamp current in saturation).",
+               "No output short-circuit current limit, input common-mode range limit, input protection or phase reversal; inputs see 1 TΩ and the bias current only.",
+               "Long time steps can overshoot a fast edge where slewing ends: measured under 0.1 V at 2 µs steps, up to 0.2 V at 5 µs and 0.4 V at 10 µs (GAPS G20). Shorten the time step to check a fast edge."]
+docs = ["https://www.ti.com/lit/ds/symlink/tl072.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 120]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "out1"
+name = "OUT1"
+at = [80, 40]
+description = "Output A (pin 1)"
+
+[[pins]]
+id = "in1n"
+name = "IN1-"
+at = [0, 60]
+description = "Inverting input A (pin 2)"
+
+[[pins]]
+id = "in1p"
+name = "IN1+"
+at = [0, 40]
+description = "Non-inverting input A (pin 3)"
+
+[[pins]]
+id = "vee"
+name = "V-"
+at = [40, 120]
+description = "Negative supply or ground (pin 4)"
+
+[[pins]]
+id = "in2p"
+name = "IN2+"
+at = [0, 80]
+description = "Non-inverting input B (pin 5)"
+
+[[pins]]
+id = "in2n"
+name = "IN2-"
+at = [0, 100]
+description = "Inverting input B (pin 6)"
+
+[[pins]]
+id = "out2"
+name = "OUT2"
+at = [80, 60]
+description = "Output B (pin 7)"
+
+[[pins]]
+id = "vcc"
+name = "V+"
+at = [40, 0]
+description = "Positive supply (pin 8)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {out1} {in1n} {in1p} {vee} {in2p} {in2n} {out2} {vcc} bench_tl072"
+defs = ["models:analog/opamp_macro.lib"]
+body = """
+.subckt bench_tl072 out1 in1n in1p vee in2p in2n out2 vcc
+XA in1p in1n vcc vee out1 bench_opamp_macro AOL=200k GBW=5.25meg SR=20meg VOS=3m IB=65p ROUT=125 IQ=1.4m VDROPH=1.33 VDROPL=1.33
+XB in2p in2n vcc vee out2 bench_opamp_macro AOL=200k GBW=5.25meg SR=20meg VOS=3m IB=65p ROUT=125 IQ=1.4m VDROPH=1.33 VDROPL=1.33
+.ends bench_tl072
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; two bench_opamp_macro instances with parameters fitted to the TL072 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/tl072.pdf"
+version = "TI SLOS080W, September 1978, revised July 2025 (sections 5.8 and 5.9, TL07xC columns)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals at VS = +-15 V: AOL 200 V/mV; GBW 5.25 MHz (D, P, DGK packages); SR 20 V/us; VOS 3 mV; IB 65 pA; IQ 1.4 mA per amplifier; VOM +-13.5 V into 10 kohm; open-loop output impedance 125 ohm at 1 MHz. VDROP 1.33 V is fitted so that 125 ohm and 10 kohm give 13.5 V."

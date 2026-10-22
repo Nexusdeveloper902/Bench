@@ -45,7 +45,9 @@ DARK = dict(
 # into STATES (text, colour, hollow) and READINESS (label, foreground, background, tooltip).
 _STATES = {"idle": ("Idle", "STATE_IDLE", False), "running": ("Running", "STATE_RUNNING", True),
            "completed": ("Completed", "STATE_COMPLETED", False), "failed": ("Failed", "STATE_FAILED", False),
-           "blocked": ("Blocked", "STATE_FAILED", False), "stale": ("Out of date", "STATE_STALE", False)}
+           "blocked": ("Blocked", "STATE_FAILED", False), "stale": ("Out of date", "STATE_STALE", False),
+           "live": ("Live", "STATE_RUNNING", True), "paused": ("Paused", "STATE_STALE", True),
+           "cancelled": ("Stopped", "STATE_IDLE", False)}
 _READINESS = {"simulated": ("Simulated", "Has a working simulation model"), "interface": ("Interface only", "Not simulated"),
               "placeable": ("Reference only", "Documentation only: no pins, not simulated"),
               "placeholder": ("Placeholder", "No usable definition: kept unchanged")}   # keys: Definition.readiness + placeholder
@@ -180,6 +182,8 @@ QLineEdit#topfield[invalid="true"] { border: 2px solid $ERR_BORDER; background: 
 QPushButton#simbtn { padding: 0 8px; min-width: 78px; max-width: 78px; min-height: 30px; max-height: 30px; }
 QPushButton#simbtn[compact="true"] { min-width: 54px; max-width: 54px; }
 QLineEdit#topfield[compact="true"] { min-width: 50px; max-width: 50px; }
+QComboBox#topcombo { padding: 0 2px 0 4px; min-height: 26px; max-height: 26px; min-width: 82px; max-width: 82px; }
+QComboBox#topcombo[short="true"] { min-width: 46px; max-width: 46px; }
 QPushButton[primary="true"]:disabled { background: $DISABLED_BG; color: $TEXT_DISABLED; border-color: $DISABLED_BG; }
 QLabel#notice { border-radius: ${R_SM}px; padding: 3px 10px; font-size: ${CAPTION_PX}px; border: 1px solid $ERR_BORDER; background: $ERR_BG; color: $ERR_FG; }
 QLabel#notice[kind="warn"] { border-color: $WARN_BORDER; background: $WARN_BG; color: $WARN_FG; }

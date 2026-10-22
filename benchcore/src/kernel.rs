@@ -32,6 +32,8 @@ pub struct SimResult {
     pub wall_ms: f64,
     pub used_pauses: bool,
     pub fallback_reason: Option<String>,
+    /// Plausibility warnings on a run that otherwise succeeded (G15): see `implausible_internal_nodes`.
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,7 +76,7 @@ fn tran_tmax(lines: &[String]) -> Option<f64> {
 /// expression, require TMAX <= min_width/10 (events) / min_period/50 (sines).
 /// Tightens the .tran line when the required bound is stricter than the
 /// explicit one; demands an explicit user bound for unquantifiable TIME.
-fn apply_tmax_policy(mut lines: Vec<String>) -> Result<Vec<String>, SimError> {
+pub(crate) fn apply_tmax_policy(mut lines: Vec<String>) -> Result<Vec<String>, SimError> {
     let exprs = validate::b_exprs(&lines);
     if exprs.is_empty() {
         return Ok(lines);
@@ -159,7 +161,7 @@ pub fn pause_exact(got: f64, want: f64) -> bool {
     (got - want).abs() <= tol
 }
 
-fn scan_loud_failure(log: &[String]) -> Option<String> {
+pub(crate) fn scan_loud_failure(log: &[String]) -> Option<String> {
     let pats = [
         "singular",
         "singular matrix",
@@ -176,27 +178,50 @@ fn scan_loud_failure(log: &[String]) -> Option<String> {
         "not parsed",
         "mif-error",
         "unable to find definition",
+        // parse problems ngspice reports but still returns rc 0 for (L6)
+        "unknown subckt",
+        "parameters for subcircuit type",
+        "instance line, ignored",
+        "unknown model type",
         "failed",
     ];
     // "failed" alone is broad; require it alongside solver context is handled
     // by ordering: specific patterns first, generic last, benign lines (e.g.
     // "0 warnings") don't contain these tokens.
+    let clean = |line: &str| {
+        let t = line.trim();
+        t.strip_prefix("stderr ").or_else(|| t.strip_prefix("stdout ")).unwrap_or(t).to_string()
+    };
     for line in log {
         let l = line.to_lowercase();
+        // every ngspice `Error...` line on stderr is a failure, whatever the rc
+        if l.starts_with("stderr error") {
+            return Some(clean(line));
+        }
         for p in &pats {
             if l.contains(p) {
                 // skip obviously benign mentions
                 if l.contains("0 failed") || l.contains("no failed") {
                     continue;
                 }
-                return Some(line.trim().to_string());
+                return Some(clean(line));
             }
         }
     }
     None
 }
 
-fn nonfinite_or_short(time: &[f64], series: &HashMap<String, Vec<f64>>) -> bool {
+/// `msg: <first ngspice error lines>` (L12: the reason lives in the log).
+pub(crate) fn with_reason(msg: String) -> String {
+    let why = ngspice::error_lines(3);
+    if why.is_empty() {
+        msg
+    } else {
+        format!("{}: {}", msg, why.join(" | "))
+    }
+}
+
+pub(crate) fn nonfinite_or_short(time: &[f64], series: &HashMap<String, Vec<f64>>) -> bool {
     if time.iter().any(|v| !v.is_finite()) {
         return true;
     }
@@ -230,7 +255,7 @@ fn read_all(obs: &[String]) -> (HashMap<String, Vec<(f64, f64)>>, Vec<f64>) {
 /// (unknown node/branch, or a device quantity that was never saved) is a
 /// caller error, never an empty/truncated series. Skipped when there is no
 /// time grid (.op decks).
-fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[f64]) -> Result<(), SimError> {
+pub(crate) fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[f64]) -> Result<(), SimError> {
     if t.is_empty() {
         return Ok(());
     }
@@ -247,20 +272,22 @@ fn check_observables(series: &HashMap<String, Vec<(f64, f64)>>, t: &[f64]) -> Re
     })
 }
 
-fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, Vec<(f64, f64)>>, Vec<f64>, f64), SimError> {
+type FullRun = (HashMap<String, Vec<(f64, f64)>>, Vec<f64>, f64, Vec<String>);
+
+fn full_run_inner(lines: &[String], obs: &[String]) -> Result<FullRun, SimError> {
     ngspice::ensure_init().map_err(|e| SimError::BackendFailure { message: e })?;
     ngspice::teardown();
     let t0 = std::time::Instant::now();
     let rc = ngspice::do_circ(lines).map_err(|e| SimError::BackendFailure { message: e })?;
     if rc != 0 {
         return Err(SimError::BackendFailure {
-            message: format!("circ rc={}", rc),
+            message: with_reason(format!("circ rc={}", rc)),
         });
     }
     let rc = ngspice::do_command("run").map_err(|e| SimError::BackendFailure { message: e })?;
     if rc != 0 {
         return Err(SimError::BackendFailure {
-            message: format!("run rc={}", rc),
+            message: with_reason(format!("run rc={}", rc)),
         });
     }
     let wall = t0.elapsed().as_secs_f64() * 1e3;
@@ -278,6 +305,13 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
     }
     let _ = rc;
     let (series, t) = read_all(obs);
+    // a transient that produced no time grid never succeeded (L6)
+    if t.is_empty() && parse_tstop(lines).is_some() {
+        return Err(SimError::SolverFailure {
+            message: "transient analysis produced no data points".to_string(),
+            log_hint: log.join("\n"),
+        });
+    }
     check_observables(&series, &t)?;
     let flat_full: HashMap<String, Vec<f64>> = series
         .iter()
@@ -293,7 +327,53 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
             });
         }
     }
-    Ok((series, t, wall))
+    Ok((series, t, wall, implausible_internal_nodes()))
+}
+
+/// G15: a node inside a subcircuit instance (`x1.ax`) whose peak |V| exceeds every circuit-level node's by far (more
+/// than 10x and 100 V) is a runaway, not a result: the probed case is an SCR model whose floating internal nodes ran to
+/// its 1000 V diode breakdown after turn-off on a 12 V circuit, reported as success. ngspice gives no error, so the run
+/// stays a success with a warning naming the node. Reads the plot's saved node vectors only (never `@` vectors).
+fn implausible_internal_nodes() -> Vec<String> {
+    let plot = ngspice::cur_plot_name();
+    if plot.is_empty() {
+        return vec![];
+    }
+    let peak = |name: &str| {
+        ngspice::read_vec_qualified(&format!("{}.{}", plot, name)).map_or(0.0, |v| v.iter().fold(0.0f64, |m, x| m.max(x.abs())))
+    };
+    let (mut outer, mut inner) = (0.0f64, vec![]);
+    for n in ngspice::vec_names(&plot) {
+        if n.contains('#') || n.starts_with('@') || n.eq_ignore_ascii_case("time") {
+            continue;
+        }
+        if n.contains('.') {
+            inner.push((peak(&n), n));
+        } else {
+            outer = outer.max(peak(&n));
+        }
+    }
+    let limit = (10.0 * outer).max(outer + 100.0);
+    let mut bad: Vec<(f64, String)> = inner.into_iter().filter(|(v, _)| *v > limit).collect();
+    bad.sort_by(|a, b| b.0.total_cmp(&a.0));
+    match bad.first() {
+        None => vec![],
+        Some((v, n)) => vec![format!(
+            "implausible internal node: {} reached {:.3e} V while no circuit node exceeded {:.3e} V{}; a part's model ran \
+             away (a numerical artefact, or the model outside its valid range): do not trust this result",
+            n, v, outer, if bad.len() > 1 { format!(" ({} such nodes)", bad.len()) } else { String::new() }
+        )],
+    }
+}
+
+/// An `@dev[param]` observable with no `.save` line naming it. Read through ngGet_Vec_Info at a pause it corrupts
+/// ngspice and the next resume dumps core (probed, LIVE.md; G32), so batch and live runs refuse it up front.
+pub(crate) fn refuse_unsaved_device_observables(lines: &[String], observables: &[String]) -> Result<(), SimError> {
+    let saves: String = lines.iter().filter(|l| l.trim().to_lowercase().starts_with(".save")).map(|l| l.to_lowercase()).collect();
+    match observables.iter().find(|o| o.starts_with('@') && !saves.contains(&o.to_lowercase())) {
+        Some(o) => Err(SimError::InvalidConfig { message: format!("observable {} needs a .save line naming it", o) }),
+        None => Ok(()),
+    }
 }
 
 /// Run a request: native pauses when requested and exactly achievable,
@@ -301,12 +381,14 @@ fn full_run_inner(lines: &[String], obs: &[String]) -> Result<(HashMap<String, V
 pub fn run_simulation(req: SimRequest) -> Result<SimResult, SimError> {
     // Whole-sequence serialization on the singleton handle.
     let _op = ngspice::op_lock();
+    crate::live::refuse_if_live()?;
     run_simulation_inner(req)
 }
 
-fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
-    // 0. static gates first (fail fast, before touching the backend)
-    let findings = validate::validate(&req.netlist.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+/// The static gates every run passes before touching the backend: validator, control-flow escapes, empty deck.
+/// Shared by batch and live runs (live runs then apply the same TMAX policy).
+pub(crate) fn gates(netlist: &[String]) -> Result<(), SimError> {
+    let findings = validate::validate(&netlist.to_vec());
     if validate::has_error(&findings) {
         let codes = validate::error_codes(&findings);
         let first = findings.iter().find(|f| f.severity == "error").unwrap();
@@ -316,7 +398,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
         });
     }
     // deny control-flow escapes (skip title line 0: ngspice title semantics)
-    for l in req.netlist.iter().skip(1) {
+    for l in netlist.iter().skip(1) {
         let ll = l.trim().to_lowercase();
         if ll == "quit" || ll.starts_with("quit ") || ll.contains("controlled exit") {
             return Err(SimError::InvalidConfig {
@@ -326,7 +408,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
     }
     // empty-deck guard (validate() yields no findings for title-only decks)
     {
-        let has_content = req.netlist.iter().skip(1).any(|l| {
+        let has_content = netlist.iter().skip(1).any(|l| {
             let s = l.trim();
             !(s.is_empty() || s.starts_with('*') || s.eq_ignore_ascii_case(".end"))
         });
@@ -337,7 +419,16 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             });
         }
     }
+    Ok(())
+}
 
+fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
+    // 0. static gates first (fail fast, before touching the backend)
+    gates(&req.netlist)?;
+    if analyses(&req.netlist).iter().any(|a| a.starts_with(".ac ")) {
+        return Err(SimError::InvalidConfig { message: "an .ac deck is run with run_ac, not run_simulation".to_string() });
+    }
+    refuse_unsaved_device_observables(&req.netlist, &req.observables)?;
     let mut lines = req.netlist.clone();
     let obs = req.observables.clone();
     let stops_in = req.stops.clone();
@@ -371,7 +462,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
 
     // No stops: ordinary full simulation.
     if stops.is_empty() {
-        let (series, t, wall) = full_run_inner(&lines, &obs)?;
+        let (series, t, wall, warnings) = full_run_inner(&lines, &obs)?;
         let n = t.len();
         return Ok(SimResult {
             series,
@@ -380,12 +471,13 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             wall_ms: wall,
             used_pauses: false,
             fallback_reason: None,
+            warnings,
         });
     }
 
     // Validate stop schedule upfront.
     let fb = |reason: &str| -> Result<SimResult, SimError> {
-        let (series, t, wall) = full_run_inner(&lines, &obs)?;
+        let (series, t, wall, warnings) = full_run_inner(&lines, &obs)?;
         Ok(SimResult {
             npts: t.len(),
             time: t.clone(),
@@ -393,6 +485,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             wall_ms: wall,
             used_pauses: false,
             fallback_reason: Some(reason.to_string()),
+            warnings,
         })
     };
     let t_stop = match t_stop {
@@ -496,6 +589,7 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
             log_hint: log.join("\n"),
         });
     }
+    let warnings = implausible_internal_nodes();
     ngspice::teardown();
     let n = t.len();
     Ok(SimResult {
@@ -505,5 +599,144 @@ fn run_simulation_inner(req: SimRequest) -> Result<SimResult, SimError> {
         wall_ms: wall,
         used_pauses: true,
         fallback_reason: None,
+        warnings,
     })
+}
+
+// ---------------------------------------------------------------- AC small-signal analysis (G17)
+
+/// An `.ac` run: the frequency grid (Hz) and each observable as (re, im) at every frequency.
+#[derive(Debug, Clone)]
+pub struct AcResult {
+    pub frequency: Vec<f64>,
+    pub series: HashMap<String, Vec<(f64, f64)>>,
+    pub wall_ms: f64,
+}
+
+/// The deck's analysis cards (title line skipped), lowercased.
+fn analyses(lines: &[String]) -> Vec<String> {
+    let cards = [".tran", ".ac", ".dc", ".op", ".noise", ".pz", ".tf", ".sens", ".disto", ".pss", ".sp"];
+    lines
+        .iter()
+        .skip(1)
+        .map(|l| l.trim().to_lowercase())
+        .filter(|l| l.split_whitespace().next().is_some_and(|w| cards.contains(&w)))
+        .collect()
+}
+
+const AC_MAX_POINTS: f64 = 1e6;
+
+/// The sweep of the deck's one `.ac dec|oct|lin <points> <fstart> <fstop>` card, checked: ngspice runs a bad one
+/// without any error (probed: `.ac dec 10 0 1k` leaves no ac plot and logs nothing), so it is refused here.
+pub fn ac_sweep(lines: &[String]) -> Result<(String, f64, f64, f64), SimError> {
+    let bad = |m: String| Err(SimError::InvalidConfig { message: m });
+    let cards = analyses(lines);
+    if cards.len() != 1 || !cards[0].starts_with(".ac ") {
+        return bad(format!("an AC run needs exactly one .ac card and no other analysis; found: {}", cards.join(" | ")));
+    }
+    let t: Vec<&str> = cards[0].split_whitespace().skip(1).collect();
+    let nums: Vec<Option<f64>> = t.iter().skip(1).map(|s| parse_value(s)).collect();
+    let (Some(kind), [Some(n), Some(f1), Some(f2)]) = (t.first(), nums.as_slice()) else {
+        return bad(format!("bad .ac card '{}': use .ac dec|oct|lin <points> <fstart> <fstop>", cards[0]));
+    };
+    let (n, f1, f2) = (*n, *f1, *f2);
+    let span = match *kind {
+        "dec" => n * (f2 / f1).log10(),
+        "oct" => n * (f2 / f1).log2(),
+        "lin" => n - 1.0,
+        _ => return bad(format!("AC sweep must be dec, oct or lin, not '{}'", kind)),
+    };
+    if !(n >= 1.0 && n.fract() == 0.0) {
+        return bad(format!("AC points must be a whole number of at least 1, not {}", n));
+    }
+    if *kind == "lin" && n == 2.0 {
+        // probed: ngspice 47 returns only fstart for every `lin 2` sweep (lin 1 and lin 3+ are exact)
+        return bad("a lin AC sweep of 2 points returns 1 point in ngspice 47: use 3 or more".to_string());
+    }
+    let one_point = *kind == "lin" && n == 1.0;
+    if !(f1 > 0.0 && f1.is_finite() && f2.is_finite() && (f2 > f1 || (one_point && f2 == f1))) {
+        return bad(format!("AC frequencies need 0 < fstart < fstop (got {} and {})", f1, f2));
+    }
+    if span + 1.0 > AC_MAX_POINTS {
+        return bad(format!("AC sweep has too many points ({:.3e}; limit {:.0e})", span + 1.0, AC_MAX_POINTS));
+    }
+    Ok((kind.to_string(), n, f1, f2))
+}
+
+/// Run an `.ac` deck. Observables are node voltages `v(n)` and branch currents `i(vsrc)`: `@dev[param]` vectors are
+/// refused, because in an ac plot they hold the device's operating-point value repeated at every frequency, not a
+/// small-signal quantity (probed: `@d1[id]`, `@q1[ic]`, `@i1[c]` constant and real; `@r1[i]`, `@c1[i]`, `@l1[i]` empty).
+pub fn run_ac(netlist: &[String], observables: &[String]) -> Result<AcResult, SimError> {
+    let _op = ngspice::op_lock();
+    crate::live::refuse_if_live()?;
+    gates(netlist)?;
+    let (kind, n, _, _) = ac_sweep(netlist)?;
+    if let Some(o) = observables.iter().find(|o| o.starts_with('@')) {
+        return Err(SimError::InvalidConfig {
+            message: format!(
+                "{} is an operating-point device quantity, not an AC signal: observe a node voltage or a source current",
+                o
+            ),
+        });
+    }
+    let backend = |e: String| SimError::BackendFailure { message: e };
+    ngspice::ensure_init().map_err(backend)?;
+    ngspice::teardown();
+    let t0 = std::time::Instant::now();
+    let rc = ngspice::do_circ(netlist).map_err(backend)?;
+    if rc != 0 {
+        return Err(backend(with_reason(format!("circ rc={}", rc))));
+    }
+    let rc = ngspice::do_command("run").map_err(backend)?;
+    if rc != 0 {
+        return Err(backend(with_reason(format!("run rc={}", rc))));
+    }
+    let wall_ms = t0.elapsed().as_secs_f64() * 1e3;
+    let (log, _) = ngspice::take_logs();
+    if let Some(hint) = scan_loud_failure(&log) {
+        let l = hint.to_lowercase();
+        if l.contains("timestep too small") || l.contains("no convergence") {
+            return Err(SimError::ConvergenceFailure { message: hint });
+        }
+        return Err(SimError::SolverFailure { message: hint.clone(), log_hint: hint });
+    }
+    let no_data = |what: &str| SimError::SolverFailure { message: format!("AC analysis {}", what), log_hint: log.join("\n") };
+    let plot = ngspice::cur_plot_name();
+    if !plot.to_lowercase().starts_with("ac") {
+        return Err(no_data("produced no data points"));
+    }
+    let frequency: Vec<f64> = ngspice::read_cvec_qualified(&format!("{}.frequency", plot))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|z| z.0)
+        .collect();
+    if frequency.is_empty() {
+        return Err(no_data("produced no data points"));
+    }
+    if kind == "lin" && frequency.len() as f64 != n {
+        return Err(no_data(&format!("returned {} points for a lin sweep of {}", frequency.len(), n)));
+    }
+    let mut series = HashMap::new();
+    let mut missing = vec![];
+    for o in observables {
+        let v = ngspice::read_cvec_qualified(&format!("{}.{}", plot, o)).unwrap_or_default();
+        if v.len() != frequency.len() {
+            missing.push(o.as_str());
+        }
+        series.insert(o.clone(), v);
+    }
+    if !missing.is_empty() {
+        missing.sort();
+        return Err(SimError::InvalidConfig {
+            message: format!(
+                "observable(s) not available over the frequency grid (unknown node/branch): {}",
+                missing.join(", ")
+            ),
+        });
+    }
+    let finite = series.values().flatten().all(|(a, b)| a.is_finite() && b.is_finite());
+    if !finite || frequency.iter().any(|f| !f.is_finite()) || frequency.windows(2).any(|w| !(w[1] > w[0])) {
+        return Err(no_data("gave a non-finite value or a non-increasing frequency grid"));
+    }
+    Ok(AcResult { frequency, series, wall_ms })
 }

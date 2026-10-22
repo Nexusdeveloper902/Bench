@@ -1,0 +1,60 @@
+format = 1
+id = "R_TOL"
+version = 1
+name = "Resistor at a tolerance corner"
+description = "Resistor whose value is R * (1 + tol): set tol to -0.05 or +0.05 to run a worst-case corner of a 5 % part."
+designator = "R"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["toleranced resistor", "worst-case resistor"]
+keywords = ["resistor", "tolerance", "corner", "worst case", "subcircuit"]
+tags = ["passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Tolerance is a fixed multiplier, not a random draw. Power rating is not enforced (ngspice does not limit dissipation)."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+value = "R"
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "R"
+label = "Nominal resistance"
+unit = "Ω"
+default = "1k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "tol"
+label = "Tolerance"
+default = "0"
+min = -0.5
+max = 0.5
+help = "Fraction of nominal: 0.05 is +5 %, -0.05 is -5 %"
+
+[sim.electrical]
+live = ["R"]
+device = "X"
+line = "{dev} {a} {b} bench_rtol R={R} TOL={tol}"
+body = """
+.subckt bench_rtol a b params: R=1k TOL=0
+R1 a b {R*(1+TOL)}
+.ends bench_rtol
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; a resistor scaled by a fixed tolerance fraction"
+license = "MIT"

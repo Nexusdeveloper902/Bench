@@ -1,0 +1,53 @@
+format = 1
+id = "M_2N7000"
+version = 1
+name = "2N7000 N-channel MOSFET"
+description = "60 V, 200 mA enhancement-mode small-signal N-MOSFET: VGS(th) about 2 V, RDS(on) about 1.4 ohm at 10 V / 0.5 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["2N7000"]
+keywords = ["mosfet", "fet", "vdmos", "power", "2N7000", "TO-92", "logic level", "small signal"]
+tags = ["MOSFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Zetex datasheet limits, not a vendor SPICE model: threshold 2.0 V (250 uA), RDS(on) 1.4 ohm at 10 V / 0.5 A, gfs 0.22 S at 0.2 A (all inside the limits).",
+               "The datasheet gives only maxima for the capacitances; they are set to about 70 % of them (Ciss 42 pF, Coss 18 pF, Crss 3.5 pF) with Cgd held constant.",
+               "Three-pin VDMOS model (body tied to source) with an integral body diode. The gate has no DC path, so drive it through a resistor or a voltage source. Temperature dependence, avalanche energy, safe operating area and self-heating are not modelled."]
+docs = ["https://www.diodes.com/assets/Datasheets/2N7000.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} m2n7000"
+models = [".model m2n7000 VDMOS(Vto=2.01 Kp=0.121 Rd=0.268 Rs=0.0473 Cgs=39p Cgdmin=3.5p Cgdmax=3.5p Cjo=79.5p bv=60 ibv=10u)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; VDMOS parameter set fitted to the Zetex datasheet values"
+url = "https://www.diodes.com/assets/Datasheets/2N7000.pdf"
+version = "Zetex 2N7000, issue 2, November 1994"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: VGS(th) 0.8-3.0 V (ID=1 mA); RDS(on) <= 5 ohm (10 V, 0.5 A); VDS(on) <= 0.4 V (4.5 V, 75 mA); gfs >= 100 mS (10 V, 0.2 A); ID(on) >= 75 mA (4.5 V, 10 V); Ciss <= 60 pF, Coss <= 25 pF, Crss <= 5 pF."

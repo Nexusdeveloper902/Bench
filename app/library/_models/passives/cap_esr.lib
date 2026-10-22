@@ -1,0 +1,10 @@
+* bench_cap_esr: capacitor with its equivalent series resistance (ESR) and inductance (ESL), plus a parallel leak.
+* Ports a b. C: capacitance (F). ESR: series resistance (ohm). ESL: series inductance (H).
+* RLEAK: insulation or leakage resistance (ohm). It is also the DC path, so a capacitor-only node solves.
+* Polarity and voltage rating are not modelled; the values are generic per technology.
+.subckt bench_cap_esr a b params: C=1u ESR=10m ESL=1n RLEAK=1G
+LESL a n1 {ESL}
+RESR n1 n2 {ESR}
+CCAP n2 b {C}
+RLK a b {RLEAK}
+.ends bench_cap_esr

@@ -70,24 +70,51 @@ class Param:
     label: str                  # human name, e.g. "Resistance"
     unit: str = ""              # SI unit symbol ("Ω", "F", "H", "V", "A", "s", "Hz") or ""
     default: str = "0"          # stored as text, exactly as a user would type it
-    kind: str = "number"        # "number" (SI text) | "choice"
+    kind: str = "number"        # "number" (SI text) | "choice" | "points" (time-value pairs, e.g. a PWL waveform)
     choices: tuple = ()         # for kind == "choice"
     min: float = None           # bound (None = unbounded)
     min_exclusive: bool = False  # True: value must be > min, else >= min
     max: float = None
     when: tuple = ()            # ((other_key, value), ...): param applies only if all match
     help: str = ""              # one-line hint (tooltip)
+    scale: str = ""             # live-run slider: "log" | "linear" | "" (log for Ω, else linear)
+
+    def slider(self, value):
+        """(lo, hi, log): the live-run slider range for a number param starting at `value`. The ends are min/max
+        where the package gives them; a log slider with no positive min starts six decades below max. A missing end
+        is taken around value (x/÷100 on a log slider, ±2|value| or ±1 on a linear one). value is always inside."""
+        log = (self.scale or ("log" if self.unit == "Ω" else "linear")) == "log" and value > 0
+        lo, hi = self.min, self.max
+        if log:
+            if lo is None or lo <= 0:
+                lo = hi / 1e6 if hi is not None else value / 100
+            hi = hi if hi is not None else value * 100
+        else:
+            m = 2 * abs(value) or 1.0
+            lo, hi = (-m if lo is None else lo), (m if hi is None else hi)
+        return min(lo, value), max(hi, value), log
 
     def applies(self, params):
         return all(params.get(k) == v for k, v in self.when)
 
     def parse(self, text, owner=""):
-        """Validated value: float for numbers, str for choices. Raises ModelError naming owner + key."""
+        """Validated value: float for numbers, str for choices, and for points the pairs as SPICE text ("0.0 0.0 0.001
+        5.0"; times in s, strictly increasing from >= 0; min/max bound the values). Raises ModelError naming owner + key."""
         what = f"{owner} {self.key}".strip()
         if self.kind == "choice":
             if text not in self.choices:
                 raise ModelError(f"{what}: '{text}' must be one of {', '.join(self.choices)}")
             return text
+        if self.kind == "points":
+            pairs = [q.split() for q in re.split(r"[,;]", str(text)) if q.strip()]
+            if len(pairs) < 2 or any(len(q) != 2 for q in pairs):
+                raise ModelError(f"{what}: write two or more 'time value' pairs separated by commas, e.g. 0 0, 1m 5")
+            pts = [(parse_si(t, "s", f"{what} time"), Param(self.key, self.label, self.unit, min=self.min,
+                    min_exclusive=self.min_exclusive, max=self.max).parse(v, owner)) for t, v in pairs]
+            times = [t for t, _ in pts]
+            if times[0] < 0 or any(b <= a for a, b in zip(times, times[1:])):
+                raise ModelError(f"{what}: times must start at 0 or later and strictly increase")
+            return " ".join(f"{t!r} {v!r}" for t, v in pts)
         x = parse_si(text, self.unit, what)
         if self.min is not None and (x <= self.min if self.min_exclusive else x < self.min):
             raise ModelError(f"{what}: must be {'>' if self.min_exclusive else '>='} {self.min:g}")

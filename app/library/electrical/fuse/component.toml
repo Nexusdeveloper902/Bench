@@ -1,0 +1,74 @@
+format = 1
+id = "FUSE"
+version = 1
+name = "Fuse (time-delay, behavioural)"
+description = "One-shot time-delay fuse (behavioural): current above the rating for a delay set by tau opens it, and it stays open."
+designator = "F"
+label = "FUSE"
+category = "Electrical"
+subcategory = "Protection"
+aliases = ["fuse", "time-delay fuse", "overcurrent element"]
+keywords = ["fuse", "overcurrent", "protection", "trip", "behavioural", "subcircuit"]
+tags = ["protection"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioural: one exponential delay (tau), not an I2t curve. No ambient, thermal or melting-energy state.",
+               "Once open it stays open (no replacement); a fuse that is not blown is closed with a 1 mOhm closed resistance."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [80, 15]
+
+[[params]]
+key = "rating"
+label = "Rated current"
+unit = "A"
+default = "1"
+min = 0
+min_exclusive = true
+help = "Trips when the current stays above this for a while"
+
+[[params]]
+key = "tau"
+label = "Time constant"
+unit = "s"
+default = "1"
+min = 0
+min_exclusive = true
+help = "Delay: an overcurrent of 2x rating trips after tau * ln 2"
+
+[[params]]
+key = "ron"
+label = "Closed resistance"
+unit = "Ω"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Open resistance"
+unit = "Ω"
+default = "1G"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_trip IRATED={rating} IHOLD=0 TAU={tau} RON={ron} ROFF={roff}"
+defs = ["models:protection/trip.lib"]
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; time-delay overcurrent element (F, S and RC), not a thermal model"
+license = "MIT"

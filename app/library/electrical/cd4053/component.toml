@@ -1,0 +1,157 @@
+format = 1
+id = "CD4053"
+version = 1
+name = "CD4053B triple 2-channel analog multiplexer"
+description = "Triple 2:1 CMOS analog multiplexer (three SPDT switches): A, B, C select x (low) or y (high) for sections a, b, c; INH high opens every channel (16 pins)."
+designator = "U"
+category = "Electrical"
+subcategory = "Analog switches"
+aliases = ["CD4053", "CD4053B", "4053", "74HC4053"]
+keywords = ["multiplexer", "mux", "analog switch", "SPDT", "4053", "CD4000"]
+tags = ["cmos", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Constant on resistance RON (default: the 5 V typical; the datasheet gives 180 Ω at 10 V and 125 Ω at 15 V): no dependence on supply or signal voltage, no capacitance, charge injection or switching time.",
+               "Signals are not clamped to the supplies, and the control threshold is (VDD + VSS) / 2 with 50 mV hysteresis; the control inputs draw no current.",
+               "VEE (the analog negative supply) is only tied to VSS through 1 GΩ: signal levels below VSS are not limited, and the logic levels are referred to VDD and VSS only."]
+docs = ["https://www.ti.com/lit/ds/symlink/cd4051b.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 120, 200]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "by"
+name = "by"
+at = [0, 100]
+description = "Section b, y channel (pin 1)"
+
+[[pins]]
+id = "bx"
+name = "bx"
+at = [0, 80]
+description = "Section b, x channel (pin 2)"
+
+[[pins]]
+id = "cy"
+name = "cy"
+at = [0, 140]
+description = "Section c, y channel (pin 3)"
+
+[[pins]]
+id = "ccom"
+name = "c"
+at = [120, 80]
+description = "Section c common (pin 4)"
+
+[[pins]]
+id = "cx"
+name = "cx"
+at = [0, 120]
+description = "Section c, x channel (pin 5)"
+
+[[pins]]
+id = "inh"
+name = "INH"
+at = [120, 160]
+description = "Inhibit, high = all off (pin 6)"
+
+[[pins]]
+id = "vee"
+name = "VEE"
+at = [80, 200]
+description = "Analog negative supply (pin 7)"
+
+[[pins]]
+id = "vss"
+name = "VSS"
+at = [40, 200]
+description = "Ground (pin 8)"
+
+[[pins]]
+id = "c"
+name = "C"
+at = [120, 140]
+description = "Select c (pin 9)"
+
+[[pins]]
+id = "b"
+name = "B"
+at = [120, 120]
+description = "Select b (pin 10)"
+
+[[pins]]
+id = "a"
+name = "A"
+at = [120, 100]
+description = "Select a (pin 11)"
+
+[[pins]]
+id = "ax"
+name = "ax"
+at = [0, 40]
+description = "Section a, x channel (pin 12)"
+
+[[pins]]
+id = "ay"
+name = "ay"
+at = [0, 60]
+description = "Section a, y channel (pin 13)"
+
+[[pins]]
+id = "acom"
+name = "a"
+at = [120, 40]
+description = "Section a common (pin 14)"
+
+[[pins]]
+id = "bcom"
+name = "b"
+at = [120, 60]
+description = "Section b common (pin 15)"
+
+[[pins]]
+id = "vdd"
+name = "VDD"
+at = [60, 0]
+description = "Positive supply (pin 16)"
+
+[[params]]
+key = "ron"
+label = "On resistance"
+unit = "Ω"
+default = "470"
+min = 0
+min_exclusive = true
+help = "Typical: 470 Ω at VDD = 5 V, 180 Ω at 10 V, 125 Ω at 15 V"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {by} {bx} {cy} {ccom} {cx} {inh} {vee} {vss} {c} {b} {a} {ax} {ay} {acom} {bcom} {vdd} bench_cd4053 RON={ron}"
+defs = ["models:analog/aswitch.lib"]
+body = """
+.subckt bench_cd4053 by bx cy ccom cx inh vee vss c b a ax ay acom bcom vdd params: RON=470
+* per section: INH (on while low), then the select level (low = x, high = y); each of the 2 switches has RON/2
+XIA acom an inh vdd vss bench_asw_lo RON={RON/2}
+XAX an ax a vdd vss bench_asw_lo RON={RON/2}
+XAY an ay a vdd vss bench_asw_hi RON={RON/2}
+XIB bcom bn inh vdd vss bench_asw_lo RON={RON/2}
+XBX bn bx b vdd vss bench_asw_lo RON={RON/2}
+XBY bn by b vdd vss bench_asw_hi RON={RON/2}
+XIC ccom cn inh vdd vss bench_asw_lo RON={RON/2}
+XCX cn cx c vdd vss bench_asw_lo RON={RON/2}
+XCY cn cy c vdd vss bench_asw_hi RON={RON/2}
+Rvee vee vss 1e9
+.ends bench_cd4053
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_asw switch pairs, on resistance from the CD405xB datasheet"
+url = "https://www.ti.com/lit/ds/symlink/cd4051b.pdf"
+version = "TI SCHS047O (CD4051B, CD4052B, CD4053B), August 1998, revised May 2026"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "rON typical 470 ohm (VDD = 5 V), 180 ohm (10 V), 125 ohm (15 V); truth table: INH low, select low = x, high = y."

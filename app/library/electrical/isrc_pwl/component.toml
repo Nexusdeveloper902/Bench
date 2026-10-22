@@ -1,0 +1,48 @@
+format = 1
+id = "ISRC_PWL"
+version = 1
+name = "Current source: piecewise linear"
+description = "Independent current source that follows a piecewise-linear waveform through the time-value points you list (ngspice PWL); it holds the last value after the last point."
+designator = "I"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["PWL current source", "piecewise linear source", "arbitrary waveform source"]
+keywords = ["pwl", "piecewise", "ramp", "transient", "waveform", "source"]
+tags = ["source"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Only the transient waveform is defined (no AC magnitude). Current flows from p through the source to n. No repeat: the last value holds to the end of the run.",
+               "A point list cannot change during a live run."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [60, 15]
+
+[[params]]
+key = "pts"
+label = "Points (time value, ...)"
+unit = "A"
+default = "0 0, 1m 1m, 2m 1m, 3m 0"
+kind = "points"
+help = "Time-value pairs separated by commas, times strictly increasing, e.g. 0 0, 1m 1m, 2m 0"
+
+[sim.electrical]
+device = "I"
+line = "{dev} {p} {n} PWL({pts})"
+model_kind = "primitive"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice PWL source syntax"
+license = "MIT"

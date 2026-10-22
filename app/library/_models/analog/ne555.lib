@@ -1,0 +1,42 @@
+* bench_ne555: bipolar 555 timer (project-authored behavioural subcircuit from R, C, V, D and S elements).
+* Ports, in DIP pin order (gn = GND pin; "gnd" would be node 0 in ngspice): gn trig out reset ctrl thr dis vcc.
+* - Internal 3 x 5 kohm divider: ctrl sits at 2/3 VCC, node n13 at 1/3 VCC (CONT overrides both, as in the IC).
+* - The comparators are voltage-controlled switches comparing THR with ctrl and TRIG with n13 directly.
+* - SR latch: node q (0 or 1 V above gnd) is set by Sset (TRIG below n13), cleared by Srst (THR above ctrl) and held
+*   by Shold, a switch controlled by q itself. Path resistances order the priorities: RESET below 0.7 V (1 ohm)
+*   beats set (10 ohm), which beats clear (100 ohm), which beats hold (1 kohm). RESET has only a 1 Gohm leak to GND,
+*   so an unwired RESET reads low and holds the timer in reset: tie it to VCC when unused, as the datasheet says.
+* - Output: Shi (diode + 7.7 ohm from VCC) or Slo (8 ohm to gnd); discharge: Sdis (19 ohm) on while the output is low.
+* - Supply: the 15 kohm divider plus 1.75 kohm gives about 3.2 mA at 5 V and 9.6 mA at 15 V.
+.subckt bench_ne555 gn trig out reset ctrl thr dis vcc
+.model bench_555_cmp SW(VT=0 VH=1m RON=1 ROFF=1e9)
+.model bench_555_q SW(VT=0.5 VH=0.1 RON=1 ROFF=1e9)
+.model bench_555_doh D(Is=1e-12 N=1.37)
+Rd1 vcc ctrl 5k
+Rd2 ctrl n13 5k
+Rd3 n13 gn 5k
+Rsup vcc gn 1.75k
+Rthr thr gn 1e9
+Rtrig trig gn 1e9
+Rrst reset gn 1e9
+Vone one gn DC 1
+Vrth rth gn DC 0.7
+Rq q gn 10k
+Cq q gn 10p
+Sset one qs n13 trig bench_555_cmp
+Rqs qs q 9
+Srst q rq thr ctrl bench_555_cmp
+Rrq rq gn 99
+Shold one qh q gn bench_555_q
+Rqh qh q 999
+Sres q gn rth reset bench_555_cmp
+* outputs (RON of these switches is 1 ohm; the series parts complete the fitted values)
+Shi vcc oh q gn bench_555_q
+Dhi oh oh2 bench_555_doh
+Rhi oh2 out 6.7
+Slo out ol hlf q bench_555_cmp
+Rlo ol gn 7
+Vhlf hlf gn DC 0.5
+Sdis dis dl hlf q bench_555_cmp
+Rdl dl gn 18
+.ends bench_ne555

@@ -1,0 +1,61 @@
+format = 1
+id = "LM337"
+version = 1
+name = "LM337 adjustable negative regulator"
+description = "Three-terminal adjustable negative regulator: holds OUT 1.25 V below ADJ, so VOUT = -1.25 V x (1 + R2/R1) - IADJ x R2 with IADJ = 65 µA."
+designator = "U"
+category = "Electrical"
+subcategory = "Regulators"
+aliases = ["LM337", "LM337T", "negative adjustable regulator"]
+keywords = ["regulator", "adjustable", "negative", "LM337", "linear", "power supply"]
+tags = ["power", "ic"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioral fit to datasheet typicals, not a vendor macromodel.",
+               "Pass transistors are generic Darlington models with an ideal reference and error amplifier: no thermal shutdown, safe-area protection, foldback, ripple-rejection roll-off or temperature drift.",
+               "Line and load regulation are better than the datasheet (no internal sense resistance); a supply step at start-up overshoots the output by up to about 0.6 V before it settles.",
+               "ADJ current (65 µA) flows into the ADJ pin, mirroring the LM317 (the datasheet gives only its magnitude); minimum load current 2.5 mA; dropout about 2 V at 1 A is an assumption."]
+docs = ["https://www.ti.com/lit/ds/symlink/lm337.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 80]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "adj"
+name = "ADJ"
+at = [40, 0]
+description = "Adjust (pin 1)"
+
+[[pins]]
+id = "in"
+name = "IN"
+at = [0, 40]
+description = "Input, negative (pin 2)"
+
+[[pins]]
+id = "out"
+name = "OUT"
+at = [80, 40]
+description = "Output, negative (pin 3)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {adj} {in} {out} bench_lm337"
+defs = ["models:analog/linreg.lib"]
+body = """
+.subckt bench_lm337 adj in out
+X1 in out adj out bench_linreg_neg VREF=-1.25 VHD=0.65 IQ=2.5m RSC=0.3
+Iadj adj in DC 65u
+.ends bench_lm337
+"""
+model_kind = "behavioral"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; bench_linreg_neg with parameters fitted to the LM337 datasheet typical values"
+url = "https://www.ti.com/lit/ds/symlink/lm337.pdf"
+version = "TI SLVS047L, November 1981, revised January 2015 (LM337 columns)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Typicals: reference -1.25 V (OUT to ADJ); adjustment current 65 uA; minimum output current 2.5 mA (|VI - VO| <= 40 V); peak output current 2.2 A (|VI - VO| <= 15 V)."

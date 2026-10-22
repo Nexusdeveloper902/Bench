@@ -1,0 +1,54 @@
+format = 1
+id = "Q_2N3055"
+version = 1
+name = "2N3055 NPN power transistor"
+description = "15 A, 60 V NPN power transistor in a TO-3 case: hFE about 37 at 4 A, VCE(sat) about 0.5 V at 4 A / 0.4 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["2N3055", "MJ2955 complement"]
+keywords = ["transistor", "bjt", "npn", "bipolar", "2N3055", "power", "TO-3", "linear regulator", "audio"]
+tags = ["TO-3", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the datasheet windows, not a vendor SPICE model: hFE about 37 at 4 A and 24 at 10 A (VCE = 4 V), VCE(sat) 0.48 V at 4 A / 0.4 A and 1.1 V at 10 A / 3.3 A, VBE 0.98 V at 4 A / 0.4 A.",
+               "Early voltage and Ikf are assumptions. Power rating, second breakdown and thermal limits are not enforced.",
+               "Capacitances are not modelled (the datasheet lists none); the low-frequency limit is Tf = 50 ns (fT about 3 MHz).",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://www.eg.bucknell.edu/~dkelley/eceg351/lab/DataSheet_2N3055.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} q2n3055"
+models = [".model q2n3055 NPN(Is=1p Bf=70 Vaf=100 Ikf=6 Ise=50p Ne=1.5 Br=2 Rb=0.3 Rc=0.08 Re=0.02 Tf=50n Tr=1u)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Multicomp datasheet values"
+url = "https://www.eg.bucknell.edu/~dkelley/eceg351/lab/DataSheet_2N3055.pdf"
+version = "Multicomp 2N3055 datasheet, 2012 (copy hosted at Bucknell)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (VCE=4 V): hFE 20-70 at 4 A, >= 5 at 10 A; VCE(sat) <= 1.1 V at 4 A/0.4 A and <= 3 V at 10 A/3.3 A; VBE(sat) <= 1.5 V at 4 A and <= 3 V at 10 A; fT >= 2.5 MHz."

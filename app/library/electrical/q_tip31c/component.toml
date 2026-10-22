@@ -1,0 +1,54 @@
+format = 1
+id = "Q_TIP31C"
+version = 1
+name = "TIP31C NPN power transistor"
+description = "3 A, 100 V NPN power transistor in a TO-220 package: hFE about 64 at 1 A, VCE(sat) about 0.5 V at 3 A / 375 mA."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["TIP31C", "TIP31"]
+keywords = ["transistor", "bjt", "npn", "bipolar", "TIP31", "power", "TO-220", "audio", "motor driver"]
+tags = ["TO-220", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Fairchild datasheet windows, not a vendor SPICE model: hFE about 64 at 1 A and 42 at 3 A (VCE = 4 V), VCE(sat) 0.54 V at 3 A / 375 mA, VBE 0.94 V at 3 A.",
+               "Early voltage and Ikf are assumptions that shape the gain roll-off between the datasheet points. Power rating and thermal limits are not enforced.",
+               "Capacitances are not modelled (the datasheet lists none); the low-frequency limit is Tf = 50 ns (fT about 3 MHz).",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://led.det.polito.it/datasheet/TIP31.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} qtip31c"
+models = [".model qtip31c NPN(Is=200f Bf=120 Vaf=100 Ikf=2 Ise=10p Ne=1.5 Br=2 Rb=0.5 Rc=0.12 Re=0.03 Tf=50n Tr=1u)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Fairchild datasheet values"
+url = "https://led.det.polito.it/datasheet/TIP31.pdf"
+version = "Fairchild TIP31 series datasheet, Rev. A, February 2000 (copy hosted at Politecnico di Torino)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (VCE=4 V): hFE >= 25 at 1 A and 10-50 at 3 A; VCE(sat) <= 1.2 V at 3 A/375 mA; VBE(on) <= 1.8 V at 3 A; fT >= 3 MHz."

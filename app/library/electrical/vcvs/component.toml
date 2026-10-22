@@ -1,0 +1,56 @@
+format = 1
+id = "VCVS"
+version = 1
+name = "Voltage-controlled voltage source (E)"
+description = "Linear voltage-controlled voltage source: V(op, on) = gain * V(cp, cn). Ideal, no output resistance."
+designator = "E"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["VCVS", "E source", "voltage amplifier", "ideal amplifier"]
+keywords = ["controlled", "dependent", "gain", "amplifier", "linear"]
+tags = ["source", "controlled"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Ideal and linear: no output resistance, no saturation, no bandwidth limit. For a non-ideal amplifier use OPAMP."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 60]
+symbol = "symbol.svg"
+value = "gain"
+
+[[pins]]
+id = "op"
+name = "OUT+"
+at = [80, 10]
+
+[[pins]]
+id = "on"
+name = "OUT-"
+at = [80, 50]
+
+[[pins]]
+id = "cp"
+name = "IN+"
+at = [0, 10]
+
+[[pins]]
+id = "cn"
+name = "IN-"
+at = [0, 50]
+
+[[params]]
+key = "gain"
+label = "Voltage gain"
+default = "2"
+
+[sim.electrical]
+device = "E"
+line = "{dev} {op} {on} {cp} {cn} {gain}"
+current = "@{dev_lc}[i]"
+model_kind = "primitive"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice linear E element"
+license = "MIT"

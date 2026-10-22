@@ -1,0 +1,36 @@
+* Averaged (state-space / PWM-switch) DC-DC converter cores, continuous conduction mode (CCM) only. Project-authored.
+* The switch and diode are replaced by their period averages (Vorperian PWM switch, Erickson & Maksimovic ch. 7):
+*   buck:  v(sw) = d * v(vin)      current drawn from vin = d * iL
+*   boost: v(sw) = (1-d) * v(out)  current delivered to out = (1-d) * iL      (d = D + v(ctl), duty ratio)
+* iL flows through the inductor L and its series resistance RL (inductor DCR plus switch/diode conduction resistance,
+* lumped). There is no switching ripple, no switching or diode or core loss, and no discontinuous mode: the averaged
+* inductor current may go negative at light load (it behaves like a synchronous converter), and nothing limits d.
+* rt2 is rt through a 0 V source: the B sources drive rt2 so that reading V(.,rt) is not an algebraic loop on their own node.
+* Pins: vin, rt (return), out, ctl. ctl adds directly to the duty ratio (1 V = 100 % duty) for modulation or a feedback loop.
+.subckt bench_buck_avg vin rt out ctl params: D=0.5 L=100u RL=20m
+Rctl ctl rt 1g
+Vr rt2 rt 0
+Bsw swp rt2 V=(D+V(ctl,rt))*V(vin,rt)
+Vs swp swl 0
+L1 swl x {L}
+Rl1 x out {RL}
+Bin vin rt2 I=(D+V(ctl,rt))*I(Vs)
+.ends bench_buck_avg
+.subckt bench_boost_avg vin rt out ctl params: D=0.5 L=100u RL=20m
+Rctl ctl rt 1g
+Vr rt2 rt 0
+L1 vin x {L}
+Rl1 x y {RL}
+Vs y sw 0
+Bsw sw rt2 V=(1-D-V(ctl,rt))*V(out,rt)
+Bout sw out I=(1-D-V(ctl,rt))*I(Vs)
+.ends bench_boost_avg
+* fixed-duty wrappers: ctl on an internal node held at rt by a 0 V source
+.subckt bench_buck_fixed vin rt out params: D=0.5 L=100u RL=20m
+Vz z rt 0
+X1 vin rt out z bench_buck_avg D={D} L={L} RL={RL}
+.ends bench_buck_fixed
+.subckt bench_boost_fixed vin rt out params: D=0.5 L=100u RL=20m
+Vz z rt 0
+X1 vin rt out z bench_boost_avg D={D} L={L} RL={RL}
+.ends bench_boost_fixed

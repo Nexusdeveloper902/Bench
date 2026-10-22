@@ -1,0 +1,58 @@
+format = 1
+id = "D_1N400X"
+version = 1
+name = "1N400x rectifier diode"
+description = "General-purpose 1 A silicon rectifier (1N4001 to 1N4007): about 0.93 V at 1 A. Set the breakdown voltage to about 110 % of the rating: 55 V (1N4001) up to 1100 V (1N4007)."
+designator = "D"
+category = "Electrical"
+subcategory = "Diodes"
+aliases = ["1N4001", "1N4002", "1N4003", "1N4004", "1N4005", "1N4006", "1N4007", "rectifier diode"]
+keywords = ["rectifier", "diode", "1N4001", "1N4004", "1N4007", "power supply"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Vishay datasheet, not a vendor SPICE model. Forward curve: about 0.66 V at 10 mA and 0.93 V at 1 A (datasheet maximum 1.1 V at 1 A).",
+               "Breakdown BV is a parameter, set about 10 % above the rated reverse voltage; below it the leakage is the model's saturation current (7 nA), far under the datasheet's 5 uA maximum at the rated voltage.",
+               "Junction capacitance fitted to 15 pF at 4 V. Reverse recovery is not modelled (the datasheet gives none).",
+               "Temperature dependence, noise and self-heating are not modelled."]
+docs = ["https://www.vishay.com/docs/88503/1n4001.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "a"
+name = "Anode"
+at = [0, 15]
+
+[[pins]]
+id = "k"
+name = "Cathode"
+at = [60, 15]
+
+[[params]]
+key = "BV"
+label = "Breakdown voltage"
+unit = "V"
+default = "1100"
+min = 0
+min_exclusive = true
+help = "About 110 % of the rating: 1N4001 55, 1N4002 110, 1N4003 220, 1N4004 440, 1N4005 660, 1N4006 880, 1N4007 1100"
+
+[sim.electrical]
+device = "D"
+line = "{dev} {a} {k} d1n400x_{dev_lc}"
+models = [".model d1n400x_{dev_lc} D(Is=7.06n N=1.8 Rs=56m Cjo=39p Vj=0.7 M=0.5 BV={BV} IBV=1m)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Vishay 1N4001-1N4007 datasheet values"
+url = "https://www.vishay.com/docs/88503/1n4001.pdf"
+version = "Vishay 1N4001-1N4007, document 88503, revision 29-Apr-2020"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: VF(1 A) <= 1.1 V (max), IR <= 5 uA at the rated voltage (max; the model leaks far less), CJ = 15 pF at 4 V, 1 MHz (typ). Forward curve (0.66 V at 10 mA, 0.93 V at 1 A) is the project's reading of the typical curve."

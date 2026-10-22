@@ -302,6 +302,13 @@ def test_generic_body_still_draws_value_and_current_labels(extra_root, win):
     assert any(t.endswith(" mA") or t.endswith(" A") for t in texts), texts
 
 
+def test_part_type_label_on_ic_not_on_resistor(win):
+    w = win
+    w.doc.add_part("LM358", 100, 100); w.doc.add_part("R", 300, 100); w.refresh()
+    texts = [i.text() for i in w.canvas.sc.items() if isinstance(i, QGraphicsSimpleTextItem)]
+    assert texts.count("LM358") == 1 and "R" not in texts
+
+
 def test_placeholder_drawn_and_movable(win):
     w = win; w._reset(placeholder_doc(wired=False))
     w.draw()

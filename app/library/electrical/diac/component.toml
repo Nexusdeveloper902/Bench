@@ -1,0 +1,74 @@
+format = 1
+id = "DIAC"
+version = 1
+name = "DIAC (trigger diode)"
+description = "Symmetric trigger diode: blocks below its breakover voltage (default 32 V, the common DB3 class), then breaks back to a low on-state voltage until the current falls below its holding current."
+designator = "D"
+label = "DIAC"
+category = "Electrical"
+subcategory = "Thyristors and IGBT"
+aliases = ["DB3", "trigger diode", "breakover diode"]
+keywords = ["DIAC", "trigger diode", "DB3", "breakover", "thyristor", "dimmer"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent, not a device model: breakover is set by a zener plus junction drops and checked at 32 V, 1 mA in tests; the 32 V default (28-36 V range) is the usual DB3 value, not read from one datasheet here.",
+               "After breakover the voltage falls to about 2 V and stays low (a real DB3 falls by about 5 V or more and its output pulse into a capacitor load is the datasheet's 'VO'). Not modelled: breakover current spread, symmetry tolerance, rise time, temperature."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+name = "Terminal A"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+name = "Terminal B"
+at = [60, 15]
+
+[[params]]
+key = "VBO"
+label = "Breakover voltage"
+unit = "V"
+default = "32"
+min = 3
+help = "Must exceed 3 V"
+
+[[params]]
+key = "IH"
+label = "Holding current"
+unit = "A"
+default = "1m"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_diac VBO={VBO} IH={IH}"
+defs = ["models:semiconductors/scr.lib"]
+body = """
+.subckt bench_diac a b params: VBO=32 IH=1m
+* Symmetric trigger diode: each polarity is an SCR whose gate is fed through a series diode and a zener from the
+* anode; it fires when |V| exceeds VBO (zener voltage + 1.3 V of junction drops) and lets go below IH.
+.model dz D(Is=1e-14 BV={VBO-1.3} IBV=100u)
+.model ds D(Is=1e-14)
+X1 a b g1 bench_scr IH={IH} RGK=10k RON=0.5
+DS1 a m1 ds
+DZ1 g1 m1 dz
+X2 b a g2 bench_scr IH={IH} RGK=10k RON=0.5
+DS2 b m2 ds
+DZ2 g2 m2 dz
+.ends bench_diac
+"""
+model_kind = "equivalent"
+verification = "smoke"
+
+[sim.electrical.provenance]
+source = "Bench project; regenerative NPN/PNP pair (two-transistor SCR analogy), not a vendor model"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"

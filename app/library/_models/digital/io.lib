@@ -1,0 +1,66 @@
+* Digital I/O stages (project-authored, simplified). Every logic IC in the library is built from XSPICE digital code models
+* (d_*) inside a subcircuit; these stages connect those digital nodes to ordinary analog pins.
+* The supply pins set the logic levels: input thresholds and output levels scale with (vc - gn). The supply draws no current.
+*
+* bench_din vc gn a d: input stage. The pin voltage is normalised to (V(a)-V(gn)) / (RK*(V(vc)-V(gn)) + AK), then an
+*   adc_bridge reads it: below LO is 0, above HI is 1, in between is unknown (X). RK=1, AK=0: thresholds are fractions of the
+*   supply (CMOS); RK=0, AK=1: thresholds are volts above gn (TTL). INV=1 inverts (for active-low pins). PU=1 pulls an unconnected
+*   pin to vc through 1 Gohm instead of to gn (used for active-low control pins, so that an unwired one is inactive).
+* bench_dout vc gn d y: output stage. A dac_bridge drives a node that a polynomial source scales to
+*   gn + (VOLF + (VOHF-VOLF)*d) * (vc - gn), followed by ROUT in series (the output impedance). An unknown (X) state drives mid-level.
+* bench_dout3 vc gn d en y: the same, behind a switch that opens while the digital enable en is 0 (high impedance: 1 Gohm to gn).
+* bench_dclk vc gn a d: clock input stage with a power-on gate (G24). Digital nodes start low and a clock that is already high at t = 0
+*   would give every edge-triggered model one clock edge at power-up. This stage lets an edge through only after the clock has been seen
+*   at its idle level. Two bench_din stages read the pin: P at the active level (NEG=0: high, rising edge; NEG=1: low, falling edge) and
+*   N at the idle level. Both start low and only go high once the analog pin really is at that level, so neither has a power-up event.
+*   A d_dlatch with data = constant 1 and enable = N holds `arm` once the clock has been idle, and d = P AND arm. A clock held at its
+*   active level from t = 0 never arms, so it never clocks; the first edge after one idle period is an ordinary edge. An edge within
+*   about 5 ns of t = 0 (before the latch has armed) is ignored. Other parameters as bench_din.
+* bench_dsch vc gn a d: Schmitt-trigger input. d is 1 above VP (fraction of the supply) and 0 below VN; between them it keeps its state.
+*   The hysteresis is a voltage-controlled switch on the normalised input.
+.subckt bench_din vc gn a d params: LO=0.45 HI=0.55 RK=1 AK=0 INV=0 PU=0 TD=1n
+Epr pr gn vc gn {PU}
+Rin a pr 1g
+Bn n 0 V=(1-2*INV)*(V(a)-V(gn))/(RK*max(V(vc)-V(gn),0.1)+AK)+INV
+Rn n 0 1g
+A1 [n] [d] adc
+.model adc adc_bridge(in_low={LO} in_high={HI} rise_delay={TD} fall_delay={TD})
+.ends bench_din
+.subckt bench_dout vc gn d y params: VOLF=0 VOHF=1 ROUT=45 TD=1n
+A1 [d] [dn] dac
+.model dac dac_bridge(out_low=0 out_high=1 out_undef=0.5 t_rise={TD} t_fall={TD})
+Rdn dn 0 1g
+Eo mid gn POLY(2) dn 0 vc gn 0 0 {VOLF} 0 {VOHF-VOLF}
+Ro mid y {ROUT}
+.ends bench_dout
+.subckt bench_dout3 vc gn d en y params: VOLF=0 VOHF=1 ROUT=45 TD=1n
+Xo vc gn d ya bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+A1 [en] [enn] dac
+.model dac dac_bridge(out_low=0 out_high=1 out_undef=0 t_rise={TD} t_fall={TD})
+Ren enn 0 1g
+S1 ya y enn 0 oe
+.model oe SW(VT=0.5 VH=0.1 RON=1m ROFF=1g)
+Rz y gn 1g
+.ends bench_dout3
+.subckt bench_dsch vc gn a d params: VP=0.6 VN=0.38 TD=1n
+Rin a gn 1g
+Bn n 0 V=(V(a)-V(gn))/max(V(vc)-V(gn),0.1)
+Rn n 0 1g
+Vh h 0 1
+Rh q h 1k
+S1 q 0 0 n sch
+.model sch SW(VT={-(VP+VN)/2} VH={(VP-VN)/2} RON=1 ROFF=1g)
+A1 [q] [d] adc
+.model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
+.ends bench_dsch
+
+.subckt bench_dclk vc gn a d params: LO=0.45 HI=0.55 RK=1 AK=0 TD=1n NEG=0
+Xp vc gn a dp bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={NEG}
+Xn vc gn a dn bench_din LO={LO} HI={HI} RK={RK} AK={AK} TD={TD} INV={1-NEG}
+.model ga d_and(rise_delay={TD} fall_delay={TD})
+.model gl d_dlatch(data_delay={TD} enable_delay={TD} set_delay={TD} reset_delay={TD})
+.model pu d_pullup(load=1p)
+Ap dhi pu
+Al dhi dn NULL NULL arm NULL gl
+Ag [dp arm] d ga
+.ends bench_dclk

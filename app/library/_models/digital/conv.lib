@@ -1,0 +1,401 @@
+* Data converters (project-authored, simplified).
+* bench_d_adc8 vc gn vin ref clk d0..d7: 8-bit sampling ADC. On every rising edge of clk the code floor(256*(vin-gn)/(ref-gn)), limited to 0..255,
+*   is registered into eight d_dff and drives the d outputs (logic levels follow vc-gn). The quantiser is a behavioural source; each bit is read through an adc_bridge.
+* bench_d_dac8 d0..d7 ref out gn: 8-bit R-2R ladder DAC. Each bit switches its 2R leg to ref (input above VTH above gn) or to gn; out is the
+*   ladder's open end, so out = (ref-gn) * code / 256 + gn unloaded, with output resistance R. RSW is the on resistance of every leg switch.
+.subckt bench_d_adc8 vc gn vin ref clk d0 d1 d2 d3 d4 d5 d6 d7 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=50n TD=1n
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Rvin vin gn 1g
+Rref ref gn 1g
+Bcod cod 0 V=min(max(floor(256*(V(vin)-V(gn))/max(V(ref)-V(gn),1m)),0),255)+0.5
+Rcod cod 0 1g
+.model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
+.model ff d_dff(clk_delay={TPD} rise_delay={TD} fall_delay={TD})
+Bb0 b0 0 V=floor(V(cod)/1)-2*floor(V(cod)/2)
+Rb0 b0 0 1g
+Ab0 [b0] [db0] adc
+Af0 db0 dck NULL NULL dq0 NULL ff
+Xo0 vc gn dq0 d0 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb1 b1 0 V=floor(V(cod)/2)-2*floor(V(cod)/4)
+Rb1 b1 0 1g
+Ab1 [b1] [db1] adc
+Af1 db1 dck NULL NULL dq1 NULL ff
+Xo1 vc gn dq1 d1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb2 b2 0 V=floor(V(cod)/4)-2*floor(V(cod)/8)
+Rb2 b2 0 1g
+Ab2 [b2] [db2] adc
+Af2 db2 dck NULL NULL dq2 NULL ff
+Xo2 vc gn dq2 d2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb3 b3 0 V=floor(V(cod)/8)-2*floor(V(cod)/16)
+Rb3 b3 0 1g
+Ab3 [b3] [db3] adc
+Af3 db3 dck NULL NULL dq3 NULL ff
+Xo3 vc gn dq3 d3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb4 b4 0 V=floor(V(cod)/16)-2*floor(V(cod)/32)
+Rb4 b4 0 1g
+Ab4 [b4] [db4] adc
+Af4 db4 dck NULL NULL dq4 NULL ff
+Xo4 vc gn dq4 d4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb5 b5 0 V=floor(V(cod)/32)-2*floor(V(cod)/64)
+Rb5 b5 0 1g
+Ab5 [b5] [db5] adc
+Af5 db5 dck NULL NULL dq5 NULL ff
+Xo5 vc gn dq5 d5 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb6 b6 0 V=floor(V(cod)/64)-2*floor(V(cod)/128)
+Rb6 b6 0 1g
+Ab6 [b6] [db6] adc
+Af6 db6 dck NULL NULL dq6 NULL ff
+Xo6 vc gn dq6 d6 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb7 b7 0 V=floor(V(cod)/128)-2*floor(V(cod)/256)
+Rb7 b7 0 1g
+Ab7 [b7] [db7] adc
+Af7 db7 dck NULL NULL dq7 NULL ff
+Xo7 vc gn dq7 d7 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_adc8
+.subckt bench_d_dac8 d0 d1 d2 d3 d4 d5 d6 d7 ref out gn params: R=10k VTH=2.5 RSW=1m
+.model swh SW(VT={VTH} VH=0.05 RON={RSW} ROFF=1g)
+.model swl SW(VT={-VTH} VH=0.05 RON={RSW} ROFF=1g)
+Rt n0 gn {2*R}
+Rl0 n0 x0 {2*R}
+Sh0 ref x0 d0 gn swh
+Sl0 x0 gn gn d0 swl
+Rd0 d0 gn 1g
+Rs0 n0 n1 {R}
+Rl1 n1 x1 {2*R}
+Sh1 ref x1 d1 gn swh
+Sl1 x1 gn gn d1 swl
+Rd1 d1 gn 1g
+Rs1 n1 n2 {R}
+Rl2 n2 x2 {2*R}
+Sh2 ref x2 d2 gn swh
+Sl2 x2 gn gn d2 swl
+Rd2 d2 gn 1g
+Rs2 n2 n3 {R}
+Rl3 n3 x3 {2*R}
+Sh3 ref x3 d3 gn swh
+Sl3 x3 gn gn d3 swl
+Rd3 d3 gn 1g
+Rs3 n3 n4 {R}
+Rl4 n4 x4 {2*R}
+Sh4 ref x4 d4 gn swh
+Sl4 x4 gn gn d4 swl
+Rd4 d4 gn 1g
+Rs4 n4 n5 {R}
+Rl5 n5 x5 {2*R}
+Sh5 ref x5 d5 gn swh
+Sl5 x5 gn gn d5 swl
+Rd5 d5 gn 1g
+Rs5 n5 n6 {R}
+Rl6 n6 x6 {2*R}
+Sh6 ref x6 d6 gn swh
+Sl6 x6 gn gn d6 swl
+Rd6 d6 gn 1g
+Rs6 n6 out {R}
+Rl7 out x7 {2*R}
+Sh7 ref x7 d7 gn swh
+Sl7 x7 gn gn d7 swl
+Rd7 d7 gn 1g
+Rref ref gn 1g
+.ends bench_d_dac8
+.subckt bench_d_adc4 vc gn vin ref clk d0 d1 d2 d3 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=50n TD=1n
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Rvin vin gn 1g
+Rref ref gn 1g
+Bcod cod 0 V=min(max(floor(16*(V(vin)-V(gn))/max(V(ref)-V(gn),1m)),0),15)+0.5
+Rcod cod 0 1g
+.model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
+.model ff d_dff(clk_delay={TPD} rise_delay={TD} fall_delay={TD})
+Bb0 b0 0 V=floor(V(cod)/1)-2*floor(V(cod)/2)
+Rb0 b0 0 1g
+Ab0 [b0] [db0] adc
+Af0 db0 dck NULL NULL dq0 NULL ff
+Xo0 vc gn dq0 d0 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb1 b1 0 V=floor(V(cod)/2)-2*floor(V(cod)/4)
+Rb1 b1 0 1g
+Ab1 [b1] [db1] adc
+Af1 db1 dck NULL NULL dq1 NULL ff
+Xo1 vc gn dq1 d1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb2 b2 0 V=floor(V(cod)/4)-2*floor(V(cod)/8)
+Rb2 b2 0 1g
+Ab2 [b2] [db2] adc
+Af2 db2 dck NULL NULL dq2 NULL ff
+Xo2 vc gn dq2 d2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb3 b3 0 V=floor(V(cod)/8)-2*floor(V(cod)/16)
+Rb3 b3 0 1g
+Ab3 [b3] [db3] adc
+Af3 db3 dck NULL NULL dq3 NULL ff
+Xo3 vc gn dq3 d3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_adc4
+.subckt bench_d_dac4 d0 d1 d2 d3 ref out gn params: R=10k VTH=2.5 RSW=1m
+.model swh SW(VT={VTH} VH=0.05 RON={RSW} ROFF=1g)
+.model swl SW(VT={-VTH} VH=0.05 RON={RSW} ROFF=1g)
+Rt n0 gn {2*R}
+Rl0 n0 x0 {2*R}
+Sh0 ref x0 d0 gn swh
+Sl0 x0 gn gn d0 swl
+Rd0 d0 gn 1g
+Rs0 n0 n1 {R}
+Rl1 n1 x1 {2*R}
+Sh1 ref x1 d1 gn swh
+Sl1 x1 gn gn d1 swl
+Rd1 d1 gn 1g
+Rs1 n1 n2 {R}
+Rl2 n2 x2 {2*R}
+Sh2 ref x2 d2 gn swh
+Sl2 x2 gn gn d2 swl
+Rd2 d2 gn 1g
+Rs2 n2 out {R}
+Rl3 out x3 {2*R}
+Sh3 ref x3 d3 gn swh
+Sl3 x3 gn gn d3 swl
+Rd3 d3 gn 1g
+Rref ref gn 1g
+.ends bench_d_dac4
+.subckt bench_d_adc10 vc gn vin ref clk d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=50n TD=1n
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Rvin vin gn 1g
+Rref ref gn 1g
+Bcod cod 0 V=min(max(floor(1024*(V(vin)-V(gn))/max(V(ref)-V(gn),1m)),0),1023)+0.5
+Rcod cod 0 1g
+.model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
+.model ff d_dff(clk_delay={TPD} rise_delay={TD} fall_delay={TD})
+Bb0 b0 0 V=floor(V(cod)/1)-2*floor(V(cod)/2)
+Rb0 b0 0 1g
+Ab0 [b0] [db0] adc
+Af0 db0 dck NULL NULL dq0 NULL ff
+Xo0 vc gn dq0 d0 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb1 b1 0 V=floor(V(cod)/2)-2*floor(V(cod)/4)
+Rb1 b1 0 1g
+Ab1 [b1] [db1] adc
+Af1 db1 dck NULL NULL dq1 NULL ff
+Xo1 vc gn dq1 d1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb2 b2 0 V=floor(V(cod)/4)-2*floor(V(cod)/8)
+Rb2 b2 0 1g
+Ab2 [b2] [db2] adc
+Af2 db2 dck NULL NULL dq2 NULL ff
+Xo2 vc gn dq2 d2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb3 b3 0 V=floor(V(cod)/8)-2*floor(V(cod)/16)
+Rb3 b3 0 1g
+Ab3 [b3] [db3] adc
+Af3 db3 dck NULL NULL dq3 NULL ff
+Xo3 vc gn dq3 d3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb4 b4 0 V=floor(V(cod)/16)-2*floor(V(cod)/32)
+Rb4 b4 0 1g
+Ab4 [b4] [db4] adc
+Af4 db4 dck NULL NULL dq4 NULL ff
+Xo4 vc gn dq4 d4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb5 b5 0 V=floor(V(cod)/32)-2*floor(V(cod)/64)
+Rb5 b5 0 1g
+Ab5 [b5] [db5] adc
+Af5 db5 dck NULL NULL dq5 NULL ff
+Xo5 vc gn dq5 d5 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb6 b6 0 V=floor(V(cod)/64)-2*floor(V(cod)/128)
+Rb6 b6 0 1g
+Ab6 [b6] [db6] adc
+Af6 db6 dck NULL NULL dq6 NULL ff
+Xo6 vc gn dq6 d6 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb7 b7 0 V=floor(V(cod)/128)-2*floor(V(cod)/256)
+Rb7 b7 0 1g
+Ab7 [b7] [db7] adc
+Af7 db7 dck NULL NULL dq7 NULL ff
+Xo7 vc gn dq7 d7 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb8 b8 0 V=floor(V(cod)/256)-2*floor(V(cod)/512)
+Rb8 b8 0 1g
+Ab8 [b8] [db8] adc
+Af8 db8 dck NULL NULL dq8 NULL ff
+Xo8 vc gn dq8 d8 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb9 b9 0 V=floor(V(cod)/512)-2*floor(V(cod)/1024)
+Rb9 b9 0 1g
+Ab9 [b9] [db9] adc
+Af9 db9 dck NULL NULL dq9 NULL ff
+Xo9 vc gn dq9 d9 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_adc10
+.subckt bench_d_dac10 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 ref out gn params: R=10k VTH=2.5 RSW=1m
+.model swh SW(VT={VTH} VH=0.05 RON={RSW} ROFF=1g)
+.model swl SW(VT={-VTH} VH=0.05 RON={RSW} ROFF=1g)
+Rt n0 gn {2*R}
+Rl0 n0 x0 {2*R}
+Sh0 ref x0 d0 gn swh
+Sl0 x0 gn gn d0 swl
+Rd0 d0 gn 1g
+Rs0 n0 n1 {R}
+Rl1 n1 x1 {2*R}
+Sh1 ref x1 d1 gn swh
+Sl1 x1 gn gn d1 swl
+Rd1 d1 gn 1g
+Rs1 n1 n2 {R}
+Rl2 n2 x2 {2*R}
+Sh2 ref x2 d2 gn swh
+Sl2 x2 gn gn d2 swl
+Rd2 d2 gn 1g
+Rs2 n2 n3 {R}
+Rl3 n3 x3 {2*R}
+Sh3 ref x3 d3 gn swh
+Sl3 x3 gn gn d3 swl
+Rd3 d3 gn 1g
+Rs3 n3 n4 {R}
+Rl4 n4 x4 {2*R}
+Sh4 ref x4 d4 gn swh
+Sl4 x4 gn gn d4 swl
+Rd4 d4 gn 1g
+Rs4 n4 n5 {R}
+Rl5 n5 x5 {2*R}
+Sh5 ref x5 d5 gn swh
+Sl5 x5 gn gn d5 swl
+Rd5 d5 gn 1g
+Rs5 n5 n6 {R}
+Rl6 n6 x6 {2*R}
+Sh6 ref x6 d6 gn swh
+Sl6 x6 gn gn d6 swl
+Rd6 d6 gn 1g
+Rs6 n6 n7 {R}
+Rl7 n7 x7 {2*R}
+Sh7 ref x7 d7 gn swh
+Sl7 x7 gn gn d7 swl
+Rd7 d7 gn 1g
+Rs7 n7 n8 {R}
+Rl8 n8 x8 {2*R}
+Sh8 ref x8 d8 gn swh
+Sl8 x8 gn gn d8 swl
+Rd8 d8 gn 1g
+Rs8 n8 out {R}
+Rl9 out x9 {2*R}
+Sh9 ref x9 d9 gn swh
+Sl9 x9 gn gn d9 swl
+Rd9 d9 gn 1g
+Rref ref gn 1g
+.ends bench_d_dac10
+.subckt bench_d_adc12 vc gn vin ref clk d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 params: LO=0.45 HI=0.55 RK=1 AK=0 VOLF=0 VOHF=1 ROUT=45 TPD=50n TD=1n
+Xck vc gn clk dck bench_dclk LO={LO} HI={HI} RK={RK} AK={AK} TD={TD}
+Rvin vin gn 1g
+Rref ref gn 1g
+Bcod cod 0 V=min(max(floor(4096*(V(vin)-V(gn))/max(V(ref)-V(gn),1m)),0),4095)+0.5
+Rcod cod 0 1g
+.model adc adc_bridge(in_low=0.5 in_high=0.5 rise_delay={TD} fall_delay={TD})
+.model ff d_dff(clk_delay={TPD} rise_delay={TD} fall_delay={TD})
+Bb0 b0 0 V=floor(V(cod)/1)-2*floor(V(cod)/2)
+Rb0 b0 0 1g
+Ab0 [b0] [db0] adc
+Af0 db0 dck NULL NULL dq0 NULL ff
+Xo0 vc gn dq0 d0 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb1 b1 0 V=floor(V(cod)/2)-2*floor(V(cod)/4)
+Rb1 b1 0 1g
+Ab1 [b1] [db1] adc
+Af1 db1 dck NULL NULL dq1 NULL ff
+Xo1 vc gn dq1 d1 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb2 b2 0 V=floor(V(cod)/4)-2*floor(V(cod)/8)
+Rb2 b2 0 1g
+Ab2 [b2] [db2] adc
+Af2 db2 dck NULL NULL dq2 NULL ff
+Xo2 vc gn dq2 d2 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb3 b3 0 V=floor(V(cod)/8)-2*floor(V(cod)/16)
+Rb3 b3 0 1g
+Ab3 [b3] [db3] adc
+Af3 db3 dck NULL NULL dq3 NULL ff
+Xo3 vc gn dq3 d3 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb4 b4 0 V=floor(V(cod)/16)-2*floor(V(cod)/32)
+Rb4 b4 0 1g
+Ab4 [b4] [db4] adc
+Af4 db4 dck NULL NULL dq4 NULL ff
+Xo4 vc gn dq4 d4 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb5 b5 0 V=floor(V(cod)/32)-2*floor(V(cod)/64)
+Rb5 b5 0 1g
+Ab5 [b5] [db5] adc
+Af5 db5 dck NULL NULL dq5 NULL ff
+Xo5 vc gn dq5 d5 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb6 b6 0 V=floor(V(cod)/64)-2*floor(V(cod)/128)
+Rb6 b6 0 1g
+Ab6 [b6] [db6] adc
+Af6 db6 dck NULL NULL dq6 NULL ff
+Xo6 vc gn dq6 d6 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb7 b7 0 V=floor(V(cod)/128)-2*floor(V(cod)/256)
+Rb7 b7 0 1g
+Ab7 [b7] [db7] adc
+Af7 db7 dck NULL NULL dq7 NULL ff
+Xo7 vc gn dq7 d7 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb8 b8 0 V=floor(V(cod)/256)-2*floor(V(cod)/512)
+Rb8 b8 0 1g
+Ab8 [b8] [db8] adc
+Af8 db8 dck NULL NULL dq8 NULL ff
+Xo8 vc gn dq8 d8 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb9 b9 0 V=floor(V(cod)/512)-2*floor(V(cod)/1024)
+Rb9 b9 0 1g
+Ab9 [b9] [db9] adc
+Af9 db9 dck NULL NULL dq9 NULL ff
+Xo9 vc gn dq9 d9 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb10 b10 0 V=floor(V(cod)/1024)-2*floor(V(cod)/2048)
+Rb10 b10 0 1g
+Ab10 [b10] [db10] adc
+Af10 db10 dck NULL NULL dq10 NULL ff
+Xo10 vc gn dq10 d10 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+Bb11 b11 0 V=floor(V(cod)/2048)-2*floor(V(cod)/4096)
+Rb11 b11 0 1g
+Ab11 [b11] [db11] adc
+Af11 db11 dck NULL NULL dq11 NULL ff
+Xo11 vc gn dq11 d11 bench_dout VOLF={VOLF} VOHF={VOHF} ROUT={ROUT} TD={TD}
+.ends bench_d_adc12
+.subckt bench_d_dac12 d0 d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 ref out gn params: R=10k VTH=2.5 RSW=1m
+.model swh SW(VT={VTH} VH=0.05 RON={RSW} ROFF=1g)
+.model swl SW(VT={-VTH} VH=0.05 RON={RSW} ROFF=1g)
+Rt n0 gn {2*R}
+Rl0 n0 x0 {2*R}
+Sh0 ref x0 d0 gn swh
+Sl0 x0 gn gn d0 swl
+Rd0 d0 gn 1g
+Rs0 n0 n1 {R}
+Rl1 n1 x1 {2*R}
+Sh1 ref x1 d1 gn swh
+Sl1 x1 gn gn d1 swl
+Rd1 d1 gn 1g
+Rs1 n1 n2 {R}
+Rl2 n2 x2 {2*R}
+Sh2 ref x2 d2 gn swh
+Sl2 x2 gn gn d2 swl
+Rd2 d2 gn 1g
+Rs2 n2 n3 {R}
+Rl3 n3 x3 {2*R}
+Sh3 ref x3 d3 gn swh
+Sl3 x3 gn gn d3 swl
+Rd3 d3 gn 1g
+Rs3 n3 n4 {R}
+Rl4 n4 x4 {2*R}
+Sh4 ref x4 d4 gn swh
+Sl4 x4 gn gn d4 swl
+Rd4 d4 gn 1g
+Rs4 n4 n5 {R}
+Rl5 n5 x5 {2*R}
+Sh5 ref x5 d5 gn swh
+Sl5 x5 gn gn d5 swl
+Rd5 d5 gn 1g
+Rs5 n5 n6 {R}
+Rl6 n6 x6 {2*R}
+Sh6 ref x6 d6 gn swh
+Sl6 x6 gn gn d6 swl
+Rd6 d6 gn 1g
+Rs6 n6 n7 {R}
+Rl7 n7 x7 {2*R}
+Sh7 ref x7 d7 gn swh
+Sl7 x7 gn gn d7 swl
+Rd7 d7 gn 1g
+Rs7 n7 n8 {R}
+Rl8 n8 x8 {2*R}
+Sh8 ref x8 d8 gn swh
+Sl8 x8 gn gn d8 swl
+Rd8 d8 gn 1g
+Rs8 n8 n9 {R}
+Rl9 n9 x9 {2*R}
+Sh9 ref x9 d9 gn swh
+Sl9 x9 gn gn d9 swl
+Rd9 d9 gn 1g
+Rs9 n9 n10 {R}
+Rl10 n10 x10 {2*R}
+Sh10 ref x10 d10 gn swh
+Sl10 x10 gn gn d10 swl
+Rd10 d10 gn 1g
+Rs10 n10 out {R}
+Rl11 out x11 {2*R}
+Sh11 ref x11 d11 gn swh
+Sl11 x11 gn gn d11 swl
+Rd11 d11 gn 1g
+Rref ref gn 1g
+.ends bench_d_dac12

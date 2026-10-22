@@ -1,0 +1,86 @@
+format = 1
+id = "RNET4_ISO"
+version = 1
+name = "Resistor network, 4 isolated"
+description = "Four independent resistors of the same value R, each with its own pair of pins (SIP/DIP-style isolated network)."
+designator = "RN"
+label = "RNET ISO"
+category = "Electrical"
+subcategory = "Passives"
+aliases = ["resistor array", "isolated resistor network"]
+keywords = ["resistor", "array", "network", "isolated", "subcircuit"]
+tags = ["passive", "network"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Matched elements only: each resistor is exactly R, with no mismatch or tracking error."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 160]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a1"
+name = "1A"
+at = [0, 20]
+
+[[pins]]
+id = "b1"
+name = "1B"
+at = [80, 20]
+
+[[pins]]
+id = "a2"
+name = "2A"
+at = [0, 60]
+
+[[pins]]
+id = "b2"
+name = "2B"
+at = [80, 60]
+
+[[pins]]
+id = "a3"
+name = "3A"
+at = [0, 100]
+
+[[pins]]
+id = "b3"
+name = "3B"
+at = [80, 100]
+
+[[pins]]
+id = "a4"
+name = "4A"
+at = [0, 140]
+
+[[pins]]
+id = "b4"
+name = "4B"
+at = [80, 140]
+
+[[params]]
+key = "R"
+label = "Resistance per element"
+unit = "Ω"
+default = "1k"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a1} {b1} {a2} {b2} {a3} {b3} {a4} {b4} bench_rnet_iso R={R}"
+body = """
+.subckt bench_rnet_iso a1 b1 a2 b2 a3 b3 a4 b4 params: R=1k
+R1 a1 b1 {R}
+R2 a2 b2 {R}
+R3 a3 b3 {R}
+R4 a4 b4 {R}
+.ends bench_rnet_iso
+"""
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; four ideal resistors with no common pin"
+license = "MIT"

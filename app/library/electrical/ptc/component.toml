@@ -1,0 +1,80 @@
+format = 1
+id = "PTC"
+version = 1
+name = "PTC resettable fuse (behavioural)"
+description = "Polymer PTC resettable fuse as a time-delay element: a low resistance when cold, a high resistance once the trip current is held past the delay, and it stays tripped while the current stays above the hold current. Behavioural."
+designator = "PTC"
+label = "PTC FUSE"
+category = "Electrical"
+subcategory = "Protection"
+aliases = ["resettable fuse", "polyfuse", "PPTC"]
+keywords = ["PTC", "polyfuse", "resettable", "protection", "hold current", "subcircuit"]
+tags = ["protection"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Behavioural equivalent: the trip is a current-and-delay proxy, not a self-heating model. Ambient temperature, power and thermal time constants are not modelled.",
+               "Trip and hold currents are generic values, not a datasheet fit. Keep hold below trip."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [80, 15]
+
+[[params]]
+key = "rating"
+label = "Trip current"
+unit = "A"
+default = "0.2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "hold"
+label = "Hold current"
+unit = "A"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "tau"
+label = "Trip delay constant"
+unit = "s"
+default = "2"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "ron"
+label = "Cold resistance"
+unit = "Ω"
+default = "0.05"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "roff"
+label = "Tripped resistance"
+unit = "Ω"
+default = "5"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_trip IRATED={rating} IHOLD={hold} TAU={tau} RON={ron} ROFF={roff}"
+defs = ["models:protection/trip.lib"]
+model_kind = "behavioral"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; time-delay overcurrent element (F, S and RC), not a thermal model"
+license = "MIT"

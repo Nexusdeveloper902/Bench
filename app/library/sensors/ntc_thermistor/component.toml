@@ -1,0 +1,66 @@
+format = 1
+id = "NTC_THERMISTOR"
+version = 1
+name = "NTC thermistor"
+description = "Negative-temperature-coefficient thermistor, beta model: R = R25·exp(B·(1/T − 1/298.15 K)). The temperature is a parameter."
+designator = "RT"
+label = "NTC"
+category = "Sensors"
+subcategory = "Temperature"
+aliases = ["NTC", "thermistor"]
+keywords = ["temperature", "sensor", "beta", "resistor", "subcircuit"]
+tags = ["sensor", "passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Beta model: within about ±1 % of a Steinhart-Hart fit only near 25 °C; the error grows away from it.",
+               "Temperature is a fixed parameter for the whole run: no self-heating, no thermal time constant."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "r25"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "r25"
+label = "R at 25 °C"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+help = "Resistance at 25 °C"
+
+[[params]]
+key = "beta"
+label = "B constant"
+default = "3950"
+min = 0
+min_exclusive = true
+help = "Beta constant in kelvin, e.g. 3950 (B25/50)"
+
+[[params]]
+key = "temp"
+label = "Temperature (°C)"
+default = "25"
+min = -273.15
+min_exclusive = true
+help = "Body temperature in degrees Celsius"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_ntc R25={r25} B={beta} T={temp}"
+defs = ["ntc.lib"]                      # package-local file
+model_kind = "project-subckt"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; the beta equation of an NTC thermistor"
+license = "MIT"

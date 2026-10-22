@@ -1,0 +1,86 @@
+format = 1
+id = "TRIAC"
+version = 1
+name = "TRIAC"
+description = "Bidirectional thyristor built from two anti-parallel SCRs: a gate pulse of either polarity (quadrants I and III) turns it on for the rest of the half cycle."
+designator = "Q"
+label = "TRIAC"
+category = "Electrical"
+subcategory = "Thyristors and IGBT"
+aliases = ["bidirectional thyristor", "AC switch"]
+keywords = ["TRIAC", "AC switch", "phase control", "dimmer", "thyristor", "bidirectional"]
+tags = ["semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Simplified equivalent, not a device model: two SCR cores with a gate-current steering network. Triggers in quadrants I (MT2 and gate positive) and III (both negative); quadrants II and IV do not trigger, unlike many real parts.",
+               "Gate current in quadrant III is copied by a current-controlled source. Not modelled: commutating dV/dt, breakover voltage, di/dt, surge ratings, temperature.",
+               "On-state drop about 1.5 V at 0.1 A and 2.2 V at 5 A; the stored-charge time constant is 10 ns, far faster than a real SCR's turn-off time."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 40]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "mt1"
+name = "MT1"
+at = [0, 15]
+
+[[pins]]
+id = "mt2"
+name = "MT2"
+at = [60, 15]
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [45, 40]
+
+[[params]]
+key = "IH"
+label = "Holding current"
+unit = "A"
+default = "5m"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "RGK"
+label = "Gate-cathode resistor"
+unit = "Ω"
+default = "3.3k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "RON"
+label = "On-state resistance"
+unit = "Ω"
+default = "20m"
+min = 0
+
+[sim.electrical]
+device = "X"
+line = "{dev} {mt1} {mt2} {g} bench_triac IH={IH} RGK={RGK} RON={RON}"
+defs = ["models:semiconductors/scr.lib"]
+body = """
+.subckt bench_triac mt1 mt2 g params: IH=5m RGK=3.3k RON=20m
+* Two anti-parallel SCRs. Gate current into g (quadrant I) fires the mt2-to-mt1 SCR directly through D1;
+* gate current out of g (quadrant III) is copied by F2 into the gate of the mt1-to-mt2 SCR.
+X1 mt2 mt1 g1 bench_scr IH={IH} RGK={RGK} RON={RON}
+X2 mt1 mt2 g2 bench_scr IH={IH} RGK={RGK} RON={RON}
+V0 g gm DC 0
+D1 gm g1 trgd
+D2 mt1 gm trgd
+F2 mt2 g2 V0 -1
+.model trgd D(Is=1e-14 N=1)
+.ends bench_triac
+"""
+model_kind = "equivalent"
+verification = "smoke"
+
+[sim.electrical.provenance]
+source = "Bench project; regenerative NPN/PNP pair (two-transistor SCR analogy), not a vendor model"
+url = "https://ngspice.sourceforge.io/docs.html"
+license = "MIT"
+retrieved = "2026-10-11"

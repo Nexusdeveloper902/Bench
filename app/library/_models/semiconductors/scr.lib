@@ -1,0 +1,22 @@
+* bench_scr: silicon-controlled rectifier as an NPN/PNP regenerative pair. Ports: a (anode), k (cathode), g (gate).
+* IH: approximate holding current (A). The shunt resistor across the PNP emitter-base junction sets it: IH is about
+* 0.65 V / RXA. RGK: gate-cathode resistor (ohm); it sets the gate trigger current (about 0.6 V / RGK plus a few
+* 100 uA of regeneration current). RON: on-state series resistance.
+* The anode diode blocks reverse voltage (1000 V); RLK keeps the internal anode nodes from floating (off-state leakage 10 nA per
+* 1 V). Forward breakover (VDRM) and dV/dt triggering are not modelled. CAK (10 pF, anode to cathode behind the
+* anode diode) keeps the internal nodes from running away when the device drops out (task 9.6, G15: they reached 833 V).
+.subckt bench_scr a k g params: IH=5m RGK=3.3k RON=20m
+.model scrd D(Is=1e-12 N=1 BV=1000 IBV=1u)
+.model scrn NPN(Is=1e-14 Bf=100 Br=1 Ikf=20 Ise=1e-12 Ne=1.5 Rb=0.1 Tf=10n Tr=10n)
+.model scrp PNP(Is=1e-14 Bf=40 Br=1 Ikf=20 Ise=1e-12 Ne=1.5 Rb=0.1 Tf=10n Tr=10n)
+DA a ay scrd
+RA ay ax {RON}
+RLK a ax 100Meg
+CAK ax k 10p
+QP gi x ax scrp
+QN x gi kx scrn
+RXA ax x {0.65/IH}
+RK kx k 1m
+RG g gi 100
+RGK gi k {RGK}
+.ends bench_scr

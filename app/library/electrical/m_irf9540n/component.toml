@@ -1,0 +1,53 @@
+format = 1
+id = "M_IRF9540N"
+version = 1
+name = "IRF9540N P-channel power MOSFET"
+description = "-100 V, -23 A HEXFET power MOSFET in TO-220: VGS(th) about -3 V, RDS(on) about 100 mohm at -10 V / -11 A."
+designator = "Q"
+category = "Electrical"
+subcategory = "MOSFETs"
+aliases = ["IRF9540N", "IRF9540"]
+keywords = ["mosfet", "fet", "vdmos", "power", "IRF9540N", "IRF9540", "TO-220", "power", "high side", "switch"]
+tags = ["MOSFET", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Infineon datasheet, not a vendor SPICE model: threshold -3.0 V (250 uA), RDS(on) 99 mohm at -10 V / -11 A (maximum 117 mohm), gfs about 6.8 S at -11 A, gate charge about 82 nC (maximum 97 nC).",
+               "Gate-drain capacitance varies between 240 pF (datasheet Crss, at high VDS) and 8 nF (at low VDS, chosen so the simulated total gate charge is about 82 nC). Body diode 0.95 V at 11 A (maximum 1.6 V); reverse recovery is not modelled.",
+               "Three-pin VDMOS model (body tied to source) with an integral body diode. The gate has no DC path, so drive it through a resistor or a voltage source. Temperature dependence, avalanche energy, safe operating area and self-heating are not modelled."]
+docs = ["https://www.infineon.com/assets/row/public/documents/24/49/infineon-irf9540npbf-datasheet-en.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "g"
+name = "Gate"
+at = [0, 30]
+
+[[pins]]
+id = "d"
+name = "Drain"
+at = [40, 0]
+
+[[pins]]
+id = "s"
+name = "Source"
+at = [40, 60]
+
+[sim.electrical]
+device = "M"
+line = "{dev} {d} {g} {s} mirf9540n"
+models = [".model mirf9540n VDMOS(pchan Vto=-3.182 Kp=2.227 Rd=0.02477 Rs=0.004372 Cgs=1.06n Cgdmin=240p Cgdmax=8.047n Cjo=0.909n Is=1e-13 Rb=10m bv=100 ibv=250u)"]
+current = "@{dev_lc}[id]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; VDMOS parameter set fitted to the Infineon datasheet values"
+url = "https://www.infineon.com/assets/row/public/documents/24/49/infineon-irf9540npbf-datasheet-en.pdf"
+version = "Infineon IRF9540N datasheet, Rev. 2.1, 2026-07-17"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets: V(BR)DSS >= -100 V; RDS(on) <= 117 mohm (-10 V, -11 A); VGS(th) -2 to -4 V (250 uA); gfs >= 5.3 S (-50 V, -11 A); Ciss 1300, Coss 400, Crss 240 pF (typ, 25 V); Qg <= 97 nC (-10 V, -80 V, -11 A); VSD <= 1.6 V (-11 A)."

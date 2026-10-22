@@ -1,0 +1,10 @@
+* Bench LED family: one diode model per colour. Forward voltage at 20 mA is matched to the typical range for the
+* technology (IR GaAs about 1.2-1.3 V, red GaAsP about 1.9-2.0 V, yellow about 2.0-2.1 V, green GaP about 2.1-2.2 V,
+* blue and white InGaN about 3.0-3.3 V). N, Rs and Cjo are typical values for the technology, not for a specific part.
+* BV is the usual 5 V reverse rating.
+.model bench_led_ir D(Is=1.59e-13 N=1.8 Rs=3 Cjo=20p Vj=1 M=0.5 BV=5 IBV=10u)
+.model bench_led_red D(Is=8.66e-18 N=2.0 Rs=6 Cjo=40p Vj=1 M=0.5 BV=5 IBV=10u)
+.model bench_led_yellow D(Is=2.71e-18 N=2.0 Rs=8 Cjo=40p Vj=1 M=0.5 BV=5 IBV=10u)
+.model bench_led_green D(Is=3.93e-19 N=2.0 Rs=8 Cjo=40p Vj=1 M=0.5 BV=5 IBV=10u)
+.model bench_led_blue D(Is=1.03e-22 N=2.4 Rs=10 Cjo=50p Vj=1 M=0.5 BV=5 IBV=10u)
+.model bench_led_white D(Is=2.05e-23 N=2.4 Rs=10 Cjo=50p Vj=1 M=0.5 BV=5 IBV=10u)

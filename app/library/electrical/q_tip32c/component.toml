@@ -1,0 +1,54 @@
+format = 1
+id = "Q_TIP32C"
+version = 1
+name = "TIP32C PNP power transistor"
+description = "3 A, 100 V PNP power transistor, the complement of the TIP31C: hFE about 64 at 1 A, VCE(sat) about 0.5 V at 3 A / 375 mA."
+designator = "Q"
+category = "Electrical"
+subcategory = "Bipolar transistors"
+aliases = ["TIP32C", "TIP32"]
+keywords = ["transistor", "bjt", "pnp", "bipolar", "TIP32", "power", "TO-220", "audio", "motor driver"]
+tags = ["TO-220", "semiconductor"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Project-authored fit to the Fairchild datasheet windows, not a vendor SPICE model; the datasheet limits equal the TIP31C's, so the same parameter set is used with PNP polarity.",
+               "Early voltage and Ikf are assumptions. Power rating and thermal limits are not enforced.",
+               "Capacitances are not modelled (the datasheet lists none); the low-frequency limit is Tf = 50 ns (fT about 3 MHz).",
+               "The base needs a bias path (resistor or source) to a defined voltage, or the operating point is undefined."]
+docs = ["https://people.ece.cornell.edu/land/courses/ece4760/FinalProjects/s2007/arb66_ak364/arb66_ak364/TIP32.pdf", "https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 60]
+symbol = "symbol.svg"
+show_current = true
+
+[[pins]]
+id = "b"
+name = "Base"
+at = [0, 30]
+
+[[pins]]
+id = "c"
+name = "Collector"
+at = [40, 0]
+
+[[pins]]
+id = "e"
+name = "Emitter"
+at = [40, 60]
+
+[sim.electrical]
+device = "Q"
+line = "{dev} {c} {b} {e} qtip32c"
+models = [".model qtip32c PNP(Is=200f Bf=120 Vaf=100 Ikf=2 Ise=10p Ne=1.5 Br=2 Rb=0.5 Rc=0.12 Re=0.03 Tf=50n Tr=1u)"]
+current = "@{dev_lc}[ic]"
+model_kind = "model"
+verification = "reference"
+
+[sim.electrical.provenance]
+source = "Bench project; parameter set fitted to the Fairchild datasheet values"
+url = "https://people.ece.cornell.edu/land/courses/ece4760/FinalProjects/s2007/arb66_ak364/arb66_ak364/TIP32.pdf"
+version = "Fairchild TIP32 series datasheet, Rev. A, February 2000 (copy hosted at Cornell)"
+license = "MIT"
+retrieved = "2026-10-11"
+notes = "Targets (VCE=-4 V): hFE >= 25 at 1 A and 10-50 at 3 A; VCE(sat) <= 1.2 V at 3 A/375 mA; VBE(on) <= 1.8 V at 3 A; fT >= 3 MHz."

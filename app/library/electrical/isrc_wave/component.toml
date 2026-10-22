@@ -1,0 +1,221 @@
+format = 1
+id = "ISRC_WAVE"
+version = 1
+name = "Current source: pulse or sine"
+description = "Independent current source with a pulse train, a sine, an exponential (EXP) or a single-frequency FM (SFFM) waveform (the plain current source part is constant only)."
+designator = "I"
+category = "Electrical"
+subcategory = "Sources"
+aliases = ["pulse current source", "sine current source", "signal current"]
+keywords = ["current", "pulse", "sine", "exponential", "sffm", "waveform", "source"]
+tags = ["source"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Only the transient waveform is defined (no AC magnitude). Current flows from p through the source to n."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+value = "mode"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [60, 15]
+
+[[params]]
+key = "mode"
+label = "Waveform"
+default = "PULSE"
+kind = "choice"
+choices = ["PULSE", "SIN", "EXP", "SFFM"]
+
+[[params]]
+key = "i1"
+label = "Initial current"
+unit = "A"
+default = "0"
+when = { mode = "PULSE" }
+
+[[params]]
+key = "i2"
+label = "Pulsed current"
+unit = "A"
+default = "1m"
+when = { mode = "PULSE" }
+
+[[params]]
+key = "td"
+label = "Delay"
+unit = "s"
+default = "0"
+min = 0
+when = { mode = "PULSE" }
+
+[[params]]
+key = "tr"
+label = "Rise time"
+unit = "s"
+default = "1u"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "tf"
+label = "Fall time"
+unit = "s"
+default = "1u"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "pw"
+label = "Pulse width"
+unit = "s"
+default = "1m"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "per"
+label = "Period"
+unit = "s"
+default = "2m"
+min = 0
+min_exclusive = true
+when = { mode = "PULSE" }
+
+[[params]]
+key = "ioff"
+label = "Offset"
+unit = "A"
+default = "0"
+when = { mode = "SIN" }
+
+[[params]]
+key = "iamp"
+label = "Amplitude"
+unit = "A"
+default = "1m"
+when = { mode = "SIN" }
+
+[[params]]
+key = "freq"
+label = "Frequency"
+unit = "Hz"
+default = "1k"
+min = 0
+min_exclusive = true
+when = { mode = "SIN" }
+
+[[params]]
+key = "ie1"
+label = "Initial current"
+unit = "A"
+default = "0"
+when = { mode = "EXP" }
+
+[[params]]
+key = "ie2"
+label = "Peak current"
+unit = "A"
+default = "1m"
+when = { mode = "EXP" }
+
+[[params]]
+key = "td1"
+label = "Rise delay"
+unit = "s"
+default = "0"
+min = 0
+when = { mode = "EXP" }
+
+[[params]]
+key = "tau1"
+label = "Rise time constant"
+unit = "s"
+default = "1m"
+min = 0
+min_exclusive = true
+when = { mode = "EXP" }
+
+[[params]]
+key = "td2"
+label = "Fall delay"
+unit = "s"
+default = "2m"
+min = 0
+when = { mode = "EXP" }
+
+[[params]]
+key = "tau2"
+label = "Fall time constant"
+unit = "s"
+default = "3m"
+min = 0
+min_exclusive = true
+when = { mode = "EXP" }
+
+[[params]]
+key = "io"
+label = "Offset"
+unit = "A"
+default = "0"
+when = { mode = "SFFM" }
+
+[[params]]
+key = "ia"
+label = "Amplitude"
+unit = "A"
+default = "1m"
+when = { mode = "SFFM" }
+
+[[params]]
+key = "fc"
+label = "Carrier frequency"
+unit = "Hz"
+default = "1k"
+min = 0
+min_exclusive = true
+when = { mode = "SFFM" }
+
+[[params]]
+key = "mdi"
+label = "Modulation index"
+default = "5"
+min = 0
+when = { mode = "SFFM" }
+
+[[params]]
+key = "fs"
+label = "Signal frequency"
+unit = "Hz"
+default = "100"
+min = 0
+min_exclusive = true
+when = { mode = "SFFM" }
+
+[sim.electrical]
+device = "I"
+model_kind = "primitive"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; ngspice PULSE, SIN, EXP and SFFM current source syntax"
+license = "MIT"
+
+[sim.electrical.line]
+select = "mode"
+PULSE = "{dev} {p} {n} PULSE({i1} {i2} {td} {tr} {tf} {pw} {per})"
+SIN = "{dev} {p} {n} SIN({ioff} {iamp} {freq})"
+EXP = "{dev} {p} {n} EXP({ie1} {ie2} {td1} {tau1} {td2} {tau2})"
+SFFM = "{dev} {p} {n} SFFM({io} {ia} {fc} {mdi} {fs})"

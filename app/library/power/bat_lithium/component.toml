@@ -1,0 +1,58 @@
+format = 1
+id = "BAT_LITHIUM"
+version = 1
+name = "Lithium-ion cell, generic 3.7 V (approximate)"
+description = "Generic 18650-class lithium-ion cell: a 3.7 V nominal EMF behind about 0.1 Ω. Approximate: a fixed EMF and resistance; no state of charge, cutoff voltage or ageing."
+designator = "BT"
+label = "LI-ION"
+category = "Power"
+subcategory = "Batteries"
+aliases = ["Li-ion", "18650", "rechargeable cell"]
+keywords = ["battery", "cell", "internal resistance", "source", "subcircuit"]
+tags = ["rechargeable", "lithium-ion"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Approximate Thevenin equivalent: a fixed EMF in series with a fixed internal resistance.",
+               "No state of charge, discharge curve, temperature, rate dependence, or cutoff. Values are generic, not from a datasheet."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 80, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "p"
+name = "Positive"
+at = [0, 15]
+
+[[pins]]
+id = "n"
+name = "Negative"
+at = [80, 15]
+
+[[params]]
+key = "voc"
+label = "EMF"
+unit = "V"
+default = "3.7"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "rint"
+label = "Internal resistance"
+unit = "Ω"
+default = "0.1"
+min = 0
+min_exclusive = true
+
+[sim.electrical]
+device = "X"
+line = "{dev} {p} {n} bench_cell_thevenin VCELL={voc} RINT={rint}"
+defs = ["models:power/cell_thevenin.lib"]
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic Thevenin cell model (EMF and internal resistance), approximate"
+license = "MIT"

@@ -1,0 +1,73 @@
+format = 1
+id = "LDR"
+version = 1
+name = "LDR (light-dependent resistor)"
+description = "Photoresistor: R = R10·(lux/10)^(−γ), a power law in illuminance. The illuminance is a parameter; only the electrical behaviour is modelled."
+designator = "RL"
+label = "LDR"
+category = "Sensors"
+subcategory = "Light"
+aliases = ["photoresistor", "CdS photocell"]
+keywords = ["light", "illuminance", "lux", "photo", "resistor", "power law", "subcircuit"]
+tags = ["sensor", "passive"]
+domain = "electrical"
+capabilities = ["interface", "sim:electrical"]
+limitations = ["Generic power-law equivalent: R10 and gamma are generic values, not a datasheet fit. The law is an approximation over the lux range it is used for.",
+               "Illuminance is fixed during a batch run (a live run can change it): no spectral response, no light or dark response lag, no temperature dependence and no ageing.",
+               "Not a vendor model."]
+docs = ["https://ngspice.sourceforge.io/docs.html"]
+
+[presentation]
+box = [0, 0, 60, 30]
+symbol = "symbol.svg"
+
+[[pins]]
+id = "a"
+at = [0, 15]
+
+[[pins]]
+id = "b"
+at = [60, 15]
+
+[[params]]
+key = "lux"
+label = "Illuminance (lux)"
+default = "10"
+max = 100000
+scale = "log"
+min = 0
+min_exclusive = true
+help = "Illuminance on the sensor, in lux"
+
+[[params]]
+key = "r10"
+label = "Resistance at 10 lux"
+unit = "Ω"
+default = "10k"
+min = 0
+min_exclusive = true
+
+[[params]]
+key = "gamma"
+label = "Power-law exponent γ"
+default = "0.7"
+min = 0
+min_exclusive = true
+help = "Slope of log R against log lux (generic)"
+
+[sim.electrical]
+device = "X"
+line = "{dev} {a} {b} bench_ldr R10={r10} GAMMA={gamma} LUX={lux}"
+body = """
+.subckt bench_ldr a b params: R10=10k GAMMA=0.7 LUX=10
+VSTIM stim 0 DC {LUX}
+RSTIM stim 0 1G
+B1 a b I={V(a,b)/(R10*pow(V(stim)/10,-GAMMA))}
+.ends bench_ldr
+"""
+model_kind = "equivalent"
+verification = "analytic"
+
+[sim.electrical.provenance]
+source = "Bench project; generic power-law LDR equivalent R = R10·(lux/10)^-gamma, values generic"
+license = "MIT"
