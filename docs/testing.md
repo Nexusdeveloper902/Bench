@@ -25,9 +25,10 @@ the test on Qt cross-thread warnings ("Timers cannot be stopped from another thr
 "Cannot send events", "QBasicTimer", "QPainter") and on a gc collection starting on a non-main thread while a QApplication exists.
 `-X faulthandler` plus `faulthandler_timeout=300` dumps stacks of a hung test.
 
-1. live tests (`test_live_ui.py`, `test_live.py`, `test_live_duration.py`) with probes, shuffled, and gc thresholds 50,5,5
-   (`BENCH_TEST_GC_THRESHOLD`; the same variable tells the conftest leak guard the change is intended)
-2. same with GIL switch interval 1e-6 s, and 0.2 s (`BENCH_SWITCH_INTERVAL`)
+1. live tests (`test_live_ui.py`, `test_live.py`, `test_live_duration.py`) with probes, shuffled, gc thresholds 50,5,5
+   (`BENCH_TEST_GC_THRESHOLD`; the same variable tells the conftest leak guard the change is intended) and GIL switch
+   interval 1e-6 s (`BENCH_SWITCH_INTERVAL`)
+2. same with switch interval 0.2 s
 3. same pinned to one core (`taskset -c K`) with two busy loops on that core
 4. same under `chrt --idle 0` pinned to core K with a 50 % duty busy loop at normal priority on K
 5. `benchcore/tests/python/test_live.py` in its own session (its basename clashes with the app one)

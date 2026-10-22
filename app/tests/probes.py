@@ -19,6 +19,9 @@ _QT_BAD = re.compile(r"Timers cannot be|different thread|Cannot send events|QBas
 _hits = []        # (message, thread name) from the Qt message handler
 _gc_hits = []     # (thread name, nodeid)
 _current = [""]
+# Exempt from the gc probe: a test that collects on another thread on purpose, and the pure-engine live tests
+# (their LiveSession worker thread runs gc but touches no Qt objects).
+_GC_EXEMPT = ("test_a_dropped_windows_canvas_scene_is_deleted_on_the_gui_thread", "app/tests/test_live.py::")
 
 
 def pytest_configure(config):
@@ -38,7 +41,7 @@ def pytest_configure(config):
     def on_gc(phase, info):
         if phase == "start" and threading.current_thread() is not threading.main_thread():
             from PySide6.QtCore import QCoreApplication
-            if QCoreApplication.instance() is not None:
+            if QCoreApplication.instance() is not None and not any(x in _current[0] for x in _GC_EXEMPT):
                 _gc_hits.append((threading.current_thread().name, _current[0]))
     gc.callbacks.append(on_gc)
     config._probe_gc = on_gc

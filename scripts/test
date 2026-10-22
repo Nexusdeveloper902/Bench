@@ -101,8 +101,7 @@ def stress(a, _):
             live = lambda tag, e, **kw: (f"live r{i} {tag} seed={s}", pytest_cmd(*LIVE, probes=True, seed=s, **j(f"live-{i}-{tag}")),
                                          {**ENV, **e}, kw)
             conds = [
-                live("gc50,5,5", {"BENCH_TEST_GC_THRESHOLD": "50,5,5"}),
-                live("switch1e-6", {"BENCH_SWITCH_INTERVAL": "1e-6"}),
+                live("gc50,5,5+switch1e-6", {"BENCH_TEST_GC_THRESHOLD": "50,5,5", "BENCH_SWITCH_INTERVAL": "1e-6"}),
                 live("switch0.2", {"BENCH_SWITCH_INTERVAL": "0.2"}),
                 live(f"pinned-core{k}+2spin", {}, pin=k, spin=(k, 1.0, 0.0, 2)),
                 live(f"idle-prio-core{k}+duty", {}, pin=k, idle=True, spin=(k, 0.004, 0.004, 1)),
