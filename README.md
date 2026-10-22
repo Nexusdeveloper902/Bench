@@ -62,16 +62,15 @@ Then try **File ▸ Load blinking LED example**, press **Run**, and drag the tim
 
 ## Testing
 
+Test deps: `pip install pytest pytest-xdist` (plus the app deps above).
+
 ```bash
-# App (headless Qt)
-QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests
-
-# Engine
-(cd benchcore && cargo test && python3 -m pytest -q tests/python)
-
-# Validate the component catalog
-python3 -m app.catalog
+scripts/test check     # everything: app (parallel, shuffled), timing tests, engine, catalog
+scripts/test stress    # reliability matrix for live/threading changes
 ```
+
+Details, focused runs and failure reproduction: [`docs/testing.md`](docs/testing.md). The individual commands still work
+(`QT_QPA_PLATFORM=offscreen python3 -m pytest -q app/tests`, `(cd benchcore && cargo test && python3 -m pytest -q tests/python)`, `python3 -m app.catalog`).
 
 <details>
 <summary><b>What the suites cover</b></summary>

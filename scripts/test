@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Test runner. See docs/testing.md.
+
+  scripts/test check  [--seed N] [--dist load|loadfile] [-n N] [--junit DIR] [-- pytest args]
+  scripts/test stress [--rounds N] [--seed N] [--junit DIR]
+
+`check` runs every test (app suite parallel+shuffled, `timing` tests serial, benchcore, catalog).
+Anything after `--` replaces the app test path/args and skips benchcore + catalog: a focused loop, not a check.
+"""
+import argparse
+import os
+import random
+import shlex
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PY = sys.executable
+ENV = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+SPIN = "import time\nwhile 1:\n    t=time.perf_counter()\n    while time.perf_counter()-t<{on}: pass\n    time.sleep({off})"
+LIVE = ["app/tests/test_live_ui.py", "app/tests/test_live.py", "app/tests/test_live_duration.py"]
+
+
+def pytest_cmd(*args, probes=False, seed=None, junit=None, name="x"):
+    c = [PY, "-X", "faulthandler", "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "faulthandler_timeout=300"]
+    if probes:
+        c += ["-p", "app.tests.probes"]
+    if seed is not None:
+        c += ["-p", "app.tests.shuffle", "--shuffle-seed", str(seed)]
+    if junit:
+        c += [f"--junitxml={junit}/{name}.xml"]
+    return c + list(args)
+
+
+def run(name, cmd, cwd=ROOT, env=None, wrap=()):
+    """Run one phase, streaming output. -> (name, rc, seconds, repro)."""
+    env = env or ENV
+    full = list(wrap) + cmd
+    t = time.monotonic()
+    print(f"\n=== {name}\n$ {shlex.join(full)}", flush=True)
+    rc = subprocess.call(full, cwd=cwd, env=env)
+    dt = time.monotonic() - t
+    extra = " ".join(f"{k}={v}" for k, v in env.items() if k.startswith("BENCH_") and k not in os.environ)
+    repro = f"cd {cwd} && QT_QPA_PLATFORM=offscreen {extra} {shlex.join(full)}".replace("  ", " ")
+    return name, rc, dt, repro
+
+
+def summary(results, header):
+    print(f"\n{header}")
+    for n, rc, dt, _ in results:
+        print(f"  {'ok  ' if rc in (0, 5) else 'FAIL'} {dt:7.1f}s  {n}")
+    bad = [r for r in results if r[1] not in (0, 5)]
+    for n, rc, _, repro in bad:
+        print(f"\nREPRO {n}:\n  {repro}")
+    print(f"\n{'FAILED' if bad else 'PASSED'}: total {sum(r[2] for r in results):.0f}s")
+    return 1 if bad else 0
+
+
+def check(a, extra):
+    seed = a.seed if a.seed is not None else random.SystemRandom().randrange(10**6)
+    print(f"seed {seed}   (reproduce order with --seed {seed})")
+    j = lambda n: dict(junit=a.junit, name=n)
+    paths = extra or ["app/tests"]
+    par = pytest_cmd("-n", a.n, "--dist", a.dist, "-m", "not timing", *paths, seed=seed, **j("app-parallel"))
+    ser = pytest_cmd("-m", "timing", *paths, seed=seed, **j("app-timing"))   # rc 5 (nothing selected) is fine
+    r = [run("app tests (parallel, shuffled, not timing)", par), run("app tests (timing, serial)", ser)]
+    if not extra:
+        r += [run("benchcore cargo test", ["cargo", "test"], cwd=ROOT / "benchcore"),
+              run("benchcore python tests", pytest_cmd("tests/python", **j("benchcore-python")), cwd=ROOT / "benchcore"),
+              run("catalog check", [PY, "-m", "app.catalog"])]
+    else:
+        print("\nFOCUSED RUN: benchcore and catalog skipped; this is not a check.")
+    return summary(r, f"check summary (seed {seed})")
+
+
+def stress(a, _):
+    base = a.seed if a.seed is not None else random.SystemRandom().randrange(10**6)
+    ncpu = os.cpu_count() or 1
+    busy = []
+
+    def spin(core, on, off=0.0, n=1):
+        for _ in range(n):
+            busy.append(subprocess.Popen(["taskset", "-c", str(core), PY, "-c", SPIN.format(on=on, off=off)]))
+
+    def stop():
+        for p in busy:
+            p.kill()
+        for p in busy:
+            p.wait()
+        busy.clear()
+
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))      # so `finally` still reaps the busy loops
+    j = lambda n: dict(junit=a.junit, name=n)
+    results = []
+    try:
+        for i in range(a.rounds):
+            s, k = base + i, (base + i) % ncpu
+            live = lambda tag, e, **kw: (f"live r{i} {tag} seed={s}", pytest_cmd(*LIVE, probes=True, seed=s, **j(f"live-{i}-{tag}")),
+                                         {**ENV, **e}, kw)
+            conds = [
+                live("gc50,5,5", {"BENCH_TEST_GC_THRESHOLD": "50,5,5"}),
+                live("switch1e-6", {"BENCH_SWITCH_INTERVAL": "1e-6"}),
+                live("switch0.2", {"BENCH_SWITCH_INTERVAL": "0.2"}),
+                live(f"pinned-core{k}+2spin", {}, pin=k, spin=(k, 1.0, 0.0, 2)),
+                live(f"idle-prio-core{k}+duty", {}, pin=k, idle=True, spin=(k, 0.004, 0.004, 1)),
+            ]
+            for name, cmd, env, kw in conds:
+                wrap = (["taskset", "-c", str(kw["pin"])] if "pin" in kw else []) + (["chrt", "--idle", "0"] if kw.get("idle") else [])
+                if "spin" in kw:
+                    spin(*kw["spin"])
+                try:
+                    results.append(run(name, cmd, env=env, wrap=wrap))
+                finally:
+                    stop()
+            results.append(run(f"benchcore live r{i} switch1e-6", pytest_cmd("tests/python/test_live.py", name=f"bc-live-{i}", junit=a.junit,
+                                                                              probes=True),
+                               cwd=ROOT / "benchcore", env={**ENV, "PYTHONPATH": str(ROOT), "BENCH_SWITCH_INTERVAL": "1e-6"}))
+            results.append(run(f"full suite parallel r{i} probes gc50,5,5 seed={s}",
+                               pytest_cmd("-n", "auto", "--dist", a.dist, "app/tests", probes=True, seed=s, **j(f"full-{i}")),
+                               env={**ENV, "BENCH_TEST_GC_THRESHOLD": "50,5,5"}))
+    finally:
+        stop()
+    return summary(results, f"stress summary (base seed {base})")
+
+
+def main():
+    argv = sys.argv[1:]
+    extra = []
+    if "--" in argv:
+        i = argv.index("--"); argv, extra = argv[:i], argv[i + 1:]
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("mode", nargs="?", default="check", choices=["check", "stress"])
+    ap.add_argument("--seed", type=int, help="shuffle seed (default: fresh, printed)")
+    ap.add_argument("-n", default="auto", help="xdist workers (default auto)")
+    ap.add_argument("--dist", default="load", choices=["load", "loadfile"])
+    ap.add_argument("--rounds", type=int, default=1, help="stress: repeat the whole condition matrix with seed+1 each time")
+    ap.add_argument("--junit", help="directory for per-phase junit xml")
+    a = ap.parse_args(argv)
+    if a.junit:
+        Path(a.junit).mkdir(parents=True, exist_ok=True)
+    sys.exit((check if a.mode == "check" else stress)(a, extra))
+
+
+main()
