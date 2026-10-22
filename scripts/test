@@ -14,7 +14,9 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,16 +61,42 @@ def summary(results, header):
     return 1 if bad else 0
 
 
+def coverage(junit, paths):
+    """Guard against silently not running tests (a crashed xdist worker, a deselection bug): the testcases in the two app
+    junit files must be exactly the collected set. -> (name, rc, seconds, repro) like run()."""
+    t = time.monotonic()
+    out = subprocess.run([PY, "-m", "pytest", "-p", "no:cacheprovider", "--collect-only", "-q", *paths], cwd=ROOT, env=ENV, capture_output=True, text=True).stdout
+    want = []
+    for line in out.splitlines():
+        if "::" in line:
+            mod, *rest = line.split("::")
+            want.append((".".join([mod[:-3].replace("/", ".")] + rest[:-1]), rest[-1]))
+    got = []
+    for f in ("app-parallel", "app-timing"):
+        try:
+            got += [(c.get("classname"), c.get("name")) for c in ET.parse(f"{junit}/{f}.xml").iter("testcase")]
+        except (OSError, ET.ParseError):
+            pass                                  # a phase that died before writing its report: everything it owned is missing
+    missing, unexpected, dup = set(want) - set(got), set(got) - set(want), len(got) - len(set(got))
+    ok = bool(want) and not (missing or unexpected or dup)
+    print(f"\n=== coverage: {len(want)} collected, {len(got)} executed, {len(missing)} missing, {len(unexpected)} unexpected, {dup} duplicated")
+    for x in sorted(missing)[:10]:
+        print("  MISSING", *x)
+    return "coverage (executed == collected)", 0 if ok else 1, time.monotonic() - t, "scripts/test check (see MISSING above)"
+
+
 def check(a, extra):
     seed = a.seed if a.seed is not None else random.SystemRandom().randrange(10**6)
     print(f"seed {seed}   (reproduce order with --seed {seed})")
-    j = lambda n: dict(junit=a.junit, name=n)
+    junit = a.junit or tempfile.mkdtemp(prefix="bench-junit-")
+    j = lambda n: dict(junit=junit, name=n)
     paths = extra or ["app/tests"]
     par = pytest_cmd("-n", a.n, "--dist", a.dist, "-m", "not timing", *paths, seed=seed, **j("app-parallel"))
     ser = pytest_cmd("-m", "timing", *paths, seed=seed, **j("app-timing"))   # rc 5 (nothing selected) is fine
     r = [run("app tests (parallel, shuffled, not timing)", par), run("app tests (timing, serial)", ser)]
     if not extra:
-        r += [run("benchcore cargo test", ["cargo", "test"], cwd=ROOT / "benchcore"),
+        r += [coverage(junit, paths),
+              run("benchcore cargo test", ["cargo", "test"], cwd=ROOT / "benchcore"),
               run("benchcore python tests", pytest_cmd("tests/python", **j("benchcore-python")), cwd=ROOT / "benchcore"),
               run("catalog check", [PY, "-m", "app.catalog"])]
     else:
