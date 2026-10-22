@@ -1,6 +1,7 @@
 """Real-window workflows (offscreen QTest): build circuits with mouse/keyboard, configure through the inspector,
 run the REAL core, read the waveform viewer's data and compare with analytic results. No mocks of the simulator;
 only modal dialogs (file pickers, message boxes) are monkeypatched because they cannot be clicked offscreen."""
+from conftest import destroy
 import math
 import pytest
 from PySide6.QtCore import Qt, QPointF
@@ -31,7 +32,7 @@ def show(w):
 def win(qapp):
     w = show(MainWindow())
     yield w
-    w.hide(); w.close(); w.deleteLater()   # hidden: no unsaved-changes prompt; gone: cannot steal later shortcuts
+    destroy(w)   # hidden: no unsaved-changes prompt; gone: cannot steal later shortcuts
 
 
 # ---- helpers: real input events only ----
@@ -135,7 +136,7 @@ def test_save_new_window_load_rerun_identical(win, qapp, tmp_path, monkeypatch):
     w2.a_run.trigger(); pick(w2, "V(C1)")
     assert viewer_xy(w2) == first                                   # bit-identical waveform after reload
     check_rc(w2)
-    w2.hide(); w2.close(); w2.deleteLater(); show(w)
+    destroy(w2); show(w)
 
 
 def test_run_reset_rerun_is_deterministic(win):

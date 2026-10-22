@@ -1,6 +1,7 @@
 """Capability pre-check: an unsimulated part never vanishes silently from a run. Wired -> Run refused ('blocked',
 the core is never called); unwired -> excluded and named in the success message. Also R5 (case-only duplicate names)
 and R6 (only core errors are caught). Real catalog, real engine, real files; no mocks except the R6 fault injection."""
+from conftest import destroy
 import json
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -167,7 +168,7 @@ def qapp():
 def win(qapp):
     w = MainWindow()
     yield w
-    w.hide(); w.close(); w.deleteLater()
+    destroy(w)
 
 
 def test_window_blocked_run_has_no_plot(win, extra_root):

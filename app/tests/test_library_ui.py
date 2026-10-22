@@ -149,9 +149,9 @@ def test_details_of_interface_only_part(win):
     assert win.tool == "ESP32_DEVKITC" and not lib.in_details() and lib.selected is None
 
 
-def test_catalog_problems_banner(extra_root, qapp):
+def test_catalog_problems_banner(extra_root, new_window):
     write_def(extra_root, "BROKEN", mutate=lambda d: d["pins"].append({"id": "a", "at": [1, 1]}))
-    w = MainWindow(); w.show()
+    w = new_window(); w.show()
     lib = w.library
     assert lib.banner.isVisible() and lib.problem_count == 1
     assert lib.banner_toggle.text().startswith("1 definition could not be loaded")
@@ -166,12 +166,12 @@ def test_no_banner_without_problems(win):
     assert CATALOG.problems == [] and not win.library.banner.isVisible()
 
 
-def test_new_definition_appears_without_code(extra_root, qapp):
+def test_new_definition_appears_without_code(extra_root, new_window):
     def mutate(d):
         d["params"] = [{"key": "gain", "label": "Gain factor", "unit": "A", "default": "2m"}]
         d["sim"]["electrical"]["line"] = "{dev} {a} {b} 100"
     write_def(extra_root, "ACME_PART", mutate, name="Acme gizmo", description="Brand new part.", designator="X")
-    w = MainWindow(); w.show()
+    w = new_window(); w.show()
     card = w.library.card("ACME_PART")
     assert card is not None and card.name.text() == "Acme gizmo" and card.tile.property("fallback")   # generic glyph icon
     click_widget(card); canvas_click(w, (205, 205))
@@ -263,14 +263,14 @@ def test_wire_and_nothing_selected_views(win):
     assert ("R1.b", "D1.a") not in win.doc.wires and ins.view == "none"
 
 
-def test_definition_text_is_shown_as_plain_text(extra_root, qapp):
+def test_definition_text_is_shown_as_plain_text(extra_root, new_window):
     """F10: markup in a package's name, description or pin name is shown as text, never rendered (no <img>, no <b>)."""
     def mutate(d):
         d["name"] = "<b>Bold</b><img src=x>Rich"
         d["description"] = "<i>Italic</i> <img src=x>"
         d["pins"][0]["name"] = "<b>Pin</b>"
     write_def(extra_root, "MARKUP", mutate, designator="M")
-    w = MainWindow(); w.show()
+    w = new_window(); w.show()
     card = w.library.card("MARKUP")
     assert card.name.text() == "<b>Bold</b><img src=x>Rich" and card.name.textFormat() == Qt.PlainText
     w.library.show_details("MARKUP")
@@ -279,11 +279,11 @@ def test_definition_text_is_shown_as_plain_text(extra_root, qapp):
     assert all(l.textFormat() == Qt.PlainText for l in shown)
 
 
-def test_missing_icon_fallback(extra_root, qapp):
+def test_missing_icon_fallback(extra_root, new_window):
     def mutate(d):
         d["presentation"]["symbol"] = "nothing.svg"          # DEF-ASSET warning: the part loads, the icon is missing
     write_def(extra_root, "NOICON", mutate, designator="Q")
-    w = MainWindow()
+    w = new_window()
     c = w.library.card("NOICON")
     assert c is not None and c.tile.property("fallback") and c.tile.pix is None
     assert [l.text() for l in c.tile.findChildren(QLabel)] == ["Q"]       # designator letter glyph
@@ -317,11 +317,11 @@ def test_doc_links_reject_other_url_schemes(extra_root, qapp, url):
     assert widgets.doc_target(CATALOG.defs["R"], "https://example.org/a").toString() == "https://example.org/a"
 
 
-def test_new_category_appears_in_nav_without_code(extra_root, qapp):
+def test_new_category_appears_in_nav_without_code(extra_root, new_window):
     """T4/C4: a package with a category outside TAXONOMY adds a nav row (after the TAXONOMY ones, alphabetical)."""
     write_def(extra_root, "SERVO", category="Robotics", name="Servo")
     write_def(extra_root, "ARM", category="Actuators", name="Arm")
-    w = MainWindow(); w.show(); lib = w.library
+    w = new_window(); w.show(); lib = w.library
     assert [n.name.text() for n in lib.navs.values()][-3:] == ["Power", "Actuators", "Robotics"]
     assert lib.navs["Robotics"].count.text() == "1"
     click_widget(lib.navs["Robotics"])

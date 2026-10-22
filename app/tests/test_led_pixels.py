@@ -49,8 +49,8 @@ def test_tick_does_not_redraw_whole_plot(win):
     assert not n     # a full matplotlib redraw (~40 ms) per frame starves the 40 ms timer and the LED repaints
 
 
-def test_autoplay_after_run_only_when_enabled(qapp):
-    w = MainWindow(); w.show(); w.load_blink_example(); w.a_run.trigger()
+def test_autoplay_after_run_only_when_enabled(new_window):
+    w = new_window(); w.show(); w.load_blink_example(); w.a_run.trigger()
     assert not w.timer.isActive()                   # default off: tests stay deterministic
     w.autoplay = True; w.a_run.trigger()
     assert w.timer.isActive() and w.play_btn.text() == "Pause"

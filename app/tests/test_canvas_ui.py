@@ -1,6 +1,7 @@
 """T9: canvas navigation, overlays, placement / editing by mouse and keys, badges, placeholders, and the simulation
 controls (Run / Re-run / Reset states, blocked run) on the real window, real catalog and real engine. Input goes
 through QTest at real viewport positions (mapFromScene)."""
+from conftest import destroy
 import pytest
 from PySide6.QtCore import QEvent, QMimeData, QPoint, QPointF, Qt
 from PySide6.QtGui import QDropEvent, QMouseEvent, QWheelEvent
@@ -26,7 +27,7 @@ def qapp():
 def win(qapp):
     w = MainWindow(); w.show(); w.activateWindow(); QTest.qWaitForWindowActive(w); w.canvas.setFocus()   # shortcuts need it
     yield w
-    w.hide(); w.close(); w.deleteLater()
+    destroy(w)
 
 
 def vp(w, pt):
