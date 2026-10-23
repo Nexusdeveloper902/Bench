@@ -65,12 +65,14 @@ def coverage(junit, paths):
     """Guard against silently not running tests (a crashed xdist worker, a deselection bug): the testcases in the two app
     junit files must be exactly the collected set. -> (name, rc, seconds, repro) like run()."""
     t = time.monotonic()
-    out = subprocess.run([PY, "-m", "pytest", "-p", "no:cacheprovider", "--collect-only", "-q", *paths], cwd=ROOT, env=ENV, capture_output=True, text=True).stdout
+    out = subprocess.run([PY, "-m", "pytest", "-p", "no:cacheprovider", "-o", "addopts=", "--collect-only", "-q", *paths], cwd=ROOT,
+                         env={k: v for k, v in ENV.items() if k != "PYTEST_ADDOPTS"}, capture_output=True, text=True).stdout   # the reference set must not inherit a deselection
     want = []
     for line in out.splitlines():
         if "::" in line:
-            mod, *rest = line.split("::")
-            want.append((".".join([mod[:-3].replace("/", ".")] + rest[:-1]), rest[-1]))
+            head, br, param = line.partition("[")      # a parametrized id may itself contain "::"
+            mod, *rest = head.split("::")
+            want.append((".".join([mod[:-3].replace("/", ".")] + rest[:-1]), rest[-1] + br + param))
     got = []
     for f in ("app-parallel", "app-timing"):
         try:
