@@ -31,6 +31,29 @@ Always set `model` explicitly when spawning subagents; never let them inherit Op
 - `sonnet`: analysis, audits, and implementation.
 - `opus`: only for hard debugging (e.g. a flake Sonnet failed to root-cause).
 
+## Agent gotchas (learned the hard way)
+
+- **`pkill -f` / `pgrep -f` kill your own shell.** The tool runs your command via `bash -c "<whole command>"`, so a
+  pattern like `pkill -f pytest` matches that bash process too and the command dies (exit 144) mid-way. List with
+  `ps -eo pid,args | grep -E 'pytest' | grep -v -E 'grep|ps -eo'`, then `kill <PID>...`. Never chain more work after a
+  `pkill -f` in the same command.
+- **Worktrees from `isolation: "worktree"` may start from the wrong commit** (seen: `main`'s old merge, not the current
+  branch). Create them yourself from the intended tip, `git worktree add -b <branch> ../Bench-wt/<name> <tip>`, pass the
+  path to the agent, and have it verify `git log -1` and the collected test count before working.
+- **Ended sessions orphan processes.** When Claude Code exits, background agents stop but their `pytest`/`scripts/test`
+  children keep running. Before resuming, `ps` for them and kill by PID.
+- **Concurrent runs ruin timings.** Measure only when nothing else (another agent's suite) is running; label numbers
+  taken under contention as such.
+- **The shell exports `QT_QPA_PLATFORM=wayland;xcb` and `QT_QPA_PLATFORMTHEME=kde`.** conftest forces offscreen for
+  pytest, but ad-hoc scripts that import Qt must set `QT_QPA_PLATFORM=offscreen` themselves or real windows open.
+- **Never collect `app/tests` and `benchcore/tests/python` in one pytest session**: both have a `test_live.py`
+  (import file mismatch).
+- **Scratchpad `/tmp/...` is wiped on reboot.** Anything needed across sessions (handoffs, repro data) goes outside `/tmp`.
+- **Subagents can't write report files** (the Write tool refuses); they return findings as text and the orchestrator saves them.
+- **No `/usr/bin/time`, `stress` or `stress-ng` here**; use bash `time`, and `taskset`/`chrt` + busy loops for CPU contention.
+- **A GateGuard PreToolUse hook** asks for facts before the first Bash/Edit of a session and before destructive
+  commands. Answer it and retry; don't disable it.
+
 ## Notes
 
 - Needs ngspice 47 + `libngspice.so`; `e09` needs OpenVAF via `OPENVAf` env.
