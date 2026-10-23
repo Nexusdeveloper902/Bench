@@ -49,6 +49,39 @@ Before: the full app suite twice, `test_live_ui.py` up to 20 times, then benchco
 flakes (gc on a worker thread, `73cb002`; a Qt paint segfault, `docs/plans/gap-closure/W1.md`) were found by probes and low gc thresholds.
 `check` replaces the 2x run (once, parallel, shuffled); `stress` replaces the 20x loop with conditions that actually provoke those bugs.
 
+## Evidence
+
+Measured timings: see below
+
+Injected-bug experiments, run on scratch worktrees (never committed). The machine was shared with other jobs, so only
+detection counts are given, never durations. "Old" = the b2da66d process (full suite in default order, `test_live_ui.py` repeated, quiet process).
+
+| Bug injected | Old detected | New detected | Caught by | Notes |
+|---|---|---|---|---|
+| Revert `73cb002` (source only; its two regression tests removed, i.e. the tree before the fix) | 0/5 (`test_live_ui.py` x5, 100 passed each) | 5/5 (live files, probes, gc 50,5,5, switch 1e-6, seeds 1-5: 13 ERRORs each); probes alone with default gc thresholds 1/1 | probe: gc started on a non-main thread with a QApplication alive | Fails at teardown of each live test, naming the thread and test |
+| Same revert, regression tests kept (as in the repo) | 5/5 | not run | the two regression tests | Once a specific test exists, repetition finds it too; the gain is catching the class before such a test is written |
+| Test leaves the global catalog reloaded with an extra part | 0/1 (1666 passed) | 1/1 | leak guard | ERROR at the leaking test: "global CATALOG differs from the default" |
+| Test leaves a shown `MainWindow` | 0/1 (1666 passed) | 1/1 | leak guard | "visible top-level MainWindow ... never destroyed" |
+| Test leaves a `LiveSession` running | suite red (148 failures in 15 files), 0 at the leaker | 1/1, 1665 others pass | leak guard | Old: failures are in unrelated later files ("a live run is active"); New: only the leaking test errors, no cascade |
+| Order dependency: B passes only if A ran first | 0 (default order always passes) | serial full suite, seeds 1-10: in-file pair 5/10, cross-module pair 3/10, either 7/10; parallel `check`, seeds 1-4: 4/4 (cross-module pair every time, in-file pair 2/4) | shuffle (+ xdist worker split) | A state shared only inside one worker is also exposed by the worker split |
+| Pre-fix racy live tests (`b2da66d` versions of 4 tests) | 0/5 (quiet) | stress conditions measured with these 4 tests: switch 1e-6+gc 0/5; switch 0.2 0/5; pinned core + 2 spin 0/5; idle priority + duty 0/5 | none of the current stress conditions | Only 24 busy loops on all cores + switch 1e-6 (not a stress condition) failed it: 2/20 |
+| Current versions of the same 4 tests | n/a | 0/20 under 24 busy loops + switch 1e-6 | | Deterministic now (gated worker, wait for applied change) |
+
+Reading it honestly: the leak guard and probes detect their bug classes on every run where the old process detected nothing
+or pointed at the wrong test; shuffle detects order dependence with probability about 1/2 per seed per pair (hence a fresh seed every run); the
+current stress contention conditions did not provoke the old timing races on this machine, so that fix rests on the tests now being deterministic, not on stress.
+
+Coverage guard (`scripts/test check`): validated with a SIGKILLed xdist worker (the run fails, junit still lists the crashed test),
+a killed serial phase (reported MISSING), `-k`/`addopts` deselection (reported MISSING; this passed before the fix because the collect step inherited it), parametrized ids containing `::`, nested classes, unicode ids.
+
+Strength audit, `git diff b2da66d..HEAD -- app/tests benchcore/tests`: the same 1665 app node ids are collected at both commits, the benchcore ids
+are identical, no `assert` line was removed, no tolerance (`approx`, `abs=`, `rel=`) or timeout changed, no skip/xfail added, no app source changed.
+Changes: teardown `hide/close/deleteLater` became `destroy()` (same plus delivering the delete); `MainWindow()` became the `new_window` fixture (same window, destroyed after);
+two `wait_for(...)` asserts added to the replay/apply live tests (stronger preconditions); `sleep`s in two `test_live.py` tests became a gated worker
+(the assertions are unchanged; changes now land at an exact chunk); three wall-clock tests got `@pytest.mark.timing` (still run, serially, thresholds unchanged);
+`test_theme` dropped `QSettings.setPath(IniFormat...)` (the app uses the native format, now isolated by conftest's XDG dirs); `test_live.py` workers run with gc off like the window does.
+Worth knowing: that last change means `test_live.py` no longer exercises gc on its worker thread; the app prevents that in production (`73cb002`) and the probes check it elsewhere.
+
 ## Limitations
 
 - Shuffle is by module then test; class-scoped state is not kept together.
