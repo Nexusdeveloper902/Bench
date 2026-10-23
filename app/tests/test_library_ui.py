@@ -342,6 +342,19 @@ def test_nav_counts_follow_toggle_and_query(win):
     assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")
 
 
+
+def test_a_card_dropped_by_a_refilter_never_opens_as_a_window(win):
+    """Qt queues a 'show if not hidden' for a widget added to a visible layout. A second refilter in the same event-loop
+    turn (two edits handled together) took such a card out again before that call ran; reparented to nothing, the
+    card then opened as a top-level window of its own until its deleteLater. Dropped widgets are hidden explicitly."""
+    import shiboken6
+    lib = win.library
+    lib.search.setText("esp"); dropped = lib.card("ESP32_DEVKITC")
+    lib.search.setText("esp3")                             # same turn: rebuilt, the first ESP32 card is dropped
+    assert lib.card("ESP32_DEVKITC") is not dropped
+    QApplication.processEvents()                           # the queued show runs; the deleteLater does not yet
+    assert not (shiboken6.isValid(dropped) and dropped.isVisible())
+
 # ---------------------------------------------------------------- window lifetime vs. catalog reloads (segfault)
 def test_a_window_built_over_an_extra_root_does_not_outlive_its_catalog():
     """This exact order used to segfault (rc -11) on every run. test_new_definition_appears_without_code left its window
