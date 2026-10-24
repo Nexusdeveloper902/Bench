@@ -4,7 +4,7 @@
 * A garbage collection starting on a non-main thread while a QApplication exists fails the test (the 73cb002
   segfault class: collecting Qt wrappers off the GUI thread).
 * env BENCH_SWITCH_INTERVAL=<s>    sys.setswitchinterval (tiny values force GIL hand-offs at awkward points)
-* env BENCH_TEST_GC_THRESHOLD=a,b,c  gc.set_threshold; the same variable tells the conftest leak guard it is intended
+* env BENCH_TEST_GC_THRESHOLD=a,b,c  is applied by conftest (every pytest process, child runs included), not here
 """
 import gc
 import os
@@ -27,8 +27,6 @@ _GC_EXEMPT = "app/tests/test_live_ui.py::test_a_dropped_windows_canvas_scene_is_
 def pytest_configure(config):
     if (v := os.environ.get("BENCH_SWITCH_INTERVAL")):
         sys.setswitchinterval(float(v))
-    if (v := os.environ.get("BENCH_TEST_GC_THRESHOLD")):
-        gc.set_threshold(*map(int, v.split(",")))
     from PySide6.QtCore import qInstallMessageHandler
 
     def handler(mode, ctx, msg):

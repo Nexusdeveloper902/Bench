@@ -126,13 +126,15 @@ _BASE = {}
 
 
 def _gc_baseline():
-    """The gc thresholds the session was started with (a stress plugin may lower them): BENCH_TEST_GC_THRESHOLD="a,b,c"
-    declares them explicitly, otherwise whatever they were at session start."""
-    env = os.environ.get("BENCH_TEST_GC_THRESHOLD")
-    return tuple(int(x) for x in env.split(",")) if env else _BASE["gc"]
+    """The gc thresholds the session runs with; the leak guard fails a test that changes them."""
+    return _BASE["gc"]
 
 
 def pytest_sessionstart(session):
+    # BENCH_TEST_GC_THRESHOLD="a,b,c" (scripts/test stress) is applied here, not in a -p plugin, so every pytest
+    # process, including the child runs some tests start, runs with the thresholds it declares.
+    if (env := os.environ.get("BENCH_TEST_GC_THRESHOLD")):
+        gc.set_threshold(*map(int, env.split(",")))
     _BASE["gc"] = gc.get_threshold()
 
 

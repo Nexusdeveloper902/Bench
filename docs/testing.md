@@ -26,7 +26,7 @@ the test on Qt cross-thread warnings ("Timers cannot be stopped from another thr
 `-X faulthandler` plus `faulthandler_timeout=300` dumps stacks of a hung test.
 
 1. live tests (`test_live_ui.py`, `test_live.py`, `test_live_duration.py`) with probes, shuffled, gc thresholds 50,5,5
-   (`BENCH_TEST_GC_THRESHOLD`; the same variable tells the conftest leak guard the change is intended) and GIL switch
+   (`BENCH_TEST_GC_THRESHOLD`, applied by conftest so child pytest runs get it too) and GIL switch
    interval 1e-6 s (`BENCH_SWITCH_INTERVAL`)
 2. same with switch interval 0.2 s
 3. same pinned to one core (`taskset -c K`) with two busy loops on that core
@@ -59,7 +59,7 @@ Measured 2026-10-24 on a 12-core machine, nothing else running.
 | Old: full app suite 2x (725–735 s each), `test_live_ui.py` 20x (86.7–87.2 s each), benchcore ~10 s (baseline, uncontended) | ≈ 3209 s (≈ 53.5 min) |
 | New `check`, 3 runs (seeds 1, 2, 3): min / median / max | 150 s / 156 s / 173 s |
 | New `check`, median run (seed 1): app parallel 133.6 s, app timing (serial) 6.0 s, coverage 2.1 s, benchcore cargo 12.0 s, benchcore python 0.9 s, catalog 0.9 s | 156 s |
-| New `stress`, default rounds (one run, base seed 648539; one condition failed, see the stress log) | 1133 s (≈ 18.9 min) |
+| New `stress`, default rounds (one run, base seed 648539; the full-suite condition failed on a harness bug: the gc-threshold variable reached a child pytest that never applied it. Fixed, and that condition re-run with the same seed: 1668 passed, 140 s) | 1133 s (≈ 18.9 min) |
 
 Injected-bug experiments, run on scratch worktrees (never committed). The machine was shared with other jobs, so only
 detection counts are given, never durations. "Old" = the b2da66d process (full suite in default order, `test_live_ui.py` repeated, quiet process).
