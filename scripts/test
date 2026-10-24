@@ -53,8 +53,8 @@ def run(name, cmd, cwd=ROOT, env=None, wrap=()):
 def summary(results, header):
     print(f"\n{header}")
     for n, rc, dt, _ in results:
-        print(f"  {'ok  ' if rc in (0, 5) else 'FAIL'} {dt:7.1f}s  {n}")
-    bad = [r for r in results if r[1] not in (0, 5)]
+        print(f"  {'ok  ' if rc == 0 else 'FAIL'} {dt:7.1f}s  {n}")
+    bad = [r for r in results if r[1] != 0]       # rc 5 = "no tests collected": a phase that ran nothing did not pass
     for n, rc, _, repro in bad:
         print(f"\nREPRO {n}:\n  {repro}")
     print(f"\n{'FAILED' if bad else 'PASSED'}: total {sum(r[2] for r in results):.0f}s")
@@ -94,8 +94,11 @@ def check(a, extra):
     j = lambda n: dict(junit=junit, name=n)
     paths = extra or ["app/tests"]
     par = pytest_cmd("-n", a.n, "--dist", a.dist, "-m", "not timing", *paths, seed=seed, **j("app-parallel"))
-    ser = pytest_cmd("-m", "timing", *paths, seed=seed, **j("app-timing"))   # rc 5 (nothing selected) is fine
-    r = [run("app tests (parallel, shuffled, not timing)", par), run("app tests (timing, serial)", ser)]
+    ser = pytest_cmd("-m", "timing", *paths, seed=seed, **j("app-timing"))
+    p, t = run("app tests (parallel, shuffled, not timing)", par), run("app tests (timing, serial)", ser)
+    # rc 5 = no tests collected. The timing phase may be empty (most paths hold no timing tests); the parallel phase only
+    # when the timing phase ran tests (a focus like `-k pacing`). Both empty (a typo'd -k) fails.
+    r = [p[:1] + (0 if p[1] == 5 and t[1] == 0 else p[1],) + p[2:], t[:1] + (0 if t[1] == 5 else t[1],) + t[2:]]
     if not extra:
         r += [coverage(junit, paths),
               run("benchcore cargo test", ["cargo", "test"], cwd=ROOT / "benchcore"),
