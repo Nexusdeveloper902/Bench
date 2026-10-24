@@ -52,7 +52,14 @@ flakes (gc on a worker thread, `73cb002`; a Qt paint segfault, `docs/plans/gap-c
 
 ## Evidence
 
-Measured timings: see below
+Measured 2026-10-24 on a 12-core machine, nothing else running.
+
+| Process | Wall time |
+|---|---|
+| Old: full app suite 2x (725–735 s each), `test_live_ui.py` 20x (86.7–87.2 s each), benchcore ~10 s (baseline, uncontended) | ≈ 3209 s (≈ 53.5 min) |
+| New `check`, 3 runs (seeds 1, 2, 3): min / median / max | 150 s / 156 s / 173 s |
+| New `check`, median run (seed 1): app parallel 133.6 s, app timing (serial) 6.0 s, coverage 2.1 s, benchcore cargo 12.0 s, benchcore python 0.9 s, catalog 0.9 s | 156 s |
+| New `stress`, default rounds (one run, base seed 648539; one condition failed, see the stress log) | 1133 s (≈ 18.9 min) |
 
 Injected-bug experiments, run on scratch worktrees (never committed). The machine was shared with other jobs, so only
 detection counts are given, never durations. "Old" = the b2da66d process (full suite in default order, `test_live_ui.py` repeated, quiet process).
