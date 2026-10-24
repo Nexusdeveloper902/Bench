@@ -223,7 +223,7 @@ class LibraryPanel(QWidget):
         self.banner.setVisible(bool(probs))
         while self.banner_lay.count():
             w = self.banner_lay.takeAt(0).widget()
-            if w: w.setParent(None); w.deleteLater()
+            if w: w.hide(); w.setParent(None); w.deleteLater()
         if not probs: return
         n = len({p["file"] for p in errs})
         self.problem_count = n if errs else len({p["file"] for p in probs})
@@ -250,7 +250,7 @@ class LibraryPanel(QWidget):
         self.category = self.category if self.category in CATALOG.categories() else None
         while self.nav_box.count():
             w = self.nav_box.takeAt(0).widget()
-            if w: w.setParent(None); w.deleteLater()
+            if w: w.hide(); w.setParent(None); w.deleteLater()
         self.navs = {}
         for key, name in [(None, "All")] + [(c, c) for c in CATALOG.categories()]:
             n = NavItem(name, key); n.clicked.connect(lambda _=False, k=key: self.set_category(k))
@@ -272,9 +272,9 @@ class LibraryPanel(QWidget):
         for key, nav in self.navs.items():
             nav.set_state(key == self.category, len(CATALOG.search(text, key, sim)))
         res = self.results()
-        while self.card_lay.count() > 1:
-            w = self.card_lay.takeAt(0).widget()
-            if w: w.setParent(None); w.deleteLater()
+        while self.card_lay.count() > 1:   # hide() first: a card added this event-loop turn still has Qt's queued
+            w = self.card_lay.takeAt(0).widget()   # 'show if not hidden', which would open it as a window of its own
+            if w: w.hide(); w.setParent(None); w.deleteLater()
         self.cards = {}
         for d in res:
             c = Card(d); c.clicked.connect(self.place_requested.emit); c.details.connect(self.show_details)

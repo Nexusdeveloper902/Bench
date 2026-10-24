@@ -340,3 +340,34 @@ def test_nav_counts_follow_toggle_and_query(win):
     click_widget(lib.toggle)
     type_search(win, "esp")
     assert (n(None), n("Microcontrollers"), n("Electrical")) == ("1", "1", "0")
+
+
+
+def test_a_card_dropped_by_a_refilter_never_opens_as_a_window(win):
+    """Qt queues a 'show if not hidden' for a widget added to a visible layout. A second refilter in the same event-loop
+    turn (two edits handled together) took such a card out again before that call ran; reparented to nothing, the
+    card then opened as a top-level window of its own until its deleteLater. Dropped widgets are hidden explicitly."""
+    import shiboken6
+    lib = win.library
+    lib.search.setText("esp"); dropped = lib.card("ESP32_DEVKITC")
+    lib.search.setText("esp3")                             # same turn: rebuilt, the first ESP32 card is dropped
+    assert lib.card("ESP32_DEVKITC") is not dropped
+    QApplication.processEvents()                           # the queued show runs; the deleteLater does not yet
+    assert not (shiboken6.isValid(dropped) and dropped.isVisible())
+
+# ---------------------------------------------------------------- window lifetime vs. catalog reloads (segfault)
+def test_a_window_built_over_an_extra_root_does_not_outlive_its_catalog():
+    """This exact order used to segfault (rc -11) on every run. test_new_definition_appears_without_code left its window
+    alive past extra_root's catalog.reload(); the next event loop resized it, Canvas.resizeEvent raised ModelError
+    ('unknown component type ACME_PART') and the error stayed pending inside Qt. PySide 6.12's next first-time
+    override lookup (Elided.sizeHint) then Py_XDECREF'd a borrowed reference to that function, freeing it while
+    Elided still held it: use-after-free in Shiboken getOverride. The window fixtures now destroy their windows before
+    extra_root reloads the catalog. Own process: the failure mode is a crash, and it needs this order."""
+    import os, subprocess, sys
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ids = ["app/tests/test_library_ui.py::test_new_definition_appears_without_code",
+           "app/tests/test_library_ui.py::test_category_filter",
+           "app/tests/test_live_duration.py::test_an_indefinite_live_run_scrolls_and_its_window_can_be_scrubbed_after_stop"]
+    r = subprocess.run([sys.executable, "-X", "faulthandler", "-m", "pytest", "-q", "-p", "no:cacheprovider", *ids],
+                       cwd=root, capture_output=True, text=True, timeout=300)
+    assert r.returncode == 0 and "3 passed" in r.stdout, (r.returncode, r.stdout[-3000:], r.stderr[-3000:])
