@@ -113,7 +113,7 @@ def stress(a, _):
 
     def spin(core, on, off=0.0, n=1):
         for _ in range(n):
-            busy.append(subprocess.Popen(["taskset", "-c", str(core), PY, "-c", SPIN.format(on=on, off=off)]))
+            busy.append(subprocess.Popen(["taskset", "-c", str(core)] * (core is not None) + [PY, "-c", SPIN.format(on=on, off=off)]))
 
     def stop():
         for p in busy:
@@ -133,6 +133,7 @@ def stress(a, _):
             conds = [
                 live("gc50,5,5+switch1e-6", {"BENCH_TEST_GC_THRESHOLD": "50,5,5", "BENCH_SWITCH_INTERVAL": "1e-6"}),
                 live("switch0.2", {"BENCH_SWITCH_INTERVAL": "0.2"}),
+                live(f"all-cores-{2 * ncpu}spin+switch1e-6", {"BENCH_SWITCH_INTERVAL": "1e-6"}, spin=(None, 1.0, 0.0, 2 * ncpu)),
                 live(f"pinned-core{k}+2spin", {}, pin=k, spin=(k, 1.0, 0.0, 2)),
                 live(f"idle-prio-core{k}+duty", {}, pin=k, idle=True, spin=(k, 0.004, 0.004, 1)),
             ]
