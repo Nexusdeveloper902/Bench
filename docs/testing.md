@@ -31,8 +31,9 @@ the test on Qt cross-thread warnings ("Timers cannot be stopped from another thr
 2. same with switch interval 0.2 s
 3. same pinned to one core (`taskset -c K`) with two busy loops on that core
 4. same under `chrt --idle 0` pinned to core K with a 50 % duty busy loop at normal priority on K
-5. `benchcore/tests/python/test_live.py` in its own session (its basename clashes with the app one)
-6. full app suite in parallel with probes and gc 50,5,5
+5. same with 2 x nproc busy loops, unpinned, normal priority, switch interval 1e-6 s (every core saturated)
+6. `benchcore/tests/python/test_live.py` in its own session (its basename clashes with the app one)
+7. full app suite in parallel with probes and gc 50,5,5
 
 No retries anywhere: a failure is a failure. Busy loops are always killed (finally / SIGTERM).
 
@@ -64,12 +65,12 @@ detection counts are given, never durations. "Old" = the b2da66d process (full s
 | Test leaves a shown `MainWindow` | 0/1 (1666 passed) | 1/1 | leak guard | "visible top-level MainWindow ... never destroyed" |
 | Test leaves a `LiveSession` running | suite red (148 failures in 15 files), 0 at the leaker | 1/1, 1665 others pass | leak guard | Old: failures are in unrelated later files ("a live run is active"); New: only the leaking test errors, no cascade |
 | Order dependency: B passes only if A ran first | 0 (default order always passes) | serial full suite, seeds 1-10: in-file pair 5/10, cross-module pair 3/10, either 7/10; parallel `check`, seeds 1-4: 4/4 (cross-module pair every time, in-file pair 2/4) | shuffle (+ xdist worker split) | A state shared only inside one worker is also exposed by the worker split |
-| Pre-fix racy live tests (`b2da66d` versions of 4 tests) | 0/5 (quiet) | stress conditions measured with these 4 tests: switch 1e-6+gc 0/5; switch 0.2 0/5; pinned core + 2 spin 0/5; idle priority + duty 0/5 | none of the current stress conditions | Only 24 busy loops on all cores + switch 1e-6 (not a stress condition) failed it: 2/20 |
-| Current versions of the same 4 tests | n/a | 0/20 under 24 busy loops + switch 1e-6 | | Deterministic now (gated worker, wait for applied change) |
+| Pre-fix racy live tests (`b2da66d` versions of 4 tests) | 0/5 (quiet) | stress conditions measured with these 4 tests: switch 1e-6+gc 0/5; switch 0.2 0/5; pinned core + 2 spin 0/5; idle priority + duty 0/5 | none of those four conditions | 24 busy loops on all cores + switch 1e-6 (now stress condition 5): 2/20 in the first measurement, then 8/10 via the stress condition's exact command (seeds 0-9, `app/tests/test_live.py` and `test_live_ui.py` at `b2da66d`) |
+| Current versions of the same 4 tests | n/a | 0/20 under 24 busy loops + switch 1e-6; 0/1 on the final condition 5 run | | Deterministic now (gated worker, wait for applied change) |
 
 Reading it honestly: the leak guard and probes detect their bug classes on every run where the old process detected nothing
 or pointed at the wrong test; shuffle detects order dependence with probability about 1/2 per seed per pair (hence a fresh seed every run); the
-current stress contention conditions did not provoke the old timing races on this machine, so that fix rests on the tests now being deterministic, not on stress.
+first four contention conditions did not provoke the old timing races on this machine; the all-cores condition (5) did, so that fix is now covered by stress as well (measured while another job loaded the CPU, so the rate is indicative only).
 
 Coverage guard (`scripts/test check`): validated with a SIGKILLed xdist worker (the run fails, junit still lists the crashed test),
 a killed serial phase (reported MISSING), `-k`/`addopts` deselection (reported MISSING; this passed before the fix because the collect step inherited it), parametrized ids containing `::`, nested classes, unicode ids.
