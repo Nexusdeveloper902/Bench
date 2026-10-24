@@ -73,6 +73,7 @@ def destroy(w):
     """Close and really delete a window now. deleteLater() alone only queues the delete for the next event-loop
     turn, so a test that ends without one leaves its whole widget tree alive (and restyled by every later setStyleSheet)."""
     from PySide6.QtCore import QCoreApplication, QEvent
+    if not shiboken6.isValid(w): return   # already destroyed (extra_root tears windows down before restoring the catalog)
     w.hide(); w.close(); w.deleteLater()
     QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
@@ -108,6 +109,12 @@ def extra_root(tmp_path):
     from app import catalog
     catalog.reload([catalog.BUILTIN_ROOT, tmp_path])
     yield tmp_path
+    # Windows must die BEFORE the catalog is restored: a live Canvas resized over a catalog that lacks its parts raises
+    # inside a Qt override (see the override guard below). Fixture teardown order puts `win` after this one otherwise.
+    from PySide6.QtWidgets import QApplication
+    from app.window import MainWindow
+    for w in QApplication.topLevelWidgets() if QApplication.instance() else ():
+        if isinstance(w, MainWindow) and shiboken6.isValid(w): w.end_live(); destroy(w)
     catalog.reload()
 
 
@@ -148,8 +155,17 @@ def _leak_guard(request):
         sim.LiveSession.__init__ = tracked
         _BASE["patched"] = True
         _BASE["catalog"] = (list(catalog.default_roots()), set(catalog.CATALOG.defs), len(catalog.CATALOG.problems))
+    # An exception escaping a Qt virtual override (resizeEvent, event, sizeHint...) reaches sys.excepthook when no Python
+    # call is on the stack (event-loop pass); from a Python-called native call it is raised there instead. It is also a
+    # memory-corruption hazard (shiboken 6.12 use-after-free, experiments/pyside-override-refcount), so it fails the test.
+    escaped, old_hook = [], sys.excepthook
+    def hook(tp, val, tb):
+        while tb is not None and tb.tb_next is not None: tb = tb.tb_next
+        escaped.append(f"{tp.__name__}: {val} (in {tb.tb_frame.f_code.co_qualname} {os.path.basename(tb.tb_frame.f_code.co_filename)}:{tb.tb_lineno})" if tb else f"{tp.__name__}: {val}")
+    sys.excepthook = hook
     yield
-    leaks = []
+    sys.excepthook = old_hook
+    leaks = [f"exception escaped a Qt override: {e}" for e in escaped]
     if request.node.stash.get(_FAILED, None):   # a failing test's traceback frames hold its locals (a live session, a window)
         sys.last_type = sys.last_value = sys.last_traceback = None
         for a in ("last_exc",):

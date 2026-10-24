@@ -89,3 +89,13 @@ Worth knowing: that last change means `test_live.py` no longer exercises gc on i
 - `timing` tests can still be disturbed by other processes on the machine.
 - Stress is probabilistic: a pass lowers, not eliminates, the chance of a scheduling-dependent bug.
 - benchcore and app tests are never collected in one pytest session (`test_live.py` basename clash); `pytest.ini` `testpaths` only covers `app/tests`.
+
+## Exceptions in Qt overrides fail the test
+
+The leak guard in `app/tests/conftest.py` fails any test during which an exception escapes a Qt virtual override
+(`resizeEvent`, `event`, `sizeHint`, ...). PySide leaves the error pending inside the native call, and in shiboken 6.12
+the next override lookup in that state `Py_XDECREF`s a borrowed function, so a later call segfaults (use-after-free), not
+just a printed traceback. From an event-loop pass the exception reaches `sys.excepthook` (the guard records it); from a
+Python-called native call (`show`, `resize`, `sendEvent`) it is raised at that call. Windows must be destroyed before the
+catalog is restored (`extra_root` does so). Standalone repro: `experiments/pyside-override-refcount/`; guard proof:
+`app/tests/test_override_guard.py`.
