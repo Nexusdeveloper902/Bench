@@ -191,9 +191,8 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
-def build_window(qapp, r="1000", tstop="5e-3"):
-    from app.window import MainWindow
-    w = MainWindow()
+def build_window(new_window, r="1000", tstop="5e-3"):
+    w = new_window()
     for k, x, y in (("V", 40, 100), ("R", 160, 60), ("C", 300, 140), ("GND", 200, 260)):
         w.place(k, x, y)
     for a, b in (("V1.p", "R1.a"), ("R1.b", "C1.a"), ("C1.b", "GND1.g"), ("V1.n", "GND1.g")):
@@ -204,8 +203,8 @@ def build_window(qapp, r="1000", tstop="5e-3"):
     return w
 
 
-def test_gui_workflow(qapp):
-    w = build_window(qapp)
+def test_gui_workflow(new_window):
+    w = build_window(new_window)
     w.run()
     assert w.status.text().startswith("SUCCESS"), w.status.text()
     assert w.result.ok
@@ -220,9 +219,9 @@ def test_gui_workflow(qapp):
     check_charge(w.result, node, TAU)
 
 
-def test_gui_edit_through_param_panel(qapp):
+def test_gui_edit_through_param_panel(new_window):
     """Select a part, type in the real QLineEdit, finish editing, rerun."""
-    w = build_window(qapp, tstop="1e-2")
+    w = build_window(new_window, tstop="1e-2")
     w.select("R1")
     edit = next(iter(w.inspector.edits.values()))
     edit.setText("2000"); edit.editingFinished.emit()
@@ -232,19 +231,19 @@ def test_gui_edit_through_param_panel(qapp):
 
 
 @pytest.mark.parametrize("r,needle", [("abc", "not a number"), ("1x", "not a number"), ("-5", "> 0"), ("0", "> 0")])
-def test_gui_bad_value_shows_failed(qapp, r, needle):
-    w = build_window(qapp, r=r)
+def test_gui_bad_value_shows_failed(new_window, r, needle):
+    w = build_window(new_window, r=r)
     w.run()
     assert w.status.text().startswith("BLOCKED") and needle in w.status.text()
     assert not w.result.ok and w.stats.text() == ""
 
 
-def test_gui_failures(qapp):
-    w = build_window(qapp)
+def test_gui_failures(new_window):
+    w = build_window(new_window)
     w.select("GND1"); w.delete_selected()
     w.run()
     assert w.status.text().startswith("BLOCKED") and ("NO-GROUND" in w.status.text() or "NO-DC-PATH" in w.status.text())
-    w = build_window(qapp, tstop="0")
+    w = build_window(new_window, tstop="0")
     w.run()
     assert w.status.text().startswith("BLOCKED") and "tstop" in w.status.text()
     # recovery: fix and rerun succeeds
@@ -252,10 +251,10 @@ def test_gui_failures(qapp):
     assert w.status.text().startswith("SUCCESS")
 
 
-def test_gui_save_load(qapp, tmp_path, monkeypatch):
-    w = build_window(qapp)
+def test_gui_save_load(new_window, tmp_path, monkeypatch):
+    w = build_window(new_window)
     w.path = str(tmp_path / "s.json"); w.save()
-    w2 = build_window(qapp); w2.new()
+    w2 = build_window(new_window); w2.new()
     from PySide6.QtWidgets import QFileDialog
     monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (w.path, "")))
     w2.open()

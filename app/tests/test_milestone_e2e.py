@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QPointF
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QGraphicsSimpleTextItem, QLabel
 
-from conftest import write_def
+from conftest import write_def, destroy
 from test_analytic_diode import final, shockley   # the Shockley oracle shared with the diode tests
 from app import catalog, widgets
 from app.catalog import BUILTIN_ROOT, CATALOG
@@ -44,7 +44,7 @@ def qapp():
 def win(qapp):
     w = MainWindow(); w.show(); w.activateWindow(); QTest.qWaitForWindowActive(w); w.canvas.setFocus()
     yield w
-    w.hide(); w.close(); w.deleteLater()
+    destroy(w)
 
 
 # ---------------------------------------------------------------- input helpers (mouse, keys, widgets)
@@ -171,7 +171,7 @@ def test_3_new_definition_is_placed_wired_and_simulated(extra_root, qapp):
         i_ref, _ = shockley(5.0, 1e3, 2.52e-9, 1.752, 0.568)      # bisection, the 1N4148 card's own numbers
         assert final(w.result, "I(D1)") == pytest.approx(i_ref, rel=2e-3)
     finally:
-        w.hide(); w.close(); w.deleteLater()
+        destroy(w)
 
 
 # ---------------------------------------------------------------- 4: unsupported part, inspect, save, reopen
@@ -199,7 +199,7 @@ def test_4_esp32_inspect_save_and_reopen_in_a_new_window(win, tmp_path):
         w2.select("U1")
         assert len(w2.inspector.findChildren(widgets.Table)[0].rows) == 38
     finally:
-        w2.hide(); w2.close(); w2.deleteLater()
+        destroy(w2)
 
 
 # ---------------------------------------------------------------- 5: capability pre-check, real engine
@@ -243,7 +243,7 @@ def test_6_invalid_definitions_are_listed_and_the_rest_still_runs(extra_root, qa
         w.load_led_example(); press_run(w)                                 # the good parts simulate as before
         assert w.result.ok and final(w.result, "I(D1)") == pytest.approx(I_LED, rel=1e-3)
     finally:
-        w.hide(); w.close(); w.deleteLater()
+        destroy(w)
 
 
 # ---------------------------------------------------------------- 7: missing definition, placeholder kept

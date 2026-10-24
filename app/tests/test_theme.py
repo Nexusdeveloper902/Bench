@@ -1,5 +1,6 @@
 """Dark mode: both themes keep readable text, and View > Dark mode re-themes the live window (palette, stylesheet,
 canvas, plot, icons) and saves the choice."""
+from conftest import destroy
 import pytest
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QColor, QPalette
@@ -50,8 +51,7 @@ def test_tokens_match():
     assert set(theme.LIGHT) == set(theme.DARK)
 
 
-def test_toggle_rethemes_live_window(tmp_path, light_after):
-    QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, str(tmp_path))   # never touch the user's settings
+def test_toggle_rethemes_live_window(light_after):   # QSettings lands in conftest's temp XDG_CONFIG_HOME, never ~/.config
     from app.window import MainWindow
     app = QApplication.instance() or QApplication([])
     theme.use(False); theme.apply(app)
@@ -71,4 +71,4 @@ def test_toggle_rethemes_live_window(tmp_path, light_after):
     w.set_dark(False)
     assert not theme.DARK_MODE and app.palette().color(QPalette.Window) == QColor(theme.LIGHT["APP_BG"])
     assert theme.saved_dark(app) is False
-    w.hide(); w.close(); w.deleteLater()
+    destroy(w)
