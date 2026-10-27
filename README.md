@@ -75,8 +75,8 @@ Details, focused runs and failure reproduction: [`docs/testing.md`](docs/testing
 <details>
 <summary><b>What the suites cover</b></summary>
 
-- **App:** 434 tests, including the end-to-end LED workflow (I(D1) = 9.1772 mA through the real engine).
-- **Engine:** 26 Rust tests against real ngspice, plus a Python smoke suite that imports the installed wheel.
+- **App:** 1668 tests, including the end-to-end LED workflow (I(D1) = 9.1772 mA through the real engine).
+- **Engine:** 100 Rust tests against real ngspice, plus 28 Python tests that import the installed wheel.
 - **Strategy:** [`docs/testing-strategy.md`](docs/testing-strategy.md).
 
 </details>

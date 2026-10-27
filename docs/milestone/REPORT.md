@@ -1,5 +1,7 @@
 # Milestone report: component ecosystem and native workspace UI
 
+> **Historical.** This report describes the state at commit 9574f5d. Since then the catalog grew to 185 definitions and multi-terminal devices (BJT, MOSFET, JFET, MESFET, subcircuits) are supported; see README.md for the current state.
+
 Branch `milestone/component-ecosystem`, 14 commits on top of `1b2c335`. Changes under `app/`: 64 files, +7.8k/−1.0k lines. No Rust changes.
 The work ran as 14 sequential tasks; the per-task inputs and outputs are in this directory (00–12, the design folder, the impl folder).
 

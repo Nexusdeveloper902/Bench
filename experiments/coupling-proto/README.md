@@ -31,6 +31,8 @@ Runs e01–e11 in order, writes `results/*.json`. Full suite ≈ 1–2 min.
 
 ## Key findings (details + caveats in REPORT.md)
 
+- Note: E08 replays firmware events open-loop; see the errata at the top of REPORT.md.
+
 - EXTERNAL + breakpoints: 0.0 ns event placement, 100 Hz–1 MHz, cheapest.
 - Unknown analog events need bounded steps (sync-clamp exact); naive steps miss them.
 - Same-handle threads crash (SIGABRT); renamed `.so` copies work concurrently.
