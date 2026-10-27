@@ -172,7 +172,6 @@ const FAILURE_PREFIXES: &[&str] = &[
     "spice3 gmin stepping failed",
     "source stepping failed",
     "dc solution failed",
-    "doanalyses:", // e.g. "doAnalyses: TRAN:  Timestep too small; time = ..."
     "timestep too small",
     "convergence problems at",
     "non-convergence",
@@ -201,7 +200,11 @@ pub(crate) fn scan_loud_failure(log: &[String]) -> Option<String> {
             .find_map(|p| l.strip_prefix(p))
             .unwrap_or(&l)
             .trim_start();
-        let failed = FAILURE_PREFIXES.iter().any(|p| msg.starts_with(p))
+        // "doAnalyses: TRAN:  Timestep too small; time = ..." fails; "doAnalyses: pause requested" is a normal stop.
+        let do_analyses = msg.starts_with("doanalyses:")
+            && ["timestep too small", "convergence", "trouble with"].iter().any(|k| msg.contains(k));
+        let failed = do_analyses
+            || FAILURE_PREFIXES.iter().any(|p| msg.starts_with(p))
             || msg.ends_with(" simulation(s) aborted") // "run simulation(s) aborted"
             // "Warning: 'r1 a 0' is not a valid resistor instance line, ignored!"
             || (msg.starts_with('\'') && msg.ends_with("instance line, ignored!"));
@@ -768,6 +771,7 @@ mod scan_tests {
             "stderr Unknown model type foo - ignored",
             "stderr MIF-ERROR - unable to find definition of model nomodel",
             "stderr Too few parameters for subcircuit type \"s\" (instance: xx1)",
+            "stderr doAnalyses: DC transfer curve:  Too many iterations without convergence",
             "stderr Error: -1 out of range for sqrt",
             "stderr Error: ngspice.dll cannot recover and awaits to be reset or detached",
         ] {
@@ -788,6 +792,7 @@ mod scan_tests {
             "stderr Note: v1: has no value, DC 0 assumed",
             "stderr Note: Starting dynamic gmin stepping",
             "stderr Note: Transient op finished successfully",
+            "stderr doAnalyses: pause requested",
         ] {
             assert!(!scan(&[l]), "false positive: {l}");
         }
