@@ -294,3 +294,30 @@ def test_a_run_with_a_value_hazard_is_refused_before_ngspice():
     ok = Simulation("fine").build_circuit(["V1 in 0 DC 5", "R1 in 0 1k", "B1 o 0 V=sqrt(V(in))", "R2 o 0 1k"])
     ok.configure(tstep=1e-6, tstop=1e-5).observe("v(o)").run()
     assert abs(ok.observable("v(o)")[-1][1] - 5 ** 0.5) < 1e-6
+
+
+@pytest.mark.parametrize("word", ["failed", "timestep", "convergence", "aborted", "singular"])
+def test_trigger_words_in_user_names_are_not_solver_failures(word):
+    """ngspice echoes the title (`Circuit: <title>`), node names (result tables) and `.model` lines; a title, node,
+    device or model named like a failure message must not be reported as a solver failure."""
+    s = Simulation(f"{word} {word} demo").build_circuit([
+        f"V{word} {word} 0 DC 1", f"R{word} {word} n{word} 1k", f"D{word} n{word} 0 m{word}",
+        f".model m{word} D(Is=1e-14 bogus_{word}=3)",  # benign stderr warning that echoes the model line
+    ]).configure(tstep=1e-6, tstop=1e-5).observe(f"v(n{word})")
+    s.run()
+    assert 0.3 < s.observable(f"v(n{word})")[-1][1] < 1.0
+
+
+def test_missing_libngspice_names_every_path_tried(tmp_path):
+    """The library is loaded once per process, so the lookup is exercised in a subprocess."""
+    import os, subprocess, sys
+    probe = (
+        "import benchcore\n"
+        "s = benchcore.Simulation('x').build_circuit(['V1 a 0 DC 1', 'R1 a 0 1k'])\n"
+        "s.configure(tstep=1e-6, tstop=1e-5).observe('v(a)')\n"
+        "try:\n    s.run()\nexcept benchcore.BackendError as e:\n    print('BACKEND', e)\n"
+    )
+    env = dict(os.environ, BENCH_LIBNGSPICE="/nonexistent/libngspice.so")
+    out = subprocess.run([sys.executable, "-c", probe], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60)
+    assert out.stdout.startswith("BACKEND"), out.stdout + out.stderr
+    assert "/nonexistent/libngspice.so" in out.stdout and "BENCH_LIBNGSPICE" in out.stdout

@@ -8,7 +8,10 @@
 //! Recovery: when ngspice calls the controlled-exit callback ("cannot recover
 //! and awaits to be reset or detached"; e.g. an undefined `{param}` or E/G
 //! LAPLACE), the call that triggered it returns Err and the library is
-//! unloaded (dlclose); the next call loads and initialises a fresh copy.
+//! unloaded (dlclose); the next call loads and initialises a fresh copy (from the same resolved path).
+//!
+//! Library lookup: `BENCH_LIBNGSPICE` (exact path) else `LIB_CANDIDATES` in order. The ngspice version is not
+//! checked; the tests assume 47.
 
 use libloading::{Library, Symbol};
 use std::collections::HashMap;
@@ -17,7 +20,43 @@ use std::os::raw::{c_char, c_double, c_int, c_void};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
-const LIB_PATH: &str = "/usr/lib/libngspice.so";
+/// Lookup order when `BENCH_LIBNGSPICE` is unset (the last two are bare names for the system loader search).
+const LIB_CANDIDATES: &[&str] = &[
+    "/usr/lib/libngspice.so",
+    "/usr/local/lib/libngspice.so",
+    "/usr/lib/x86_64-linux-gnu/libngspice.so",
+    "libngspice.so",
+    "libngspice.so.0",
+];
+/// The path that loaded first; a reload after a controlled exit reuses it instead of searching again.
+static RESOLVED_LIB: OnceLock<String> = OnceLock::new();
+
+/// `BENCH_LIBNGSPICE` (exact path, no fallback) or the first candidate that dlopens.
+fn open_lib() -> Result<Library, String> {
+    if let Some(p) = RESOLVED_LIB.get() {
+        return unsafe { Library::new(p) }.map_err(|e| format!("dlopen {}: {}", p, e));
+    }
+    let env = std::env::var("BENCH_LIBNGSPICE").ok().filter(|v| !v.is_empty());
+    let cands: Vec<String> = match env {
+        Some(p) => vec![p],
+        None => LIB_CANDIDATES.iter().map(|s| s.to_string()).collect(),
+    };
+    let mut errs = Vec::new();
+    for p in &cands {
+        match unsafe { Library::new(p) } {
+            Ok(l) => {
+                let _ = RESOLVED_LIB.set(p.clone());
+                return Ok(l);
+            }
+            Err(e) => errs.push(format!("{}: {}", p, e)),
+        }
+    }
+    Err(format!(
+        "cannot load libngspice; tried [{}] (set BENCH_LIBNGSPICE to the exact path of libngspice.so, ngspice 47): {}",
+        cands.join(", "),
+        errs.join("; ")
+    ))
+}
 
 #[repr(C)]
 struct VectorInfo {
@@ -269,7 +308,7 @@ fn load_lib() -> Result<(), String> {
         return Ok(());
     }
     unsafe {
-        let lib = Library::new(LIB_PATH).map_err(|e| format!("dlopen {}: {}", LIB_PATH, e))?;
+        let lib = open_lib()?;
         let l: Lib = Lib {
             init: *lib
                 .get::<unsafe extern "C" fn(
