@@ -28,7 +28,8 @@ jobs:
             fonts-noto-core fonts-dejavu-core \
             build-essential bison flex libsuitesparse-dev libfftw3-dev
 
-      # benchcore dlopen()s the hard-coded path /usr/lib/libngspice.so and the
+      # benchcore dlopen()s $BENCH_LIBNGSPICE if set, else tries /usr/lib, /usr/local/lib,
+      # /usr/lib/x86_64-linux-gnu and the loader search path; the symlink below satisfies the first. The
       # tests depend on ngspice-47 behaviour; Ubuntu's apt ngspice is older.
       - name: Cache ngspice
         id: ngcache

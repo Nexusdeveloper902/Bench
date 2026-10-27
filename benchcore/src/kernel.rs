@@ -161,51 +161,55 @@ pub fn pause_exact(got: f64, want: f64) -> bool {
     (got - want).abs() <= tol
 }
 
+/// Message forms ngspice 47 prints for a failed or unusable run (probed against libngspice 47; the same strings
+/// are in the library). Matched at the START of the message (after an optional `warning:`/`error:` label), never
+/// as a substring: ngspice echoes user text (`Circuit: <title>`, node tables, `.model ...` lines), and a title,
+/// node or model named "failed"/"timestep"/"singular" is not a failure.
+const FAILURE_PREFIXES: &[&str] = &[
+    "singular matrix",
+    "dynamic gmin stepping failed",
+    "true gmin stepping failed",
+    "spice3 gmin stepping failed",
+    "source stepping failed",
+    "dc solution failed",
+    "timestep too small",
+    "convergence problems at",
+    "non-convergence",
+    "mif-error", // "MIF-ERROR - unable to find definition of model x"
+    "unknown model type",
+    "unknown subckt",
+    "too many parameters for subcircuit",
+    "too few parameters for subcircuit",
+];
+
 pub(crate) fn scan_loud_failure(log: &[String]) -> Option<String> {
-    let pats = [
-        "singular",
-        "singular matrix",
-        "timestep too small",
-        "timestep",
-        "no convergence",
-        "convergence",
-        "stepping failed",
-        "gmin stepping failed",
-        "source stepping failed",
-        "dc solution failed",
-        "aborted",
-        "doanalyses: timestep",
-        "not parsed",
-        "mif-error",
-        "unable to find definition",
-        // parse problems ngspice reports but still returns rc 0 for (L6)
-        "unknown subckt",
-        "parameters for subcircuit type",
-        "instance line, ignored",
-        "unknown model type",
-        "failed",
-    ];
-    // "failed" alone is broad; require it alongside solver context is handled
-    // by ordering: specific patterns first, generic last, benign lines (e.g.
-    // "0 warnings") don't contain these tokens.
-    let clean = |line: &str| {
-        let t = line.trim();
-        t.strip_prefix("stderr ").or_else(|| t.strip_prefix("stdout ")).unwrap_or(t).to_string()
-    };
     for line in log {
-        let l = line.to_lowercase();
-        // every ngspice `Error...` line on stderr is a failure, whatever the rc
-        if l.starts_with("stderr error") {
-            return Some(clean(line));
+        let t = line.trim();
+        // Only stderr carries diagnostics; stdout is the banner, the `Circuit: <title>` echo and result tables.
+        if t.starts_with("stdout ") {
+            continue;
         }
-        for p in &pats {
-            if l.contains(p) {
-                // skip obviously benign mentions
-                if l.contains("0 failed") || l.contains("no failed") {
-                    continue;
-                }
-                return Some(clean(line));
-            }
+        let clean = t.strip_prefix("stderr ").unwrap_or(t);
+        let l = clean.to_lowercase();
+        // every ngspice `Error...` line on stderr is a failure, whatever the rc
+        if t.starts_with("stderr ") && l.starts_with("error") {
+            return Some(clean.to_string());
+        }
+        let msg = ["warning:", "error:"]
+            .iter()
+            .find_map(|p| l.strip_prefix(p))
+            .unwrap_or(&l)
+            .trim_start();
+        // "doAnalyses: TRAN:  Timestep too small; time = ..." fails; "doAnalyses: pause requested" is a normal stop.
+        let do_analyses = msg.starts_with("doanalyses:")
+            && ["timestep too small", "convergence", "trouble with"].iter().any(|k| msg.contains(k));
+        let failed = do_analyses
+            || FAILURE_PREFIXES.iter().any(|p| msg.starts_with(p))
+            || msg.ends_with(" simulation(s) aborted") // "run simulation(s) aborted"
+            // "Warning: 'r1 a 0' is not a valid resistor instance line, ignored!"
+            || (msg.starts_with('\'') && msg.ends_with("instance line, ignored!"));
+        if failed {
+            return Some(clean.to_string());
         }
     }
     None
@@ -739,4 +743,58 @@ pub fn run_ac(netlist: &[String], observables: &[String]) -> Result<AcResult, Si
         return Err(no_data("gave a non-finite value or a non-increasing frequency grid"));
     }
     Ok(AcResult { frequency, series, wall_ms })
+}
+
+#[cfg(test)]
+mod scan_tests {
+    use super::scan_loud_failure;
+
+    fn scan(lines: &[&str]) -> bool {
+        scan_loud_failure(&lines.iter().map(|s| s.to_string()).collect::<Vec<_>>()).is_some()
+    }
+
+    /// Exact lines probed from libngspice 47 for each real failure class.
+    #[test]
+    fn real_failures_are_caught() {
+        for l in [
+            "stderr Warning: singular matrix:  check node b",
+            "stderr Warning: singular matrix:  check nodes a and b",
+            "stderr Warning: Dynamic gmin stepping failed",
+            "stderr Warning: True gmin stepping failed",
+            "stderr Warning: source stepping failed",
+            "stderr doAnalyses: TRAN:  Timestep too small; time = 5.00002e-13, timestep = 2.5e-19: trouble with d1-instance d1",
+            "stderr Error: Transient op failed, timestep too small",
+            "stderr run simulation(s) aborted",
+            "stderr Error: unknown subckt: x1 a 0 nosuch",
+            "stderr Error: circuit not parsed.",
+            "stderr Warning: 'r1 a 0' is not a valid resistor instance line, ignored!",
+            "stderr Unknown model type foo - ignored",
+            "stderr MIF-ERROR - unable to find definition of model nomodel",
+            "stderr Too few parameters for subcircuit type \"s\" (instance: xx1)",
+            "stderr doAnalyses: DC transfer curve:  Too many iterations without convergence",
+            "stderr Error: -1 out of range for sqrt",
+            "stderr Error: ngspice.dll cannot recover and awaits to be reset or detached",
+        ] {
+            assert!(scan(&[l]), "missed: {l}");
+        }
+    }
+
+    #[test]
+    fn echoed_user_text_is_not_a_failure() {
+        for l in [
+            "stdout Circuit: failed convergence demo",
+            "stdout Circuit: timestep aborted singular",
+            "stdout vfailed#branch                    -0.000370559",
+            "stdout singular                                     1",
+            "stderr .model mfailed d(is=1e-14 foo=3) ...",
+            "stderr Warning: Model issue on line 5 :",
+            "stderr unrecognized parameter (foo) - ignored",
+            "stderr Note: v1: has no value, DC 0 assumed",
+            "stderr Note: Starting dynamic gmin stepping",
+            "stderr Note: Transient op finished successfully",
+            "stderr doAnalyses: pause requested",
+        ] {
+            assert!(!scan(&[l]), "false positive: {l}");
+        }
+    }
 }
