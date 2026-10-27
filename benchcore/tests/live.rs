@@ -430,3 +430,33 @@ fn adaptive_chunks_follow_the_wall_time_target_within_bounds() {
     assert_eq!(k, 10);
     assert!(LiveRun::start(&rc_deck("1m"), &["v(out)".into()], &[], None, None).unwrap().with_target_wall(Some(0.0)).is_err());
 }
+
+/// Exact-time stepping (what Python's CoSim wraps): arbitrary pause times, changes applied exactly there.
+#[test]
+fn advance_pauses_exactly_at_irregular_times_and_applies_changes_there() {
+    let _g = serial();
+    let deck = deck(&["rcv", "V1 in 0 DC 0", "R1 in out 1k", "C1 out 0 1u IC=0", ".tran 10u 5m 0 10u uic"]);
+    let mut sim = LiveSim::start(&deck, &["v(out)".into()], &["v1".into()]).unwrap();
+    let mut t = 0.0;
+    for (i, until) in [3.7e-6, 1.234567e-4, 1.2346e-4 + 1.1e-9, 9.99e-4, 2.5e-3].into_iter().enumerate() {
+        let v = if i % 2 == 0 { 5.0 } else { 0.0 };
+        let c = sim.advance(&[("v1".into(), v)], until).unwrap();
+        assert_eq!(c.changes.len(), 1);
+        assert_eq!(c.changes[0].t, t, "the change is stamped with the previous pause");
+        assert!(c.time[0] > t && c.t_end == until);
+        assert!(benchcore::pause_exact(*c.time.last().unwrap(), until), "pause at {}", until);
+        t = until;
+    }
+    assert!(sim.advance(&[], 5e-3).unwrap().done);
+    assert!(matches!(sim.advance(&[], 6e-3), Err(SimError::Lifecycle { .. })));
+    assert!(batch(rc_deck("1m"), "v(out)").is_ok(), "the engine is released");
+}
+
+#[test]
+fn advance_refuses_until_not_after_t_and_the_error_releases_the_engine() {
+    let _g = serial();
+    let mut sim = LiveSim::start(&rc_deck("2m"), &["v(out)".into()], &[]).unwrap();
+    sim.advance(&[], 1e-3).unwrap();
+    assert!(matches!(sim.advance(&[], 1e-3), Err(SimError::InvalidConfig { .. })));
+    assert!(batch(rc_deck("1m"), "v(out)").is_ok());
+}

@@ -197,3 +197,63 @@ def test_the_gil_is_released_while_a_chunk_computes():
 
 def test_package_exports():
     assert benchcore.LiveRun is benchcore._benchcore.LiveRun and benchcore.replay is benchcore._benchcore.replay
+
+
+# -- CoSim: exact-time stepping ------------------------------------------------------------------------------------
+def rcv(tstop=5e-3):
+    return Simulation("rcv").build_circuit(["V1 in 0 DC 0", "R1 in out 1k", "C1 out 0 1u IC=0"]).configure(
+        tstep=10e-6, tstop=tstop, tmax=10e-6).observe("v(out)")
+
+
+def test_cosim_pauses_exactly_at_irregular_times_and_applies_changes_there():
+    co = rcv().cosim(["v1"])
+    t, last = 0.0, None
+    for i, until in enumerate([3.7e-6, 1.234567e-4, 1.2346e-4 + 1.1e-9, 9.99e-4, 2.5e-3]):
+        c = co.advance(until, {"v1": 5.0 * (i % 2 == 0)})
+        assert c["t"] == until == co.t and c["time"][-1] == pytest.approx(until, abs=1e-12) and not c["done"]
+        assert c["changes"] == [(t, "v1", 5.0 * (i % 2 == 0))]      # applied at the previous pause, the chunk starts there
+        assert c["time"][0] > t
+        if last is not None:
+            assert abs(c["series"]["v(out)"][0][1] - last) < 0.1    # continuous across the pause
+        t, last = until, c["series"]["v(out)"][-1][1]
+    end = co.advance(5e-3)
+    assert end["done"] and co.state == "done" and co.tstop == 5e-3
+    with pytest.raises(BackendError):
+        co.advance(6e-3)
+
+
+def test_cosim_value_is_read_back_and_drives_the_circuit_from_the_pause():
+    co = rcv().cosim(["v1"])
+    co.advance(1.37e-4)
+    c = co.advance(2.9e-3, {"v1": 5.0})
+    tau = 1e-3
+    assert all(v == pytest.approx(5 * (1 - math.exp(-(t - 1.37e-4) / tau)), abs=0.03) for t, v in c["series"]["v(out)"])
+    with pytest.raises(InvalidConfigError):                              # undeclared device: ends the run
+        co.advance(3e-3, {"v9": 1.0})
+    assert co.state == "failed"
+
+
+def test_cosim_refuses_until_not_after_t_and_the_error_releases_the_engine():
+    for bad in (1e-3, 5e-4, float("nan")):
+        co = rcv().cosim()
+        co.advance(1e-3)
+        with pytest.raises(InvalidConfigError):
+            co.advance(bad)
+        assert co.state == "failed"
+    assert rc().run()["npts"] > 100                                      # released: a batch run works
+
+
+def test_cosim_close_releases_the_engine_and_is_idempotent_and_batch_is_refused_while_open():
+    co = rcv().cosim()
+    co.advance(1e-3)
+    assert co.state == "open"
+    with pytest.raises(BackendError):
+        rc().run()
+    with pytest.raises(BackendError):
+        rcv().cosim()
+    co.close()
+    co.close()
+    assert co.state == "cancelled" and co.t == 1e-3
+    assert rc().run()["npts"] > 100
+    with pytest.raises(BackendError):
+        co.advance(2e-3)
