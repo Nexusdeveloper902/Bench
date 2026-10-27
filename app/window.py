@@ -4,6 +4,7 @@ The window composes the top bar (file actions, undo/redo, run settings, Run / Re
 library panel, the canvas (app.canvas), the inspector, the results dock (app.results) and the status bar. Everything
 per component (pins, body box, symbol, params, units, value label, current/glow display) comes from the app.catalog
 Definition of its kind; symbols are SVG files drawn by app.symbols. No per-kind code here."""
+import copy
 import gc
 import math
 import os
@@ -51,6 +52,19 @@ class LiveWorker(QThread):
             self.error = traceback.format_exc()
 
 
+class RunWorker(QThread):
+    """Runs one blocking engine call (a batch run, an AC sweep, a live replay) off the Qt thread. The result is read
+    after QThread.finished (or wait()); an app bug is kept as a traceback, never raised here. Touches no Qt object."""
+    def __init__(self, fn, key, done):
+        super().__init__(); self.fn, self.key, self.done, self.result, self.error = fn, key, done, None, None
+
+    def run(self):
+        try: self.result = self.fn()
+        except Exception as e:
+            self.result = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}")
+            self.error = traceback.format_exc()
+
+
 # ---------------------------------------------------------------- main window
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -60,7 +74,11 @@ class MainWindow(QMainWindow):
         self.ran_key = None     # circuit signature of the last run; a mismatch means the result is stale
         self.stale = False      # the results were dropped because the circuit or the settings changed since the run
         self.tool, self.pending_pin = None, None
-        self.state = "idle"     # idle | running | completed | failed | blocked (no pause: the core runs synchronously)
+        self.state = "idle"     # idle | running | completed | failed | blocked
+        # Batch/AC/replay runs (see docs/frontend-architecture.md "Background runs"): at most one RunWorker holds the engine.
+        # `job` = the worker whose result is wanted (None after Stop: an abandoned worker is still finishing, its result is
+        # discarded); `queued` = (make, done) of a run waiting for the engine to be free.
+        self.run_worker, self.job, self.queued = None, None, None
         self.invalid = {}       # run-setting key -> message, for the fields that do not parse
         self.autoplay = False   # start looping after a Run of a time-varying source
         # live run (task 9.5b): the session and its worker exist from start until the worker has finished
@@ -243,7 +261,7 @@ class MainWindow(QMainWindow):
         self.b_run, self.b_rerun, self.b_reset = (QPushButton(t) for t in ("Run", "Re-run", "Reset"))
         for b, a, prim in ((self.b_run, self.a_run, True), (self.b_rerun, self.a_rerun, True), (self.b_reset, self.a_reset, False)):
             b.setObjectName("simbtn"); b.setProperty("primary", prim); b.setFixedSize(96, 32); b.setToolTip(a.toolTip())
-            b.clicked.connect(lambda _=False, a=a: a.trigger())
+            b.clicked.connect(self._stop_or_run if b is self.b_run else lambda _=False, a=a: a.trigger())
             if prim:
                 W.set_icon(b, "play", "ON_PRIMARY", 16); b.setIconSize(QSize(16, 16))
             lay.addWidget(b)
@@ -271,7 +289,9 @@ class MainWindow(QMainWindow):
         run = valid and s == "idle" and not stale and not live
         rerun = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         reset = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
-        for b, on in ((self.b_run, run), (self.b_rerun, rerun), (self.b_reset, reset)): b.setEnabled(on)
+        busy = self.busy   # a batch/AC/replay run is going: the Run button becomes Stop
+        for b, on in ((self.b_run, run or busy), (self.b_rerun, rerun), (self.b_reset, reset and not busy)): b.setEnabled(on)
+        self.b_run.setText("Stop" if busy else "Run"); W.set_icon(self.b_run, "stop" if busy else "play", "ON_PRIMARY", 16)
         for w in (self.tstop, self.tstep, self.live_for, *self.field_labels, self.a_gear, self.analysis, self.ac_sweep,
                   self.ac_points, self.ac_fstart, self.ac_fstop): w.setEnabled(not running)
         self.analysis.setCurrentIndex(int(ac)); self.ac_sweep.setCurrentText(self.doc.ac["sweep"])
@@ -282,7 +302,7 @@ class MainWindow(QMainWindow):
         self.state_lbl.set_state("stale" if stale else s)
         self.a_run.setEnabled(not running); self.a_rerun.setEnabled(not running)   # F5 / menu always work (R2: the primary action)
         self.b_live.setText("Stop" if live else "Live")
-        self.b_live.setEnabled(live or (valid and not self.live_invalid and s != "running" and not ac))
+        self.b_live.setEnabled(live or (valid and not self.live_invalid and s != "running" and not ac and not self.run_worker))
         self.b_live.setToolTip(LIVE_AC if ac and not live else self.a_live.toolTip())
         W.set_icon(self.b_live, "stop" if live else "pulse", "TEXT_2", 16); self.a_live.setEnabled(s != "running")
         self.a_pause.setEnabled(live); self.a_pause.setText("Resume live run" if self.paused else "Pause live run")
@@ -295,7 +315,7 @@ class MainWindow(QMainWindow):
         after = not live and res is not None and res is self.live_result and bool(res.changes) \
             and self.last_session is not None
         r.live_replay.setVisible(after); self.live_apply.setVisible(after); self.a_apply_live.setEnabled(after)
-        self.a_reset.setEnabled((self.result is not None or stale) and not live)
+        self.a_reset.setEnabled((self.result is not None or stale) and not live and not busy)
         msg = next(iter(invalid.values()), None)
         # A failed/blocked run is shown in the results area only (design: results-running-blocked): a banner floating over
         # the canvas covered part badges (t9-blocked.png).
@@ -433,7 +453,7 @@ class MainWindow(QMainWindow):
 
     # --- documents / files ---
     def _reset(self, doc):
-        self.end_live()
+        self.end_live(wait=False)   # New/Open: an abandoned batch run finishes in the background, its result is dropped
         self.doc, self.result, self.sel, self.sel_wire, self.stale = doc, None, None, None, False
         self.pending_pin = None; self.hist.clear(); self.clean = doc.to_dict(); self.open_banner.hide()
         self._show_result(); self.refresh()
@@ -580,7 +600,7 @@ class MainWindow(QMainWindow):
         if self.result is not None and self._key() != self.ran_key:
             if self.session:   # an edit stops a live run: the circuit it simulates no longer exists
                 self.session.cancel()
-            self.result, self.state, self.stale = None, "idle", True
+            self.result, self.state, self.stale = None, "idle", True   # (_show_result keeps "running" while busy)
             self._show_result()
             self.set_status(("Live run stopped: the circuit changed. " if self.session else "")
                             + "results out of date - press Re-run", True)
@@ -596,18 +616,87 @@ class MainWindow(QMainWindow):
         self.state = s
         self._sync_controls()
 
+    @property
+    def busy(self):
+        """A batch/AC/replay run is wanted: running, or waiting for an abandoned one to release the engine."""
+        return self.job is not None or self.queued is not None
+
+    def _stop_or_run(self, _=False):
+        self.cancel_run() if self.busy else self.a_run.trigger()
+
     def run(self):
-        if self.session: return   # batch runs wait for a live run (the engine is claimed; the controls are disabled)
+        """Start a batch (or AC) run on a worker thread; the GUI stays responsive. Stop = cancel_run()."""
+        if self.session or self.busy: return   # a live run holds the engine; a run in progress is stopped, not stacked
         fw = self.focusWidget()
         if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
         self.cfg_changed(); self.ac_changed()
         self.stale = False
-        self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
-        try:
-            r = run_document(self.doc)   # never raises by contract; a raise is an app bug and is shown, not hidden
-        except Exception as e:
-            r = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}", details=traceback.format_exc())
-        self.result, self.ran_key = r, self._key()
+
+        def make():   # at start time: a run queued behind an abandoned one simulates the circuit as it is then
+            doc = copy.deepcopy(self.doc)   # the worker reads its own copy: edits during the run cannot race it
+            return (lambda: run_document(doc)), self._key()
+        self._begin(make, self._run_arrived)
+
+    run_nowait = run   # tests wrap `run` to wait for the worker; this stays the plain start
+
+    def _begin(self, make, done):
+        self.queued = (make, done)
+        self._show_result()   # busy: running badge, controls
+        self.repaint()
+        self._pump()
+
+    def _pump(self):
+        """Start the queued run if the engine is free; otherwise say we wait for the abandoned run to finish."""
+        if self.queued is None: return
+        if self.run_worker is not None:
+            return self.set_status("Finishing previous run...")
+        (make, done), self.queued = self.queued, None
+        fn, key = make()
+        w = self.run_worker = self.job = RunWorker(fn, key, done)
+        w.finished.connect(lambda w=w: self._run_finished(w))
+        gc.disable(); self.gc_timer.start()   # gc on the GUI thread only until _run_finished (same policy as live runs)
+        w.start()
+        self.set_status("Running... (Stop abandons the run; the engine finishes its current call)")
+
+    def _run_finished(self, w):
+        if w is not self.run_worker: return   # end_run / wait_run already handled it
+        w.wait()                              # finished is queued from the thread's last moments: let it exit first
+        self.run_worker = None
+        wanted = w is self.job
+        if wanted: self.job = None
+        self.gc_timer.stop(); gc.enable()
+        if wanted:
+            r = w.result
+            if w.error: r.details = w.error
+            if w.key != self._key():   # edited while it ran: the result is for a circuit that no longer exists
+                self.result, self.stale = None, True
+                self._show_result()
+                self.set_status("results out of date - press Re-run", True)
+            else:
+                w.done(r, w.key)
+        self._pump()                          # a run queued behind this one starts now
+
+    def wait_run(self):
+        """Block until no run holds the engine (tests, the --smoke start): the worker is joined, results applied."""
+        while self.run_worker is not None:
+            w = self.run_worker; w.wait(); self._run_finished(w)
+
+    def cancel_run(self):
+        """Stop: the result of the run in progress is discarded when it arrives and the UI is usable at once. A blocking
+        ngspice call cannot be interrupted, so the worker finishes in the background and holds the engine until then;
+        a Run pressed meanwhile waits ("Finishing previous run...") and starts when it is free. Never two engine calls."""
+        if not self.busy: return
+        self.job = self.queued = None
+        self._show_result()
+        self.set_status("Run stopped: its result will be discarded." if self.run_worker else "Run stopped.")
+
+    def end_run(self, wait=True):
+        """Abandon any run; with wait, join the worker (window close, tests): no thread outlives its window."""
+        self.job = self.queued = None
+        if wait and self.run_worker: self.wait_run()
+
+    def _run_arrived(self, r, key):
+        self.result, self.ran_key = r, key
         self.set_status(("SUCCESS: " if r.ok else "BLOCKED: " if r.status == "blocked" else "FAILED: ") + r.message,
                         not r.ok)
         self._show_result()
@@ -626,6 +715,7 @@ class MainWindow(QMainWindow):
         """Start a live run, or stop the one in progress (the Live button toggles)."""
         if self.session: return self.stop_live()
         if self.state == "running": return
+        if self.run_worker: return self.set_status("Finishing previous run...", True)   # the engine is still held
         if self.doc.analysis != "transient": return self.set_status(LIVE_AC, True)
         fw = self.focusWidget()
         if isinstance(fw, QLineEdit): fw.editingFinished.emit()   # commit a typed-but-not-Entered inspector value
@@ -671,9 +761,11 @@ class MainWindow(QMainWindow):
         if self.session:
             self.session.cancel(); self.set_status("Stopping the live run...")
 
-    def end_live(self):
+    def end_live(self, wait=True):
         """Stop a live run and wait for its worker (window close, New/Open): never leave the worker blocked in a
-        paused run or holding the engine (LIVE.md rule 3). Waits for at most the chunk in progress."""
+        paused run or holding the engine (LIVE.md rule 3). Waits for at most the chunk in progress (or the batch call
+        in progress: a blocking ngspice call cannot be interrupted)."""
+        self.end_run(wait)
         if self.worker:
             self.session.cancel(); self.worker.wait(); self._live_done()
 
@@ -744,12 +836,16 @@ class MainWindow(QMainWindow):
     def replay_live(self):
         """Re-run the last live run's recorded changes as one batch run (deterministic) and show it as the result."""
         s = self.last_session
-        if s is None or self.session: return
-        self.set_state("running"); self.results.set_view(None, "running"); self.repaint()
-        r = s.replay()
+        if s is None or self.session or self.busy: return
+
+        def make():
+            return s.replay, self._key()
+        self._begin(make, self._replay_arrived)
+
+    def _replay_arrived(self, r, key):
         if r.status == "blocked":   # too long for one batch run: keep the live result, say why
             self._show_result(); return self.set_status(f"REPLAY BLOCKED: {r.message}", True)
-        self.result, self.ran_key = r, self._key()
+        self.result, self.ran_key = r, key
         self.set_status(("REPLAY: " if r.ok else "FAILED: ") + r.message + (f" ({len(r.changes)} changes)" if r.ok else ""),
                         not r.ok)
         self._show_result(); self.draw()
@@ -758,7 +854,7 @@ class MainWindow(QMainWindow):
         """G39: write the last live run's final values (the last applied change per param) into the circuit as one
         undoable edit. The run simulated the starting values, so its result is then out of date (Re-run)."""
         s = self.last_session
-        if s is None or self.session or not s.changes: return
+        if s is None or self.session or self.busy or not s.changes: return
         final = {(p, k): v for _, p, k, v in s.changes if p in self.doc.parts}
         with self.hist.change(self.doc):
             for (p, k), v in final.items():
@@ -769,7 +865,7 @@ class MainWindow(QMainWindow):
 
     def reset(self):
         """Drop the results (circuit, settings and the picked signal are kept)."""
-        if self.session: return
+        if self.session or self.busy: return
         self.result, self.stale = None, False; self._show_result(); self.draw(); self.set_status("Results cleared")
 
     def rerun(self):
@@ -778,6 +874,8 @@ class MainWindow(QMainWindow):
     def _show_result(self):
         """Sync the viewer, state badge and controls with self.result (None = idle, or stale after an edit)."""
         r = self.result
+        if self.busy:   # a run is in progress (or waiting for the engine): the viewer shows it, whatever result is held
+            self.results.set_view(None, "running"); return self.set_state("running")
         s = ("idle" if r is None else ("paused" if self.paused else "live") if self.session and r is self.live_result
              else r.state)
         self.results.set_view(r, s, self.stale)

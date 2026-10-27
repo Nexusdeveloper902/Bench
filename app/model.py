@@ -17,7 +17,7 @@ LIVE_STOP_TIME, LIVE_INDEFINITE = ("", "stop time"), ("indefinite", "inf", "∞"
 METHODS = ("trap", "gear")   # integration method; gear damps trapezoidal ringing (GAPS G30), trap is ngspice's default
 
 
-# Run size limits (a result is kept as Python (t, v) tuples, ~100 B per sample, and the core runs on the GUI thread):
+# Run size limits (a result is kept as Python (t, v) tuples, ~100 B per sample; the core runs on a worker thread):
 MAX_POINTS = 100_000        # tstop / tstep; normal examples use 500-2000
 MAX_SAMPLES = 2_000_000     # points x estimated series (~3 per part): ~200 MB worst case
 NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")   # part names reach the SPICE deck verbatim: keep them inert

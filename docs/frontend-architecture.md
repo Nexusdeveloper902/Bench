@@ -62,14 +62,28 @@ part: orange ink and a dashed orange box; selected wire: thick orange.
 | State | When | Shown |
 |---|---|---|
 | idle | no result: start, after Reset, after an edit made the result stale | grey `● idle`, plot says "Press Run (F5)" |
-| running | during `run_document` (label repainted before the call) | blue `● running` |
+| running | a background run is going or waiting for the engine | blue `● running`, Run button = `Stop` |
 | completed | `RunResult.ok` | green `● completed`, `SUCCESS: ok, N points` |
 | failed | `RunResult.ok == False` | red `● failed`, `FAILED: <message>`, red message under the plot, details |
 
 - Re-run = Reset + Run. Reset drops the result but keeps the circuit, settings and the picked signal.
-- **No pause/stop.** The core runs synchronously in milliseconds on the GUI thread and has no cancel; its
-  `pause_at` is a pre-declared breakpoint list, not an interactive pause. The controls are omitted rather than faked.
-  The Play/Pause button under the plot pauses *playback* of a finished result, not the solver.
+- **Background runs.** Run, Re-run, AC sweeps and the live-run replay execute on a `RunWorker` (QThread) in
+  `app/window.py`, so the window stays responsive and shows `running`. The worker simulates a deep copy of the
+  document taken when it starts. Python's cyclic gc is disabled and run from a GUI-thread timer while a worker runs
+  (same policy and reason as live runs, commit `73cb002`).
+- **Stop = abandon.** While a batch run is going the Run button reads `Stop`. A blocking ngspice call cannot be
+  interrupted (benchcore has no background thread by design; interrupting would change results), so Stop discards the
+  run: the state returns to what it was (`idle`, or the held live result for a replay), editing works at once, and the
+  result is thrown away when the worker finishes. The abandoned worker keeps the engine until its call returns. A Run
+  (or Replay) pressed meanwhile is queued: the status says `Finishing previous run...`, the badge shows `running`, and
+  it starts when the engine is free, on the circuit as it is then. Stop on a queued run just drops it. Live runs refuse
+  to start while the engine is held. There is never a second concurrent engine call.
+- **Edits during a run** are allowed (the worker has its own copy): if the circuit changed by the time the result
+  arrives, the result is dropped as stale (`results out of date - press Re-run`), like any other stale result.
+- **Lifecycle.** Window close waits for the worker (`end_live` -> `end_run`), so no thread outlives its window. New/Open/
+  examples abandon the run without waiting; its result never appears. `wait_run()` joins the worker (tests, `--smoke`).
+- No pause: the core's `pause_at` is a pre-declared breakpoint list, not an interactive pause. The Play/Pause button
+  under the plot pauses *playback* of a finished result, not the solver.
 - Analysis type is shown as `Transient` (the only analysis the core implements).
 
 ## Errors
@@ -118,13 +132,13 @@ Only modal dialogs are monkeypatched.
 - Rotated two-terminal parts have pins off the 20 px grid (centre-based rotation); wiring is pin-to-pin so this
   does not affect connectivity.
 - One plot, one signal at a time (no overlay); no zoom beyond matplotlib defaults.
-- Batch runs are synchronous on the GUI thread; no cancel/pause. Live runs (Live, F6) run on a worker thread with
+- Batch/AC runs execute on a worker thread; Stop abandons the run (see "Background runs" above); no pause. Live runs (Live, F6) run on a worker thread with
   pause/resume, stop and sliders: `docs/plans/ngspice-library/HANDOFF.md` "Task 9.5b". The "Live for" field before
   the Live button sets their duration (a time, "Stop time" = the batch stop time, or "Indefinite" = until Stop);
   past the stop time the plot scrolls over the last stop time of the run, and only that window is kept ("Task 9.7").
 - Stop time / time step are not part of undo history.
 - The scene is a fixed 1000 x 700 area (scrollable).
-- No pause/stop: the core is synchronous, so a running simulation cannot be interrupted. To bound it, a run is
+- A blocking solver call cannot be interrupted (Stop abandons it, see "Stop = abandon"). To bound memory, a run is
   refused before starting when `tstop/tstep` exceeds `MAX_POINTS` (100 000) or points x estimated signals (3 per
   part + 1) exceeds `MAX_SAMPLES` (2 000 000, roughly 200 MB of Python tuples). Examples use 425-2000 points.
 - The first waveform sample is at `tstep/100`, not t = 0, so the initial condition is never plotted and the cursor
