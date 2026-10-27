@@ -1,5 +1,7 @@
 # MCU + libngspice coupling: experimental validation report
 
+> **Errata (audit 2026-10-27).** E08 is not a closed loop: the firmware runs to completion first (`firmware/e08_events.js`), ngspice then replays its recorded edges, and the "ADC feedback" and fault count are Python post-processing of the finished waveform (`e08_closed_loop.py`, analysis section); the firmware never reads an analog value. E04 contains no MCU: it polls a finished ngspice waveform in Python. No tracked script calls avr8js `onADCRead`. The coupling mechanism here (EXTERNAL sources + `ngSpice_Init_Sync`) is not the one the production engine uses; a closed loop on `benchcore`'s live run is documented in the audit, not in this prototype.
+
 Throwaway prototype in this repo. Question: can a native host run AVR firmware against a
 real nonlinear ngspice circuit, synchronize the two domains at cross-domain events, get
 correct electrical measurements, efficiently enough for iterative model development?
