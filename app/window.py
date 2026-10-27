@@ -8,8 +8,9 @@ import copy
 import gc
 import math
 import os
+import threading
 import traceback
-from PySide6.QtCore import QEvent, Qt, QSize, QThread, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QSize, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu,
                                QMessageBox, QPushButton, QSizePolicy, QSplitter, QToolButton, QVBoxLayout, QWidget)
@@ -52,17 +53,29 @@ class LiveWorker(QThread):
             self.error = traceback.format_exc()
 
 
-class RunWorker(QThread):
-    """Runs one blocking engine call (a batch run, an AC sweep, a live replay) off the Qt thread. The result is read
-    after QThread.finished (or wait()); an app bug is kept as a traceback, never raised here. Touches no Qt object."""
-    def __init__(self, fn, key, done):
-        super().__init__(); self.fn, self.key, self.done, self.result, self.error = fn, key, done, None, None
+class RunWorker(QObject):
+    """Runs one blocking engine call (a batch run, an AC sweep, a live replay) off the Qt thread. A plain Python thread,
+    not a QThread: QThread.wait() returns before PySide has torn down the thread's Python state, and a gc started there
+    (probed: gc on 'Dummy-N' right after the GUI re-enabled gc) races Qt event delivery. Thread.join() returns only when
+    the thread is gone, so gc is re-enabled strictly after. `finished(self)` is queued to the GUI thread; the result is
+    read after wait(). An app bug is kept as a traceback, never raised. Touches no Qt object except emitting."""
+    finished = Signal(object)
 
-    def run(self):
+    def __init__(self, fn, key, done):
+        super().__init__()
+        self.fn, self.key, self.done, self.result, self.error = fn, key, done, None, None
+        self.thread = threading.Thread(target=self._main, name="bench-run")
+
+    def start(self): self.thread.start()
+    def wait(self): self.thread.join()
+    def isRunning(self): return self.thread.is_alive()
+
+    def _main(self):
         try: self.result = self.fn()
         except Exception as e:
             self.result = RunResult(False, "failed", f"Internal error: {type(e).__name__}: {e}")
             self.error = traceback.format_exc()
+        self.finished.emit(self)
 
 
 # ---------------------------------------------------------------- main window
@@ -653,7 +666,7 @@ class MainWindow(QMainWindow):
         (make, done), self.queued = self.queued, None
         fn, key = make()
         w = self.run_worker = self.job = RunWorker(fn, key, done)
-        w.finished.connect(lambda w=w: self._run_finished(w))
+        w.finished.connect(self._run_finished)
         gc.disable(); self.gc_timer.start()   # gc on the GUI thread only until _run_finished (same policy as live runs)
         w.start()
         self.set_status("Running... (Stop abandons the run; the engine finishes its current call)")

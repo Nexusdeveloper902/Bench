@@ -67,7 +67,7 @@ part: orange ink and a dashed orange box; selected wire: thick orange.
 | failed | `RunResult.ok == False` | red `● failed`, `FAILED: <message>`, red message under the plot, details |
 
 - Re-run = Reset + Run. Reset drops the result but keeps the circuit, settings and the picked signal.
-- **Background runs.** Run, Re-run, AC sweeps and the live-run replay execute on a `RunWorker` (QThread) in
+- **Background runs.** Run, Re-run, AC sweeps and the live-run replay execute on a `RunWorker` (a Python thread joined with `wait()`, not a QThread: QThread.wait() returns before the thread's Python state is gone, and gc re-enabled then ran on that thread) in
   `app/window.py`, so the window stays responsive and shows `running`. The worker simulates a deep copy of the
   document taken when it starts. Python's cyclic gc is disabled and run from a GUI-thread timer while a worker runs
   (same policy and reason as live runs, commit `73cb002`).
