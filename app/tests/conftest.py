@@ -79,7 +79,7 @@ def destroy(w):
 
 
 @pytest.fixture(autouse=True)
-def _runs_wait(monkeypatch):
+def _runs_wait():
     """Batch/AC/replay runs execute on a worker thread (app/window.py). Most tests start a run and assert on its result
     at once, so `run` and `replay_live` return only when the run has finished and its result is applied. Tests of the
     asynchronous behaviour use `run_nowait` (the plain start) and `replay_live_nowait`."""
@@ -88,9 +88,12 @@ def _runs_wait(monkeypatch):
         def go(self, *a, **k):
             start(self, *a, **k); self.wait_run()
         return go
-    MainWindow.replay_live_nowait = MainWindow.replay_live
-    monkeypatch.setattr(MainWindow, "run", waiting(MainWindow.run_nowait))
-    monkeypatch.setattr(MainWindow, "replay_live", waiting(MainWindow.replay_live_nowait))
+    run, replay = MainWindow.run, MainWindow.replay_live
+    MainWindow.replay_live_nowait = replay
+    # no `monkeypatch` here: a test's own monkeypatch (env vars) must be undone after the fixtures it is ordered with
+    MainWindow.run, MainWindow.replay_live = waiting(MainWindow.run_nowait), waiting(replay)
+    yield
+    MainWindow.run, MainWindow.replay_live = run, replay
 
 
 @pytest.fixture
