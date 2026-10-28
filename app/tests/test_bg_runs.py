@@ -122,6 +122,13 @@ def test_live_cannot_start_while_an_abandoned_run_holds_the_engine(win):
     assert wait_for(lambda: w.run_worker is None, 60000)
 
 
+def test_live_is_enabled_again_when_an_abandoned_run_frees_the_engine(win):
+    w = win; w._reset(slow_doc()); w.run_nowait(); w.cancel_run()
+    assert not w.b_live.isEnabled()
+    assert wait_for(lambda: w.run_worker is None, 60000)
+    assert w.b_live.isEnabled()            # no unrelated UI change needed to refresh it
+
+
 def test_replay_runs_in_the_background_and_stop_keeps_the_live_result(win):
     from app.tests.test_live_ui import finished, start, until_t
     from app.catalog import CATALOG
@@ -138,3 +145,20 @@ def test_replay_runs_in_the_background_and_stop_keeps_the_live_result(win):
     assert wait_for(lambda: w.run_worker is None, 60000) and w.result is live
     w.replay_live_nowait(); assert wait_for(lambda: not w.busy, 60000)
     assert w.result is not live and w.status.text().startswith("REPLAY")
+
+
+def test_a_queued_replay_is_stale_if_the_circuit_is_edited_while_it_waits(win):
+    from app.tests.test_live_ui import finished, start, until_t
+    from app.catalog import CATALOG
+    from app.inspector import slider_map
+    w = win; start(w)
+    lo, hi, log = CATALOG.get("LDR").param("lux").slider(10.0)
+    until_t(w, 4e-3); w.inspector.live_sliders["lux"].setValue(slider_map(lo, hi, log)[1](300.0))
+    assert wait_for(lambda: len(w.live_result.changes) == 1)
+    finished(w)
+    w.replay_live_nowait(); w.cancel_run()
+    w.replay_live_nowait()                 # queued behind the abandoned replay, for the circuit as it is now
+    assert w.queued is not None
+    w.doc.add_part("R", 0, 0)              # edited while it waits: the replay still simulates the live run's circuit
+    assert wait_for(lambda: not w.busy and w.run_worker is None, 60000)
+    assert w.result is None and w.stale and not w.status.text().startswith("REPLAY")

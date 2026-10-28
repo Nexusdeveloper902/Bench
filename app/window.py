@@ -689,6 +689,7 @@ class MainWindow(QMainWindow):
             else:
                 w.done(r, w.key)
         self._pump()                          # a run queued behind this one starts now
+        self._sync_controls()                 # e.g. Live, disabled while an abandoned run held the engine
 
     def wait_run(self):
         """Block until no run holds the engine (tests, the --smoke start): the worker is joined, results applied."""
@@ -852,9 +853,8 @@ class MainWindow(QMainWindow):
         s = self.last_session
         if s is None or self.session or self.busy: return
 
-        def make():
-            return s.replay, self._key()
-        self._begin(make, self._replay_arrived)
+        key = self._key()   # the circuit the live run simulated: an edit while the replay waits or runs makes it stale
+        self._begin(lambda: (s.replay, key), self._replay_arrived)
 
     def _replay_arrived(self, r, key):
         if r.status == "blocked":   # too long for one batch run: keep the live result, say why
