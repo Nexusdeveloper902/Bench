@@ -10,5 +10,5 @@ def main():
     w = MainWindow(); w.autoplay = True
     w.show()
     if "--smoke" in sys.argv:   # start, build a demo, run, exit (headless check)
-        w.load_demo(); w.run(); print(w.status.text()); return 0
+        w.load_demo(); w.run(); w.wait_run(); print(w.status.text()); return 0
     return app.exec()
