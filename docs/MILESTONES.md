@@ -17,7 +17,7 @@ Status as of 2026-10-27. This file comes from an independent audit of `main` at 
 | Gate | Result | Notes |
 |---|---|---|
 | P1 exact-time advance | **Pass** | 294/294 real firmware edges paused exactly. 10⁴ irregular advances: 0 inexact pauses, ~0.15 ms per advance, flat memory. Closed loop with lookahead: 0 ns edge error, deterministic. |
-| P2 realistic-circuit throughput (RTF ≥ 0.01 at a 10 µs quantum) | **Pass, marginal** | ~30-node circuit (Uno pin → 2N2222 → LED, RC → LM358 → ADC): RTF 0.010–0.024, measured under load. Cost ≈ one batch run + ~145 µs of engine overhead per chunk; the engine is ~79% of it and avr8js plus IPC ~19%. |
+| P2 realistic-circuit throughput (RTF ≥ 0.01 at a 10 µs quantum) | **Pass** | ~30-node circuit (Uno pin → 2N2222 → LED, RC → LM358 → ADC): RTF 0.028 at Δ = 10 µs with no test suites running (0.010–0.024 under heavy load); 0.009 at Δ = 2 µs. Cost ≈ one batch run + ~145 µs of engine overhead per chunk; the engine is ~79% of it and avr8js plus IPC ~19%. |
 | P3 XSPICE digital part in the loop | **Slow** | A 74HC04 works in live runs (edges within 9 ns of a batch reference). XSPICE costs ~3.7× even in batch, so RTF is 0.008, below the bar. |
 | P4 background, cancellable batch runs | **Done** | See above. |
 | P5 Intel HEX path | **Pass** | A 40-line strict HEX loader plus an Arduino-core blink compiled outside Bench: half-periods 500.010–500.014 ms in avr8js. |
