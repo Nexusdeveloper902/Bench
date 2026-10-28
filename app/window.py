@@ -304,7 +304,8 @@ class MainWindow(QMainWindow):
         reset = valid and (s in ("completed", "failed", "cancelled") or stale) and not live
         busy = self.busy   # a batch/AC/replay run is going: the Run button becomes Stop
         for b, on in ((self.b_run, run or busy), (self.b_rerun, rerun), (self.b_reset, reset and not busy)): b.setEnabled(on)
-        self.b_run.setText("Stop" if busy else "Run"); W.set_icon(self.b_run, "stop" if busy else "play", "ON_PRIMARY", 16)
+        if self.b_run.text() != ("Stop" if busy else "Run"):   # (icons are rebuilt only on the change)
+            self.b_run.setText("Stop" if busy else "Run"); W.set_icon(self.b_run, "stop" if busy else "play", "ON_PRIMARY", 16)
         for w in (self.tstop, self.tstep, self.live_for, *self.field_labels, self.a_gear, self.analysis, self.ac_sweep,
                   self.ac_points, self.ac_fstart, self.ac_fstop): w.setEnabled(not running)
         self.analysis.setCurrentIndex(int(ac)); self.ac_sweep.setCurrentText(self.doc.ac["sweep"])
@@ -677,7 +678,7 @@ class MainWindow(QMainWindow):
         self.run_worker = None
         wanted = w is self.job
         if wanted: self.job = None
-        self.gc_timer.stop(); gc.enable()
+        self.gc_timer.stop(); gc.collect(1); gc.enable()   # collect first: no gc backlog for another thread's allocation to trip
         if wanted:
             r = w.result
             if w.error: r.details = w.error
