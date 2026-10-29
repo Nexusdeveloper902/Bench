@@ -135,7 +135,7 @@ success message ends `; not simulated: U1, U2`), `series` (keyed by vector name)
 `stats(name)` (accept readable or vector names), `signal(name)`.
 
 `benchcore.Simulation.state` is now `idle` -> `running` -> `completed` | `failed` (it used to stay `running` after
-a raising `run`). Runs are synchronous, so `paused` is never observed from Python.
+a raising `run`). The core call blocks, so `paused` is never observed from Python.
 
 ## Save format
 

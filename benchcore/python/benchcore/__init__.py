@@ -28,6 +28,7 @@ from ._benchcore import (
 __all__ = [
     "Simulation",
     "LiveRun",
+    "CoSim",
     "replay",
     "run_ac",
     "validate",
@@ -50,6 +51,8 @@ validate = _k.validate
 # LiveRun(deck, observables, devices=[], chunk=None, realtime=None): a transient that runs while values change;
 # replay(deck, observables, [(t, device, value)]) -> dict like run(). Contract: docs/plans/ngspice-library/LIVE.md.
 LiveRun = _k.LiveRun
+# CoSim(deck, observables, devices=[]): exact-time stepping, advance(until, changes={}) -> chunk dict (see Simulation.cosim).
+CoSim = _k.CoSim
 replay = _k.replay
 
 # run_ac(deck, observables) -> {"frequency": [Hz], "series": {name: [(re, im)]}, "npts", "wall_ms"}: an AC small-signal
@@ -176,6 +179,11 @@ class Simulation:
         (e.g. "v.xrl1.vstim") that set() may change during the run. target: wall seconds per chunk (chunks adapt,
         `chunk` is the largest; None = fixed chunks). Refused while another run holds the engine."""
         return _k.LiveRun(self._deck(), list(self._observables), list(devices), chunk, realtime, target)
+
+    def cosim(self, devices=()):
+        """Start exact-time stepping of this deck -> CoSim: advance(until, {device: value}) runs to exactly `until`
+        (any time after the current one), applying the values there. Refused while another run holds the engine."""
+        return _k.CoSim(self._deck(), list(self._observables), list(devices))
 
     def replay(self, changes):
         """Replay a live run's change log [(t, device, value)] as one blocking run of this deck -> dict like run()."""

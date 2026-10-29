@@ -40,7 +40,7 @@
 | ngspice 47 with `libngspice.so` | the simulation backend |
 
 > [!IMPORTANT]
-> `benchcore` loads `libngspice.so` from a fixed path and the tests rely on ngspice 47 behaviour. Distro packages are often older. [CI builds 47 from source](.github/workflows/ci.yml) (with a checksum check) if you need a recipe.
+> `benchcore` finds `libngspice.so` via the `BENCH_LIBNGSPICE` environment variable (exact path) if set, otherwise by trying `/usr/lib`, `/usr/local/lib`, `/usr/lib/x86_64-linux-gnu`, then the system loader search (`libngspice.so`, `libngspice.so.0`); if none loads, the error lists every path tried. The ngspice version is not checked, and the tests rely on ngspice 47 behaviour. Distro packages are often older. [CI builds 47 from source](.github/workflows/ci.yml) (with a checksum check) if you need a recipe.
 
 ### Build and run
 
@@ -75,8 +75,8 @@ Details, focused runs and failure reproduction: [`docs/testing.md`](docs/testing
 <details>
 <summary><b>What the suites cover</b></summary>
 
-- **App:** 434 tests, including the end-to-end LED workflow (I(D1) = 9.1772 mA through the real engine).
-- **Engine:** 26 Rust tests against real ngspice, plus a Python smoke suite that imports the installed wheel.
+- **App:** 1668 tests, including the end-to-end LED workflow (I(D1) = 9.1772 mA through the real engine).
+- **Engine:** 100 Rust tests against real ngspice, plus 28 Python tests that import the installed wheel.
 - **Strategy:** [`docs/testing-strategy.md`](docs/testing-strategy.md).
 
 </details>

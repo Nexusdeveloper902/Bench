@@ -182,6 +182,87 @@ impl PyLiveRun {
     }
 }
 
+/// CoSim(netlist, observables, devices=[]): exact-time stepping for co-simulation. `advance(until, changes={})` applies
+/// `changes` ({device: value}) at the current time, then runs to exactly `until` (an arbitrary time after `t`, verified
+/// exact) -> {"time", "series", "changes", "t", "done"} like a LiveRun chunk. An error or the last chunk ends the run
+/// and releases the engine; close() does too (idempotent). One caller at a time (calls serialize).
+#[pyclass(name = "CoSim", frozen)]
+struct PyCoSim {
+    sim: std::sync::Mutex<Option<live::LiveSim>>,
+    tstop: f64,
+    t: std::sync::Mutex<f64>,
+    end: std::sync::Mutex<&'static str>,
+}
+
+#[pymethods]
+impl PyCoSim {
+    #[new]
+    #[pyo3(signature = (netlist, observables, devices=vec![]))]
+    fn new(py: Python<'_>, netlist: Vec<String>, observables: Vec<String>, devices: Vec<String>) -> PyResult<Self> {
+        let sim = py.detach(|| live::LiveSim::start(&netlist, &observables, &devices)).map_err(map_err)?;
+        Ok(PyCoSim { tstop: sim.tstop(), sim: Some(sim).into(), t: 0.0.into(), end: "open".into() })
+    }
+
+    #[pyo3(signature = (until, changes=HashMap::new()))]
+    fn advance<'py>(&self, py: Python<'py>, until: f64, changes: HashMap<String, f64>) -> PyResult<Bound<'py, PyDict>> {
+        let apply: Vec<(String, f64)> = changes.into_iter().collect();
+        let (r, ended) = py.detach(|| {
+            let mut slot = self.sim.lock().unwrap_or_else(|e| e.into_inner());
+            let Some(sim) = slot.as_mut() else {
+                return (Err(SimError::Lifecycle { message: "the live run has ended".to_string() }), None);
+            };
+            let r = sim.advance(&apply, until);
+            let ended = match &r { Ok(c) if c.done => Some("done"), Ok(_) => None, Err(_) => Some("failed") };
+            if ended.is_some() {
+                *slot = None; // advance already released the engine
+            }
+            (r, ended)
+        });
+        if let Some(e) = ended {
+            *self.end.lock().unwrap_or_else(|e| e.into_inner()) = e;
+        }
+        let c = r.map_err(map_err)?;
+        *self.t.lock().unwrap_or_else(|e| e.into_inner()) = c.t_end;
+        let d = PyDict::new(py);
+        let series = PyDict::new(py);
+        for (k, v) in c.series {
+            series.set_item(k, v)?;
+        }
+        d.set_item("time", c.time)?;
+        d.set_item("series", series)?;
+        d.set_item("changes", changes_list(&c.changes))?;
+        d.set_item("t", c.t_end)?;
+        d.set_item("done", c.done)?;
+        Ok(d)
+    }
+
+    /// End now and release the engine. Idempotent.
+    fn close(&self, py: Python<'_>) {
+        py.detach(|| {
+            if self.sim.lock().unwrap_or_else(|e| e.into_inner()).take().is_some() {
+                *self.end.lock().unwrap_or_else(|e| e.into_inner()) = "cancelled"; // dropping the LiveSim released it
+            }
+        })
+    }
+
+    /// Sim time reached (0 before the first advance).
+    #[getter]
+    fn t(&self) -> f64 {
+        *self.t.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    #[getter]
+    fn tstop(&self) -> f64 {
+        self.tstop
+    }
+
+    /// "open" | "done" | "cancelled" | "failed".
+    #[getter]
+    fn state(&self) -> &'static str {
+        *self.end.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
 /// replay(netlist, observables, changes) -> dict like run_simulation's: the change log [(t, device, value)] as one
 /// blocking run, paused only at the change times. Refused while a live run is active.
 #[pyfunction(name = "replay")]
@@ -236,6 +317,7 @@ fn _benchcore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_required_tmax, m)?)?;
     m.add_function(wrap_pyfunction!(py_replay, m)?)?;
     m.add_class::<PyLiveRun>()?;
+    m.add_class::<PyCoSim>()?;
     m.add("InvalidCircuitError", m.py().get_type::<InvalidCircuitError>())?;
     m.add("InvalidConfigError", m.py().get_type::<InvalidConfigError>())?;
     m.add("ConvergenceError", m.py().get_type::<ConvergenceError>())?;

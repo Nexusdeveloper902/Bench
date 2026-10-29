@@ -40,7 +40,7 @@
 - A circuit edit (param, connect/disconnect, delete, undo/redo; not moves, not tstop/tstep) marks the result stale: `result` cleared, plot/stats/findings cleared, status `results out of date - press Run`. `MainWindow._key()` is the signature compared against the last run.
 - Pins on nets named by a core finding (`nodes`, e.g. DANGLING) get an amber ring on the canvas; the text stays in the findings label.
 - Floating nets fail in the core (reported as failed with the core's message and details), not with a UI highlight. Unconnected parts/pins are app diagnostics (Problems panel).
-- One run at a time per process; the run is synchronous on the GUI thread (ms-scale for the supported circuits).
+- One engine call at a time per process; batch/AC runs execute on a worker thread (`RunWorker`), Stop abandons the run and a new Run waits for the engine (docs/frontend-architecture.md, "Controls and state").
 - Only DC/PULSE/SIN voltage sources, DC current source, diode (per-part `.model` with Is/N/Rs), fixed red LED model, and a static Switch (a resistor: Ron when closed, Roff when open; no time-controlled switching).
 - Tests that use `QApplication` must run with `QT_QPA_PLATFORM=offscreen`; `app/tests/conftest.py` sets it.
 
@@ -77,4 +77,4 @@ Not done yet:
 - Wires are routed with one right-angle corner (no obstacle avoidance); New/Open/example loads clear undo history.
 - Plots do not overlay multiple probes.
 - Finding highlight is pin rings only (no per-part/wire highlight, no click-to-focus from the findings text).
-- Run on a worker thread with cancel/pause (needs core support; runs are synchronous today).
+- Pause, and true cancel of a running solver call (needs core support; Stop only abandons the result today).
